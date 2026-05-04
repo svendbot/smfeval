@@ -16,4 +16,4 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/smfeval"
+Homepage = "https://github.com/svendbot/smfeval"
