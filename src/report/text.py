@@ -111,19 +111,57 @@ def _render_ensemble(rep: Report) -> str:
     return "\n".join(lines)
 
 
+_SCORE_PRECISION = 3
+
+_SCORE_LABELS: list[tuple[str, str, str]] = [
+    # (key, label, unit)
+    ("translation_crps", "Translation CRPS", "m"),
+    ("rotation_crps", "Rotation CRPS", "rad"),
+    ("energy_score", "Energy score (SE(3))", ""),
+    ("log_score", "Log score (joint)", ""),
+    ("log_score_translation", "Log score (translation)", ""),
+    ("log_score_rotation", "Log score (rotation)", ""),
+    ("interval_score", "Interval score", ""),
+]
+
+
+def _fmt_summary_line(label: str, s: dict, unit: str) -> list[str]:
+    """Three-line TUM-style summary block for a single prequential score.
+
+    Bottom line reports the Politis–White mean block length used by the
+    stationary bootstrap; values much greater than 1 indicate strong
+    temporal dependence in the score series.
+    """
+    p = _SCORE_PRECISION
+    n = int(s.get("n", 0))
+    ci_lvl = float(s.get("ci_level", 0.95))
+    pct = int(round(ci_lvl * 100))
+    unit_str = f" {unit}" if unit else ""
+    head = (
+        f"  {label + ':':<26}  mean {_fmt_float(s.get('mean', float('nan')), p)}{unit_str}"
+        f"   [{pct}% CI {_fmt_float(s.get('ci_low', float('nan')), p)},"
+        f" {_fmt_float(s.get('ci_high', float('nan')), p)}]   (n={n})"
+    )
+    body = (
+        f"                              median {_fmt_float(s.get('median', float('nan')), p)},"
+        f" std {_fmt_float(s.get('std', float('nan')), p)},"
+        f" min {_fmt_float(s.get('min', float('nan')), p)},"
+        f" max {_fmt_float(s.get('max', float('nan')), p)}"
+    )
+    ell = s.get("block_length", float("nan"))
+    diag = (
+        f"                              block length (Politis–White):"
+        f" {_fmt_float(ell, 1)}"
+    )
+    return [head, body, diag]
+
+
 def _render_scores(rep: Report) -> str:
     sc = rep.scores
     lines = ["Scores"]
-    if "translation_crps" in sc:
-        lines.append(f"  Translation CRPS:       {_fmt_float(sc['translation_crps'])} m")
-    if "rotation_crps" in sc:
-        lines.append(f"  Rotation CRPS:          {_fmt_float(sc['rotation_crps'])} rad")
-    if "energy_score" in sc:
-        lines.append(f"  Energy score (SE(3)):   {_fmt_float(sc['energy_score'])}")
-    if "log_score" in sc:
-        lines.append(f"  Log score:              {_fmt_float(sc['log_score'], 2)}")
-    if "interval_score" in sc:
-        lines.append(f"  Interval score:         {_fmt_float(sc['interval_score'])}")
+    for key, label, unit in _SCORE_LABELS:
+        if key in sc:
+            lines.extend(_fmt_summary_line(label, sc[key], unit))
     lines.append("")
     return "\n".join(lines)
 

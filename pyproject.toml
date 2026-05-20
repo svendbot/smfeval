@@ -33,6 +33,11 @@ dev = [
     "natsort",
     "colorama",
     "pygments",
+    "brotli>=1.2.0",
+]
+docs = [
+    "sphinx>=7",
+    "furo",
 ]
 
 [project.scripts]

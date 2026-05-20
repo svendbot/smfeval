@@ -8,6 +8,7 @@ import numpy as np
 from src.align.fit import AlignmentFit
 from src.scoring.calibration import CalibrationResult
 from src.scoring.ensemble_diag import EnsembleDiagnostic
+from src.scoring.summary import ScoreSummary
 from src.sync.match import MatchResult
 from src.types import Gauge
 
@@ -35,7 +36,7 @@ def build_report(
     sync_risks: np.ndarray | None,
     sync_risk_threshold: float,
     ensemble: EnsembleDiagnostic | None,
-    scores: dict[str, float],
+    scores: dict[str, ScoreSummary],
     calibration: CalibrationResult | None,
     trajectory_length_m: float | None,
 ) -> Report:
@@ -83,7 +84,7 @@ def build_report(
             "degeneracy_fraction": ensemble.degeneracy_fraction,
         }
 
-    rep.scores = dict(scores)
+    rep.scores = {k: v.to_dict() for k, v in scores.items()}
 
     if calibration is not None:
         rep.calibration = {

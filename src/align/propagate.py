@@ -83,5 +83,3 @@ def propagate_step(
             particles=new,
             weights=None if step.weights is None else step.weights.copy(),
         )
-
-    raise TypeError(f"unknown step type: {type(step).__name__}")

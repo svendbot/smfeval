@@ -1,6 +1,26 @@
-"""Ensemble degeneracy diagnostics: N_eff and unique-particle counts."""
+r"""Ensemble degeneracy diagnostics: effective sample size
+:math:`N_\mathrm{eff}` and unique-particle counts.
+
+The effective sample size for self-normalised importance / particle
+weights was introduced by Kong, Liu & Wong (1994) and popularised in
+sequential Monte Carlo by Liu & Chen (1995):
+
+.. math::
+
+   N_\mathrm{eff} = \frac{1}{\sum_{i=1}^{N} w_i^2},
+   \qquad \sum_i w_i = 1.
+
+References
+----------
+Kong, A., Liu, J. S. & Wong, W. H. (1994). *Sequential imputations and
+Bayesian missing data problems*. JASA 89(425), 278–288.
+
+Liu, J. S. & Chen, R. (1995). *Blind deconvolution via sequential
+imputations*. JASA 90(430), 567–576.
+"""
 
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 from scipy.special import logsumexp
@@ -30,10 +50,13 @@ def _log_normalized(weights: np.ndarray, fmt: WeightFormat, normalized: bool) ->
 
 
 def _n_eff_from_log_weights(log_w: np.ndarray) -> float:
-    """N_eff = (Σw)² / Σw² with Σw = 1 ⇒ 1 / Σw² = exp(-logsumexp(2·log_w))."""
+    r""":math:`N_\mathrm{eff} = (\sum w)^2 / \sum w^2`; with :math:`\sum w = 1`
+    this reduces to :math:`1 / \sum w^2 = \exp(-\mathrm{logsumexp}(2\log w))`
+    (Kong, Liu & Wong, 1994)."""
     if log_w.size == 0:
         return 0.0
-    return float(np.exp(-logsumexp(2.0 * log_w)))
+    lse = cast(float, logsumexp(2.0 * log_w))
+    return float(np.exp(-lse))
 
 
 def _unique_count(particles: np.ndarray, tol: float) -> int:

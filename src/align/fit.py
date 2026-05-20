@@ -1,10 +1,19 @@
-"""Alignment transform fitting on matched mean trajectories.
+r"""Alignment transform fitting on matched mean trajectories.
 
 Modes mirror the four GAUGE values:
-- `none`: identity (no DoF removed)
-- `se3`: rigid Kabsch–Umeyama, translation + rotation, no scale
-- `gravity_yaw`: 2D Procrustes in xy + yaw rotation, full 3D translation
-- `sim3`: Kabsch–Umeyama with scale (7 DoF)
+
+- ``none``: identity (no DoF removed)
+- ``se3``: rigid Kabsch (1976), translation + rotation, no scale
+- ``gravity_yaw``: 2D Procrustes in xy + yaw rotation, full 3D translation
+- ``sim3``: Umeyama (1991) closed-form similarity (7 DoF)
+
+References
+----------
+Kabsch, W. (1976). *A solution for the best rotation to relate two sets
+of vectors*. Acta Crystallographica A 32(5), 922–923.
+
+Umeyama, S. (1991). *Least-squares estimation of transformation
+parameters between two point patterns*. IEEE TPAMI 13(4), 376–380.
 """
 
 from dataclasses import dataclass
@@ -41,14 +50,16 @@ _DOF: dict[AlignMode, int] = {
     "sim3": 7,
 }
 
+_GAUGE_TO_MODE: dict[Gauge, AlignMode] = {
+    Gauge.FIXED: "none",
+    Gauge.SE3: "se3",
+    Gauge.GRAVITY_YAW: "gravity_yaw",
+    Gauge.SIM3: "sim3",
+}
+
 
 def align_mode_for_gauge(gauge: Gauge) -> AlignMode:
-    return {
-        Gauge.FIXED: "none",
-        Gauge.SE3: "se3",
-        Gauge.GRAVITY_YAW: "gravity_yaw",
-        Gauge.SIM3: "sim3",
-    }[gauge]
+    return _GAUGE_TO_MODE[gauge]
 
 
 def fit_alignment(
@@ -71,8 +82,6 @@ def fit_alignment(
         R, t, s = _kabsch_umeyama(est_positions, gt_positions, with_scale=True)
     elif mode == "gravity_yaw":
         R, t, s = _gravity_yaw_fit(est_positions, gt_positions)
-    else:
-        raise ValueError(f"unknown alignment mode: {mode}")
 
     T = np.eye(4)
     T[:3, :3] = R

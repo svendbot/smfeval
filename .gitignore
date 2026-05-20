@@ -100,3 +100,7 @@ Thumbs.db
 result
 result-*
 .direnv/
+
+# Sphinx
+docs/_build/
+docs/_autosummary/

@@ -1,12 +1,41 @@
+r"""Lie-group exponential / logarithm and adjoint maps for SO(3) and SE(3),
+together with helper slicings for the tangent-order convention.
+
+We follow the conventions of Solà, Deray & Atchuthan (2018) and Barfoot
+(2017). The SE(3) exponential / logarithm uses the closed-form Jacobian
+
+.. math::
+
+   V(\omega) = I + \frac{1 - \cos\theta}{\theta^2}\,[\omega]_\times
+       + \frac{\theta - \sin\theta}{\theta^3}\,[\omega]_\times^2,
+   \qquad \theta = \lVert\omega\rVert,
+
+with a Taylor fallback for :math:`\theta < \texttt{\_EPS}`.
+
+References
+----------
+Solà, J., Deray, J. & Atchuthan, D. (2018). *A micro Lie theory for
+state estimation in robotics*. arXiv:1812.01537.
+
+Barfoot, T. D. (2017). *State Estimation for Robotics*. Cambridge
+University Press.
+
+Murray, R. M., Li, Z. & Sastry, S. S. (1994). *A Mathematical
+Introduction to Robotic Manipulation*. CRC Press.
+"""
+
 import numpy as np
 from scipy.spatial.transform import Rotation
 
 from src.types import TangentOrder
 
+# Small-angle threshold below which the closed-form SO(3)/SE(3) Jacobians
+# are numerically ill-conditioned; we switch to their Taylor expansion.
 _EPS = 1e-12
 
 
 def pose_matrix(translation: np.ndarray, quat_xyzw: np.ndarray) -> np.ndarray:
+    # Homogeneous transform: [[R, p], [0, 1]] with R ∈ SO(3), p ∈ R^3.
     T = np.eye(4)
     T[:3, :3] = Rotation.from_quat(quat_xyzw).as_matrix()
     T[:3, 3] = translation
@@ -14,11 +43,17 @@ def pose_matrix(translation: np.ndarray, quat_xyzw: np.ndarray) -> np.ndarray:
 
 
 def trans_slice(order: TangentOrder) -> slice:
-    return slice(0, 3) if order is TangentOrder.TRANS_ROT else slice(3, 6)
+    if order is TangentOrder.TRANS_ROT:
+        return slice(0, 3)
+    else:
+        return slice(3, 6)
 
 
 def rot_slice(order: TangentOrder) -> slice:
-    return slice(3, 6) if order is TangentOrder.TRANS_ROT else slice(0, 3)
+    if order is TangentOrder.TRANS_ROT:
+        return slice(3, 6)
+    else:
+        return slice(0, 3)
 
 
 def hat_so3(w: np.ndarray) -> np.ndarray:

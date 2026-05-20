@@ -1,7 +1,13 @@
-"""Sample-based estimators for kernel scores.
+r"""Sample-based unbiased estimators for kernel scores
+(Gneiting & Raftery, 2007, §5).
 
-Uniform code path for ensembles (native) and Gaussians (sampled): both end up
-as point clouds, then the same estimator runs.
+Uniform code path for ensembles (native) and Gaussians (sampled): both
+end up as point clouds, then the same estimator runs.
+
+References
+----------
+Gneiting, T. & Raftery, A. E. (2007). *Strictly proper scoring rules,
+prediction, and estimation*. JASA 102(477), 359–378.
 """
 
 import numpy as np
@@ -19,10 +25,23 @@ def sample_gaussian_tangent(
 def energy_score_estimator(
     samples: np.ndarray, observation: np.ndarray
 ) -> float:
-    """Energy score: E‖X-y‖ - 0.5·E‖X-X'‖ (unbiased estimator).
+    r"""Unbiased Monte-Carlo estimator of the energy score
+    :math:`\mathrm{ES}(F, y) = \mathbb{E}\lVert X-y\rVert - \tfrac12\mathbb{E}\lVert X-X'\rVert`.
 
-    samples: (m, d), observation: (d,). Uses the standard plug-in estimator
-    Σ‖x_i-y‖/m - Σ_{i<j}‖x_i-x_j‖ / (m(m-1)).
+    For samples :math:`x_1, \ldots, x_m \stackrel{iid}{\sim} F`,
+
+    .. math::
+
+       \widehat{\mathrm{ES}}
+       = \frac{1}{m}\sum_{i=1}^{m} \lVert x_i - y\rVert
+         - \frac{1}{m(m-1)}\sum_{i \neq j} \lVert x_i - x_j\rVert.
+
+    The :math:`\tfrac{1}{m(m-1)}` weighting (rather than :math:`1/m^2`)
+    yields the unbiased U-statistic estimator.
+
+    References
+    ----------
+    Gneiting & Raftery (2007), eqs. (21)–(22).
     """
     m = samples.shape[0]
     if m == 0:
@@ -39,7 +58,14 @@ def energy_score_estimator(
 
 
 def crps_estimator(samples: np.ndarray, observation: float) -> float:
-    """Univariate CRPS via the same identity: E|X-y| - 0.5·E|X-X'|."""
+    r"""Unbiased Monte-Carlo estimator of the univariate CRPS
+    :math:`\mathrm{CRPS}(F, y) = \mathbb{E}|X-y| - \tfrac12\mathbb{E}|X-X'|`
+    (the 1-D specialisation of the energy score).
+
+    References
+    ----------
+    Gneiting & Raftery (2007), eq. (20).
+    """
     m = samples.size
     if m == 0:
         return float("nan")

@@ -15,11 +15,13 @@ from src.io import iter_steps, parse_header
 from src.io.reader import _iter_deterministic
 from src.report import build_report, recommendations, render_report
 from src.scoring import (
+    ScoreSummary,
     calibrate,
     energy_score,
     ensemble_diagnostics,
     gaussian_log_score,
     rotation_crps,
+    summarize,
     translation_crps,
     translation_magnitude_interval_score,
 )
@@ -167,19 +169,24 @@ def _score(args: argparse.Namespace) -> int:
 
     rng = np.random.default_rng(args.seed)
     order = est_header.tangent_order or TangentOrder.TRANS_ROT
-    scores: dict[str, float] = {}
+    scores: dict[str, ScoreSummary] = {}
     crps_t = []
     crps_r = []
     es = []
     is_t = []
-    log_scores = []
+    log_joint = []
+    log_trans = []
+    log_rot = []
     for s, gt_t, gt_q in zip(aligned_est, matched_gt_t, matched_gt_q):
         crps_t.append(translation_crps(s, gt_t, order, args.n_samples, rng))
         crps_r.append(rotation_crps(s, gt_q, order, min(args.n_samples, 32), rng))
         es.append(energy_score(s, gt_t, gt_q, order, args.n_samples, rng))
 
         if isinstance(s, GaussianStep):
-            log_scores.append(gaussian_log_score(s, gt_t, gt_q, order))
+            ls = gaussian_log_score(s, gt_t, gt_q, order)
+            log_joint.append(ls.joint)
+            log_trans.append(ls.translation)
+            log_rot.append(ls.rotation)
         if isinstance(s, (GaussianStep, EnsembleStep)):
             is_t.append(
                 translation_magnitude_interval_score(
@@ -187,13 +194,16 @@ def _score(args: argparse.Namespace) -> int:
                 )
             )
 
-    scores["translation_crps"] = float(np.mean(crps_t))
-    scores["rotation_crps"] = float(np.mean(crps_r))
-    scores["energy_score"] = float(np.mean(es))
-    if log_scores:
-        scores["log_score"] = float(np.mean(log_scores))
+    boot_rng = np.random.default_rng(args.seed + 2)
+    scores["translation_crps"] = summarize(crps_t, rng=boot_rng)
+    scores["rotation_crps"] = summarize(crps_r, rng=boot_rng)
+    scores["energy_score"] = summarize(es, rng=boot_rng)
+    if log_joint:
+        scores["log_score"] = summarize(log_joint, rng=boot_rng)
+        scores["log_score_translation"] = summarize(log_trans, rng=boot_rng)
+        scores["log_score_rotation"] = summarize(log_rot, rng=boot_rng)
     if is_t:
-        scores["interval_score"] = float(np.mean(is_t))
+        scores["interval_score"] = summarize(is_t, rng=boot_rng)
 
     cal = None
     if est_header.representation is not Representation.DETERMINISTIC:

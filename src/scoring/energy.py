@@ -1,4 +1,17 @@
-"""Energy score on SE(3) tangent space (joint translation + rotation)."""
+r"""Energy score on SE(3) tangent space (joint translation + rotation).
+
+The energy score generalises CRPS to multivariate forecasts. It was
+introduced by Székely (2003) and characterised as a strictly proper
+multivariate kernel score by Gneiting & Raftery (2007).
+
+References
+----------
+Székely, G. J. (2003). *E-statistics: The energy of statistical
+samples*. Bowling Green State University, Tech. Rep. 03-05.
+
+Gneiting, T. & Raftery, A. E. (2007). *Strictly proper scoring rules,
+prediction, and estimation*. JASA 102(477), 359–378.
+"""
 
 import numpy as np
 
@@ -16,7 +29,20 @@ def energy_score(
     n_samples: int = 128,
     rng: np.random.Generator | None = None,
 ) -> float:
-    """Joint energy score in SE(3) tangent space at the predictive mean."""
+    r"""Joint energy score in SE(3) tangent space at the predictive mean.
+
+    For samples :math:`X, X' \stackrel{iid}{\sim} F` and observation
+    :math:`y` projected through :math:`\log_{T_\mathrm{ref}}` into
+    :math:`\mathbb{R}^6`,
+
+    .. math::
+
+       \mathrm{ES}(F, y) = \mathbb{E}\,\lVert X - y\rVert
+           - \tfrac12\,\mathbb{E}\,\lVert X - X'\rVert.
+
+    Strictly proper for any negative-definite norm (Gneiting & Raftery,
+    2007, §4.2).
+    """
     rng = rng if rng is not None else np.random.default_rng(0)
     T_obs = pose_matrix(gt_translation, gt_quat_xyzw)
 

@@ -1,6 +1,7 @@
-"""Sync risk: per-pair `v · Δt / σ` quantifies how much sync gap could explain
-the residual. Big values mean the gap could plausibly account for the position
-error and miscalibration findings should be tempered."""
+r"""Sync risk: per-pair :math:`v \cdot \Delta t / \sigma` quantifies how much
+sync gap could explain the residual. Big values mean the gap could
+plausibly account for the position error and miscalibration findings
+should be tempered."""
 
 import numpy as np
 from scipy.special import logsumexp
@@ -62,7 +63,8 @@ def sync_risk(
     t_offset: float = 0.0,
     tangent_order: TangentOrder | None = None,
 ) -> np.ndarray:
-    """Returns the per-pair sync risk r = ||v_gt|| · |Δt| / σ_trans."""
+    r"""Per-pair sync risk
+    :math:`r = \lVert v_\mathrm{gt}\rVert \cdot |\Delta t| / \sigma_\mathrm{trans}`."""
     velocities = _gt_velocity(gt_ts, gt_positions)
     speeds = np.linalg.norm(velocities, axis=1)
     out = np.zeros(len(est_indices))
