@@ -12,7 +12,7 @@ multiplies translations.
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from src.se3.lie import adjoint, trans_slice
+from src.se3.lie import adjoint, invert, trans_slice
 from src.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
 from src.types import TangentConvention, TangentOrder
 
@@ -83,3 +83,68 @@ def propagate_step(
             particles=new,
             weights=None if step.weights is None else step.weights.copy(),
         )
+
+
+def apply_body_transform(
+    step: Step,
+    T_off: np.ndarray,
+    tangent_convention: TangentConvention | None = None,
+    tangent_order: TangentOrder | None = None,
+) -> Step:
+    """Right-multiply each pose by ``T_off`` to re-express it in a new body frame.
+
+    Given ``T_world_body_old`` and ``T_off = T_body_old__body_new`` (the pose of
+    the new body frame as seen from the old), the corrected pose is
+    ``T_world_body_new = T_world_body_old · T_off``. This is the dual of
+    alignment, which left-multiplies; the tangent transforms differently:
+
+    - right-perturbation:  ``Σ ← Ad_{T_off^{-1}} · Σ · Ad_{T_off^{-1}}^⊤``
+    - left-perturbation:   ``Σ`` unchanged
+
+    The math: with right-perturbation ``T = T_mean · Exp(ξ)``, right-multiplying
+    by ``T_off`` gives ``T · T_off = T_mean · T_off · Exp(Ad_{T_off^{-1}} · ξ)``.
+    With left-perturbation ``T = Exp(ξ) · T_mean``, only ``T_mean`` shifts.
+    """
+    R_off = T_off[:3, :3]
+    t_off = T_off[:3, 3]
+
+    def _new_mean(t: np.ndarray, q_xyzw: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        R_mean = Rotation.from_quat(q_xyzw).as_matrix()
+        new_t = R_mean @ t_off + t
+        new_R = R_mean @ R_off
+        return new_t, Rotation.from_matrix(new_R).as_quat()
+
+    if isinstance(step, DeterministicStep):
+        new_t, new_q = _new_mean(step.translation, step.quat_xyzw)
+        return DeterministicStep(timestamp=step.timestamp, translation=new_t, quat_xyzw=new_q)
+
+    if isinstance(step, GaussianStep):
+        if tangent_convention is None or tangent_order is None:
+            raise ValueError("gaussian body-frame transform needs tangent convention and order")
+        new_t, new_q = _new_mean(step.translation, step.quat_xyzw)
+        if tangent_convention is TangentConvention.RIGHT:
+            Ad_inv = adjoint(invert(T_off), tangent_order)
+            new_cov = Ad_inv @ step.covariance @ Ad_inv.T
+        else:
+            new_cov = step.covariance.copy()
+        return GaussianStep(
+            timestamp=step.timestamp,
+            translation=new_t,
+            quat_xyzw=new_q,
+            covariance=new_cov,
+        )
+
+    if isinstance(step, EnsembleStep):
+        new = step.particles.copy()
+        rots = Rotation.from_quat(step.particles[:, 3:]).as_matrix()
+        # Per-particle: t_i ← R_i · t_off + t_i;  R_i ← R_i · R_off.
+        new[:, :3] = step.particles[:, :3] + np.einsum("nij,j->ni", rots, t_off)
+        new_rots = np.einsum("nij,jk->nik", rots, R_off)
+        new[:, 3:] = Rotation.from_matrix(new_rots).as_quat()
+        return EnsembleStep(
+            timestamp=step.timestamp,
+            particles=new,
+            weights=None if step.weights is None else step.weights.copy(),
+        )
+
+    raise TypeError(f"unsupported step type: {type(step).__name__}")

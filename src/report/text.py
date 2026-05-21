@@ -35,28 +35,35 @@ def _render_sync(rep: Report) -> str:
     s = rep.sync
     gaps = s.get("gap_quantiles_ms", {})
     risk_q = s.get("risk_quantiles")
+    mode = s.get("mode", "nearest")
     lines = [
         "Synchronization",
+        f"  Mode:                   {mode}",
         f"  Pairs matched:          {_fmt_int(s.get('n_matched'))} / {_fmt_int(s.get('n_total'))}",
         f"  Dropped:                {_fmt_int(s.get('n_dropped'))}",
-        f"  Timestamp gap (ms):     median {_fmt_float(gaps.get('median', float('nan')), 2)},"
-        f" p95 {_fmt_float(gaps.get('p95', float('nan')), 2)},"
-        f" p99 {_fmt_float(gaps.get('p99', float('nan')), 2)}",
     ]
-    if risk_q is not None:
+    if mode == "nearest":
         lines.append(
-            f"  Sync risk (v·Δt / σ):   median {_fmt_float(risk_q['median'], 2)},"
-            f" p95 {_fmt_float(risk_q['p95'], 2)},"
-            f" p99 {_fmt_float(risk_q['p99'], 2)}"
+            f"  Timestamp gap (ms):     median {_fmt_float(gaps.get('median', float('nan')), 2)},"
+            f" p95 {_fmt_float(gaps.get('p95', float('nan')), 2)},"
+            f" p99 {_fmt_float(gaps.get('p99', float('nan')), 2)}"
         )
-        excess = s.get("risk_excess_count", 0)
-        n = s.get("n_matched", 0) or 0
-        if excess:
-            frac = 100.0 * excess / n if n else 0.0
-            lines.append(
-                f"                          ⚠ {excess} pairs ({frac:.1f}%) "
-                f"exceed risk {s.get('risk_threshold', 0.3):.1f}"
-            )
+    if risk_q is not None:
+        risk_label = "GP σ (m)" if mode == "interpolate_gt" else "Sync risk (v·Δt / σ)"
+        lines.append(
+            f"  {risk_label}:   median {_fmt_float(risk_q['median'], 4)},"
+            f" p95 {_fmt_float(risk_q['p95'], 4)},"
+            f" p99 {_fmt_float(risk_q['p99'], 4)}"
+        )
+        if mode == "nearest":
+            excess = s.get("risk_excess_count", 0)
+            n = s.get("n_matched", 0) or 0
+            if excess:
+                frac = 100.0 * excess / n if n else 0.0
+                lines.append(
+                    f"                          ⚠ {excess} pairs ({frac:.1f}%) "
+                    f"exceed risk {s.get('risk_threshold', 0.3):.1f}"
+                )
     lines.append("")
     return "\n".join(lines)
 
@@ -175,7 +182,7 @@ def _render_calibration(rep: Report) -> str:
     suffix = "  ⚠ possible miscalibration" if not math.isnan(ks_t) and ks_t < 0.05 else ""
     lines.append(f"  PIT uniformity (KS):    p = {_fmt_float(ks_t, 3)}{suffix}")
     lines.append(
-        f"  {int(c.get('nominal_coverage', 0.9) * 100)}% interval coverage:"
+        f"  {int(c.get('nominal_coverage', 0.9) * 100)}% Mahalanobis coverage:"
         f"  {_fmt_pct(c.get('coverage', float('nan')))}     "
         f"(nominal {_fmt_pct(c.get('nominal_coverage', float('nan')))})"
     )
@@ -185,9 +192,9 @@ def _render_calibration(rep: Report) -> str:
         comment = ""
         if not math.isnan(z_std):
             if z_std > 1.1:
-                comment = "   (slightly under-confident)"
+                comment = "   (over-confident)"
             elif z_std < 0.9:
-                comment = "   (slightly over-confident)"
+                comment = "   (under-confident)"
         lines.append(
             f"  Translation z-score:    mean {_fmt_float(z_mean, 2)},"
             f" std {_fmt_float(z_std, 2)}{comment}"

@@ -21,9 +21,10 @@ RNG = np.random.default_rng(42)
 
 def _gaussian_header() -> Header:
     return Header(
-        format_version="smfeval/0.2",
+        format_version="SQUARE/0.3",
         representation=Representation.GAUSSIAN_SE3,
         pose_frame="world",
+        body_frame="imu",
         gauge=Gauge.GRAVITY_YAW,
         timestamp_unit="seconds",
         algorithm="testbot",
@@ -36,9 +37,10 @@ def _gaussian_header() -> Header:
 
 def _ensemble_header(weighted: bool = True) -> Header:
     return Header(
-        format_version="smfeval/0.2",
+        format_version="SQUARE/0.3",
         representation=Representation.ENSEMBLE_SE3,
         pose_frame="world",
+        body_frame="imu",
         gauge=Gauge.SIM3,
         timestamp_unit="seconds",
         algorithm="testbot",
@@ -51,9 +53,10 @@ def _ensemble_header(weighted: bool = True) -> Header:
 
 def _deterministic_header() -> Header:
     return Header(
-        format_version="smfeval/0.2",
+        format_version="SQUARE/0.3",
         representation=Representation.DETERMINISTIC,
         pose_frame="world",
+        body_frame="imu",
         gauge=Gauge.FIXED,
         timestamp_unit="seconds",
         algorithm="gt",

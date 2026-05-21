@@ -15,9 +15,10 @@ from src.io import parse_header, write_header
 
 
 COMMON = """\
-#%FORMAT smfeval/0.2
+#%FORMAT SQUARE/0.3
 #%REPRESENTATION {rep}
 #%POSE_FRAME world
+#%BODY_FRAME imu
 #%GAUGE {gauge}
 #%TIMESTAMP_UNIT seconds
 #%ALGORITHM testbot
@@ -44,7 +45,8 @@ def _parse(text: str) -> Header:
 
 def test_parse_gaussian():
     h = _parse(COMMON.format(rep="gaussian_se3", gauge="gravity_yaw") + GAUSSIAN_TAIL)
-    assert h.format_version == "smfeval/0.2"
+    assert h.format_version == "SQUARE/0.3"
+    assert h.body_frame == "imu"
     assert h.representation is Representation.GAUSSIAN_SE3
     assert h.gauge is Gauge.GRAVITY_YAW
     assert h.tangent_convention is TangentConvention.RIGHT

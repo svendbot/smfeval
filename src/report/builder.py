@@ -39,6 +39,7 @@ def build_report(
     scores: dict[str, ScoreSummary],
     calibration: CalibrationResult | None,
     trajectory_length_m: float | None,
+    sync_mode: str = "nearest",
 ) -> Report:
     rep = Report()
 
@@ -48,6 +49,7 @@ def build_report(
         else 0
     )
     rep.sync = {
+        "mode": sync_mode,
         "n_matched": match.n_matched,
         "n_total": match.n_total,
         "n_dropped": match.n_dropped,

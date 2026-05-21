@@ -226,6 +226,37 @@ def test_calibration_matches_nominal_when_data_is_drawn_from_predictive():
     )
 
 
+def test_calibration_coverage_is_anisotropic_via_mahalanobis():
+    """Calibrated GT drawn from an anisotropic Gaussian (σ_z 100× σ_xy) must
+    hit 90% coverage. An isotropic-ball coverage check would over-cover here
+    because the ball radius is set by the wide axis, eating typical
+    tight-axis residuals; the proper Mahalanobis ellipsoid handles it."""
+    rng = np.random.default_rng(7)
+    n = 600
+    sigma_xy = 0.01
+    sigma_z = 1.0
+    sigma_r = 0.001
+    cov = np.diag([sigma_xy**2, sigma_xy**2, sigma_z**2, sigma_r**2, sigma_r**2, sigma_r**2])
+
+    steps = []
+    gt_ts = []
+    gt_qs = []
+    for _ in range(n):
+        mu_t = rng.normal(size=3) * 5.0
+        mu_q = rot_to_quat_xyzw(np.linalg.qr(rng.normal(size=(3, 3)))[0])
+        gt_t, gt_q = _draw_calibrated_pair(mu_t, mu_q, cov, rng)
+        gt_ts.append(gt_t)
+        gt_qs.append(gt_q)
+        steps.append(GaussianStep(0.0, mu_t, mu_q, cov.copy()))
+
+    res = calibrate(
+        steps, np.array(gt_ts), np.array(gt_qs),
+        tangent_order=TangentOrder.TRANS_ROT,
+        alpha=0.1, n_samples=256, rng=np.random.default_rng(0),
+    )
+    assert 0.86 < res.coverage < 0.94, f"coverage {res.coverage} (expected ~0.9)"
+
+
 def test_calibration_collapses_when_predictive_is_overconfident():
     """If we shrink the reported covariance by 1e6 while the truth still
     deviates by σ_t, coverage must drop to ~0 and z must blow up. Mirrors the

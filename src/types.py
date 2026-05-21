@@ -39,6 +39,7 @@ class Header:
     format_version: str
     representation: Representation
     pose_frame: str
+    body_frame: str
     gauge: Gauge
     timestamp_unit: str
     algorithm: str

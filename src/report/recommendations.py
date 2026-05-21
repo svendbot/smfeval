@@ -14,7 +14,11 @@ def recommendations(rep: Report) -> list[str]:
 
     risk_excess = sync.get("risk_excess_count", 0) or 0
     n_matched = sync.get("n_matched", 0) or 0
-    if n_matched and risk_excess / n_matched > 0.01:
+    if (
+        n_matched
+        and risk_excess / n_matched > 0.01
+        and sync.get("mode", "nearest") == "nearest"
+    ):
         frac = 100.0 * risk_excess / n_matched
         out.append(
             f"{frac:.1f}% of pairs have sync risk > {sync['risk_threshold']:.1f}; "
@@ -45,14 +49,17 @@ def recommendations(rep: Report) -> list[str]:
         if not (math.isnan(ks) or math.isnan(cov) or math.isnan(nominal)):
             if ks < 0.05 and cov < nominal - 0.05:
                 out.append(
-                    "Coverage below nominal combined with KS p < 0.05 suggests "
-                    "the filter is mildly under-confident. Miscalibration is "
-                    "unlikely to be explained by sync error alone."
+                    "Coverage below nominal combined with KS p < 0.05 — the "
+                    "filter is over-confident (claimed Σ too tight, truth "
+                    "falls outside the predicted intervals); widen process "
+                    "noise. Miscalibration is unlikely to be explained by "
+                    "sync error alone."
                 )
             elif ks < 0.05 and cov > nominal + 0.05:
                 out.append(
-                    "Coverage exceeds nominal and KS p < 0.05 — filter is "
-                    "over-confident; widen process noise."
+                    "Coverage exceeds nominal and KS p < 0.05 — the filter "
+                    "is under-confident (claimed Σ too loose); tighten "
+                    "process noise."
                 )
 
     return out

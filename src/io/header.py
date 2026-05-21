@@ -14,6 +14,7 @@ _COMMON_REQUIRED = (
     "FORMAT",
     "REPRESENTATION",
     "POSE_FRAME",
+    "BODY_FRAME",
     "GAUGE",
     "TIMESTAMP_UNIT",
     "ALGORITHM",
@@ -56,6 +57,7 @@ def write_header(f: TextIO, h: Header) -> None:
     emit("FORMAT", h.format_version)
     emit("REPRESENTATION", h.representation.value)
     emit("POSE_FRAME", h.pose_frame)
+    emit("BODY_FRAME", h.body_frame)
     emit("GAUGE", h.gauge.value)
     emit("TIMESTAMP_UNIT", h.timestamp_unit)
     emit("ALGORITHM", h.algorithm)
@@ -79,7 +81,7 @@ def _build(raw: dict[str, str]) -> Header:
         if k not in raw:
             raise FormatError(f"missing required header field: {k}")
     fmt = raw["FORMAT"]
-    if not fmt.startswith("smfeval/"):
+    if not fmt.startswith("SQUARE/"):
         raise FormatError(f"unrecognized FORMAT: {fmt!r}")
 
     rep = _enum(Representation, "REPRESENTATION", raw["REPRESENTATION"])
@@ -89,6 +91,7 @@ def _build(raw: dict[str, str]) -> Header:
         format_version=fmt,
         representation=rep,
         pose_frame=raw["POSE_FRAME"],
+        body_frame=raw["BODY_FRAME"],
         gauge=gauge,
         timestamp_unit=raw["TIMESTAMP_UNIT"],
         algorithm=raw["ALGORITHM"],

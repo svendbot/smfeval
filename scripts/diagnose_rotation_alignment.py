@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Decompose rotation residual into alignment-absorbed vs per-pair drift.
 
-Given a smfeval estimate file and a TUM ground-truth, prints the geodesic
+Given a SQUARE estimate file and a TUM ground-truth, prints the geodesic
 rotation residual (median, p95) at three stages:
   1. raw — no alignment applied
   2. gravity_yaw — yaw rotation fitted via 2D Procrustes on (x, y)
@@ -15,7 +15,7 @@ initial-frame mismatch (absorbed by both modes), and ~1.2 rad rotation CRPS
 is real drift on rough terrain that nothing global can absorb.
 
 Usage:
-  python scripts/diagnose_rotation_alignment.py <est.smfeval> <gt.tum>
+  python scripts/diagnose_rotation_alignment.py <est.SQUARE> <gt.tum>
 """
 import sys
 from pathlib import Path

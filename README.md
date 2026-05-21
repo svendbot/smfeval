@@ -68,19 +68,19 @@ dependencies. Docs and tests live under `docs/` and `tests/`.
 Validate a trajectory file:
 
 ```sh
-nix develop --command uv run smfeval validate path/to/est.smfeval
+nix develop --command uv run smfeval validate path/to/est.SQUARE
 ```
 
-Score an estimate against a ground-truth trajectory (smfeval format or
+Score an estimate against a ground-truth trajectory (SQUARE format or
 plain TUM):
 
 ```sh
-nix develop --command uv run smfeval score est.smfeval gt.tum
+nix develop --command uv run smfeval score est.SQUARE gt.tum
 ```
 
 The report has six sections — synchronisation, alignment, ensemble
 diagnostics (when applicable), scores, calibration, recommendations —
-following the layout in `smfeval_spec.md`.
+following the layout in `SQUARE_spec.md`.
 
 ## Layout
 
@@ -92,7 +92,7 @@ following the layout in `smfeval_spec.md`.
 | `src/se3/` | SE(3) / SO(3) Lie group machinery |
 | `src/align/` | gauge-aware alignment of estimate to ground truth |
 | `src/sync/` | timestamp matching and sync-risk computation |
-| `src/io/` | header parser and reader/writer for the smfeval text format |
+| `src/io/` | header parser and reader/writer for the SQUARE text format |
 | `src/report/` | report dataclass, text renderer, recommendations |
 | `src/cli/` | `smfeval validate` / `smfeval score` |
 

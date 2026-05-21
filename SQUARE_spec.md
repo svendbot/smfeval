@@ -1,4 +1,4 @@
-# smfeval v0.2 — Format and Scoring Report Summary
+# SQUARE v0.3 — Format and Scoring Report Summary
 
 ## File Format
 
@@ -11,14 +11,21 @@ Comment lines prefixed with `#%` declare metadata. Required fields depend on rep
 **Common to all representations:**
 
 ```
-#%FORMAT smfeval/0.2
+#%FORMAT SQUARE/0.3
 #%REPRESENTATION <gaussian_se3 | ensemble_se3 | deterministic>
 #%POSE_FRAME world
+#%BODY_FRAME <name>
 #%GAUGE <fixed | se3 | gravity_yaw | sim3>
 #%TIMESTAMP_UNIT seconds
 #%ALGORITHM <name>
 #%ALGORITHM_VERSION <version>
 ```
+
+`BODY_FRAME` names the rigid body whose pose is reported (e.g. `imu`, `lidar`, `base_link`). It is a property of the *publisher*, not the dataset: FAST-LIO2's `state_ikfom` is in the IMU frame, so its SQUARE files declare `BODY_FRAME imu`; the Oxford Spires GT lives in the LiDAR frame and declares `BODY_FRAME lidar`. Names are free-form strings; matching is by exact string equality.
+
+When estimate and ground-truth body frames differ, the scoring tool requires `--body-frame-transform PATH` (JSON: `{"R": [9 floats row-major], "t": [3 floats]}`). The transform is `T_est_body__gt_body` in standard ROS `target_T_source` convention: `R` maps a vector in GT-body coords to estimate-body coords, and `t` is the GT-body origin expressed in estimate-body coords. Equivalently, it is the pose of the GT body frame as seen from the estimate body frame. Applied to the estimate by right-multiplication: `T_world_gt_body = T_world_est_body · T_off`. For `right_perturbation` Gaussian covariances, `Σ ← Ad_{T_off^{-1}} · Σ · Ad_{T_off^{-1}}^⊤`; for `left_perturbation`, `Σ` is unchanged.
+
+**Convention trap (FAST-LIO).** FAST-LIO's `extrinsic_R`, `extrinsic_T` are consumed in `IMU_Processing.hpp` as `Lidar_R_wrt_IMU` and `Lidar_T_wrt_IMU` — these are `T_lidar_imu` (the rotation maps IMU-frame vectors to LiDAR-frame). For an IMU-publishing FAST-LIO file scored against LiDAR-frame GT, the `--body-frame-transform` is the **inverse**: `R = extrinsic_R^⊤`, `t = -extrinsic_R^⊤ · extrinsic_T`.
 
 **Gaussian-specific:**
 
@@ -89,13 +96,17 @@ Store raw belief; derive everything else. Scoring rules, $N_\text{eff}$, unique-
 
 ## Scoring Report
 
-Produced by the scoring tool given a smfeval file and a ground-truth file. Structured in three sections: data quality, scores, and recommendations.
+Produced by the scoring tool given a SQUARE file and a ground-truth file. Structured in three sections: data quality, scores, and recommendations.
 
 ### Synchronization
 
-Ground truth is matched to estimates using **nearest-neighbor matching with a tolerance**, following the convention from TUM (Sturm et al.) inherited by evo. For each estimate timestamp $t_i^\text{est}$, the ground truth pose at the nearest $t_j^\text{gt}$ is selected; pairs with $|t_i^\text{est} - t_j^\text{gt}| > $ `--t_max_diff` are dropped. An optional `--t_offset` is applied to estimates before matching to correct for known clock skew. Default tolerance matches evo (0.01 s).
+Two strategies are available via `--sync`:
 
-This is the same strategy APE scoring uses, so timestamp pairing is interoperable with evo — a given estimate/ground-truth pair will match identically in both tools.
+- **`nearest`** (default): for each estimate timestamp $t_i^\text{est}$, the GT pose at the nearest $t_j^\text{gt}$ is selected; pairs with $|t_i^\text{est} - t_j^\text{gt}| > $ `--t_max_diff` are dropped. An optional `--t_offset` is applied to estimates before matching to correct for known clock skew. Default tolerance matches evo (0.01 s). This is the same strategy APE scoring uses — timestamp pairing is interoperable with evo.
+
+- **`interpolate_gt`**: piecewise Gaussian Process on SE(3) following Zhang & Scaramuzza (2019, §IV.B). For each estimate timestamp, a local window of GT samples is taken; the middle pose is chosen as $T_\text{ref}$; the surrounding GT poses are expressed as $\xi_i = \log(T_\text{ref}^{-1} T_i) \in \mathfrak{se}(3)$; six independent squared-exponential GPs (length scale `--sync_length_scale`, default 0.1 s; window `--sync_window`, default 10 samples) are fit on the components of $\xi$ as functions of time; the predictive $\mu_{\xi^*}$ at the query is mapped back to $T^* = T_\text{ref} \cdot \mathrm{Exp}(\mu_{\xi^*})$. The kernel is shared across the six components, so the predictive covariance is a scalar $v^*$ shared across all diagonal entries, reported per-pair as "GP σ" in the report. Query times outside the GT range are skipped, not extrapolated. Use this as a cross-check when the nearest-neighbor sync risk fires — it removes timestamp slop from the residual.
+
+Sync risk (nearest mode): $r = \lVert v_\text{gt} \rVert \cdot |\Delta t| / \sigma_\text{trans}$ — when $r > 0.3$ for a significant fraction of pairs, the calibration findings could be partly explained by sync error and the recommendation section flags this with a pointer to `--sync=interpolate_gt`.
 
 ### Alignment
 
@@ -163,7 +174,7 @@ Recommendations
 
 - No automatic "pass/fail" verdict; thresholds are recommendations, not judgments.
 - No cross-algorithm comparison in a single report; comparison is a separate tool that consumes multiple reports.
-- No modification of the input files; the smfeval file is the immutable record of the algorithm's output.
+- No modification of the input files; the SQUARE file is the immutable record of the algorithm's output.
 
 ## Related Work
 

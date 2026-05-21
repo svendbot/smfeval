@@ -2,7 +2,8 @@ r"""Calibration:
 
 - Probability Integral Transform (PIT)
 - Kolmogorov–Smirnov (KS) test on the PIT
-- interval coverage
+- Mahalanobis coverage of the translation residual under the predictive Σ_t
+  (proper ellipsoidal credible region, χ²_3 threshold)
 - standardized residuals (Mahalanobis form)
 - TODO(Ola): add HDI?
 
@@ -45,12 +46,12 @@ Proc. National Institute of Sciences of India 2(1), 49–55.
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.stats import kstest
+from scipy.stats import chi2, kstest
 
 from src.scoring._predictive import rotation_samples, translation_samples
 from src.se3.lie import pose_matrix, relative, se3_log, so3_log, trans_slice
 from src.se3.quat import quat_xyzw_to_rot
-from src.steps import GaussianStep, Step
+from src.steps import EnsembleStep, GaussianStep, Step
 from src.types import TangentOrder
 
 # Empirical-CDF resolution for PIT is 1/N; 256 keeps it well below KS sensitivity
@@ -68,6 +69,49 @@ class CalibrationResult:
     nominal_coverage: float
     z_translation_mean: float
     z_translation_std: float
+
+
+def _translation_mahalanobis_sq(
+    step: Step, gt_t: np.ndarray, gt_q: np.ndarray, order: TangentOrder
+) -> float:
+    r"""Squared Mahalanobis distance of the translation residual under the
+    predictive covariance.
+
+    Under a Gaussian predictive, :math:`d^2 = \rho^\top \Sigma_t^{-1} \rho`
+    is :math:`\chi^2_3`-distributed, and the proper :math:`(1-\alpha)` credible
+    region is :math:`\{x : d^2(x) \le \chi^2_{3, 1-\alpha}\}` — the ellipsoidal
+    ball whose orientation and aspect track the off-diagonal entries of
+    :math:`\Sigma_t`. For ensembles the predictive may not be Gaussian; the
+    sample translation covariance plays the role of :math:`\Sigma_t`, which is
+    the Gaussian fit to the support of the particles (exact under Gaussian
+    ensembles, defensible otherwise).
+
+    Returns ``nan`` for deterministic predictives or when :math:`\Sigma_t` is
+    singular.
+    """
+    if isinstance(step, GaussianStep):
+        T_mean = pose_matrix(step.translation, step.quat_xyzw)
+        T_obs = pose_matrix(gt_t, gt_q)
+        xi = se3_log(relative(T_mean, T_obs), order=order)
+        ti = trans_slice(order)
+        rho = xi[ti]
+        cov_t = step.covariance[ti, ti]
+    elif isinstance(step, EnsembleStep):
+        positions = step.particles[:, :3]
+        if positions.shape[0] < 4:
+            return float("nan")
+        mu = positions.mean(axis=0)
+        rho = gt_t - mu
+        cov_t = np.cov(positions, rowvar=False)
+    else:
+        return float("nan")
+    cov_t = (cov_t + cov_t.T) / 2
+    try:
+        L = np.linalg.cholesky(cov_t + 1e-12 * np.eye(3))
+    except np.linalg.LinAlgError:
+        return float("nan")
+    z = np.linalg.solve(L, rho)
+    return float(z @ z)
 
 
 def _z_translation(step: Step, gt_t: np.ndarray, gt_q: np.ndarray, order: TangentOrder) -> float:
@@ -119,6 +163,8 @@ def calibrate(
     pit_r: list[float] = []
     z_t: list[float] = []
     inside: list[bool] = []
+    # Proper 90% ball is the Mahalanobis ellipsoid {ρ : ρᵀ Σ_t⁻¹ ρ ≤ χ²_{3,1-α}}.
+    chi2_threshold = float(chi2.ppf(1.0 - alpha, df=3))
     for step, gt_t, gt_q in zip(pred_steps, gt_translations, gt_quats):
         t_samples, mu_t = translation_samples(step, n_samples, rng, tangent_order)
         sm = np.linalg.norm(t_samples - mu_t, axis=1)
@@ -131,8 +177,9 @@ def calibrate(
         pit_r.append(_pit(sa, oa))
 
         z_t.append(_z_translation(step, gt_t, gt_q, tangent_order))
-        if sm.size:
-            inside.append(om <= float(np.quantile(sm, 1.0 - alpha)))
+        d2 = _translation_mahalanobis_sq(step, gt_t, gt_q, tangent_order)
+        if not np.isnan(d2):
+            inside.append(d2 <= chi2_threshold)
 
     pit_t_arr = np.array(pit_t)
     pit_r_arr = np.array(pit_r)
