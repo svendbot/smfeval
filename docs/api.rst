@@ -53,7 +53,7 @@ I/O and types
    src.io.reader
    src.io.writer
    src.steps
-   src.types
+   src.format
 
 Reporting and CLI
 -----------------

@@ -1,5 +1,6 @@
-r"""Closed-form Gaussian log score in SE(3) tangent space, decomposed
-into the joint score and its translation / rotation marginals.
+r"""Closed-form Gaussian log score in SE(3) tangent space.
+
+Decomposed into the joint score and its translation / rotation marginals.
 
 The logarithmic (or *ignorance*) score :math:`-\log f(y)` was introduced
 by Good (1952) and is strictly proper (Gneiting & Raftery, 2007).
@@ -18,7 +19,7 @@ sub-covariance, so the marginal scores are obtained by indexing the
 three numbers are not independent (the joint encodes their
 cross-covariance) but together they decompose the scalar.
 
-References
+References:
 ----------
 Good, I. J. (1952). *Rational decisions*. JRSS B 14(1), 107–114.
 
@@ -30,68 +31,73 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 
+from src.format import TangentOrder
 from src.se3.lie import pose_matrix, relative, rot_slice, se3_log, trans_slice
 from src.steps import GaussianStep
-from src.types import TangentOrder
 
 
 @dataclass
 class GaussianLogScore:
-    r"""Joint and block-marginal negative log densities (smaller is better)."""
-    joint: float
-    translation: float
-    rotation: float
+  r"""Joint and block-marginal negative log densities (smaller is better)."""
 
-    def to_dict(self) -> dict[str, float]:
-        return asdict(self)
+  joint: float
+  translation: float
+  rotation: float
+
+  def to_dict(self) -> dict[str, float]:
+    return asdict(self)
 
 
 def _gaussian_neg_log_density(xi: np.ndarray, cov: np.ndarray) -> float:
-    r""":math:`\tfrac12(\xi^\top \Sigma^{-1}\xi + \log\det\Sigma + d\log 2\pi)`,
-    or ``inf`` when :math:`\Sigma` is not positive definite."""
-    sign, logdet = np.linalg.slogdet(cov)
-    if sign <= 0:
-        return float("inf")
-    inv = np.linalg.solve(cov, xi)
-    quad = float(xi @ inv)
-    d = cov.shape[0]
-    return 0.5 * (quad + logdet + d * np.log(2.0 * np.pi))
+  r"""Negative log density of :math:`\xi` under :math:`N(0, \Sigma)`.
+
+  :math:`\tfrac12(\xi^\top \Sigma^{-1}\xi + \log\det\Sigma + d\log 2\pi)`,
+  or ``inf`` when :math:`\Sigma` is not positive definite.
+  """
+  sign, logdet = np.linalg.slogdet(cov)
+  if sign <= 0:
+    return float("inf")
+  inv = np.linalg.solve(cov, xi)
+  quad = float(xi @ inv)
+  d = cov.shape[0]
+  return 0.5 * (quad + logdet + d * np.log(2.0 * np.pi))
 
 
 def gaussian_log_score(
-    step: GaussianStep,
-    gt_translation: np.ndarray,
-    gt_quat_xyzw: np.ndarray,
-    tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
+  step: GaussianStep,
+  gt_translation: np.ndarray,
+  gt_quat_xyzw: np.ndarray,
+  tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
 ) -> GaussianLogScore:
-    r"""Negative log densities of the GT pose under the joint SE(3)
-    Gaussian belief and under its translation / rotation marginals.
+  r"""Negative log densities of the GT pose under the predictive Gaussian.
 
-    With residual :math:`\xi = \log_{T_\mathrm{mean}}(T_\mathrm{obs})
-    \in \mathbb{R}^6`, covariance :math:`\Sigma \in \mathbb{R}^{6\times 6}`,
-    and block selectors :math:`I_t, I_r` for translation and rotation
-    (3 entries each, as configured by ``tangent_order``),
+  Returns the joint SE(3) score and its translation / rotation marginals.
 
-    .. math::
+  With residual :math:`\xi = \log_{T_\mathrm{mean}}(T_\mathrm{obs})
+  \in \mathbb{R}^6`, covariance :math:`\Sigma \in \mathbb{R}^{6\times 6}`,
+  and block selectors :math:`I_t, I_r` for translation and rotation
+  (3 entries each, as configured by ``tangent_order``),
 
-       -\log p(\xi)       &= \tfrac12\bigl(\xi^\top \Sigma^{-1}\xi
-           + \log\det\Sigma + 6\log 2\pi\bigr), \\
+  .. math::
+
+     -\log p(\xi)       &= \tfrac12\bigl(\xi^\top \Sigma^{-1}\xi
+         + \log\det\Sigma + 6\log 2\pi\bigr), \\
        -\log p(\xi_{I_t}) &= \tfrac12\bigl(\xi_{I_t}^\top \Sigma_{I_t I_t}^{-1}
-           \xi_{I_t} + \log\det\Sigma_{I_t I_t} + 3\log 2\pi\bigr),
+         \xi_{I_t} + \log\det\Sigma_{I_t I_t} + 3\log 2\pi\bigr),
 
-    and analogously for :math:`I_r`. The block-marginal density is
-    simply the joint with the other block integrated out, which for a
-    Gaussian is the sub-vector under the matching sub-covariance.
-    """
-    T_mean = pose_matrix(step.translation, step.quat_xyzw)
-    T_obs = pose_matrix(gt_translation, gt_quat_xyzw)
-    xi = se3_log(relative(T_mean, T_obs), order=tangent_order)
-    cov = step.covariance
+  and analogously for :math:`I_r`. The block-marginal density is
+  simply the joint with the other block integrated out, which for a
+  Gaussian is the sub-vector under the matching sub-covariance.
+  """
+  T_mean = pose_matrix(step.translation, step.quat_xyzw)
+  T_obs = pose_matrix(gt_translation, gt_quat_xyzw)
+  xi = se3_log(relative(T_mean, T_obs), order=tangent_order)
+  cov = step.covariance
 
-    t_idx = trans_slice(tangent_order)
-    r_idx = rot_slice(tangent_order)
+  t_idx = trans_slice(tangent_order)
+  r_idx = rot_slice(tangent_order)
 
-    joint = _gaussian_neg_log_density(xi, cov)
-    trans = _gaussian_neg_log_density(xi[t_idx], cov[t_idx, t_idx])
-    rot = _gaussian_neg_log_density(xi[r_idx], cov[r_idx, r_idx])
-    return GaussianLogScore(joint=joint, translation=trans, rotation=rot)
+  joint = _gaussian_neg_log_density(xi, cov)
+  trans = _gaussian_neg_log_density(xi[t_idx], cov[t_idx, t_idx])
+  rot = _gaussian_neg_log_density(xi[r_idx], cov[r_idx, r_idx])
+  return GaussianLogScore(joint=joint, translation=trans, rotation=rot)

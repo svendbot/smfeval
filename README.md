@@ -1,109 +1,90 @@
 # smfeval
 
-Probabilistic SLAM trajectory format and scoring tool: strictly proper
-scoring rules and calibration diagnostics for Gaussian, ensemble, and
-deterministic pose beliefs on SE(3).
+Score SLAM trajectories that report uncertainty. Works on Gaussian-,
+ensemble-, or deterministic-pose estimates on SE(3) and gives back
+proper scoring rules plus calibration diagnostics.
 
-## Why this exists
-
-Conventional SLAM evaluation (ATE/RPE) summarises a deterministic
-trajectory error. When the SLAM backend reports an uncertainty over its
-pose belief — a 6×6 covariance, a particle ensemble — those numbers are
-the whole point: a filter that drifts but knows it drifts is doing
-something fundamentally different from one that drifts confidently.
-`smfeval` scores the predictive belief, not just its mean, using
-strictly proper scoring rules (Gneiting & Raftery, 2007):
-
-- **CRPS** on the three translation axes (Matheson & Winkler, 1976) and
-  on rotation via the SO(3) geodesic kernel.
-- **Energy score** on the SE(3) tangent (Székely, 2003; Gneiting &
-  Raftery, 2007).
-- **Log score** (Good, 1952), reported in three pieces:
-  - joint SE(3) negative log density;
-  - translation marginal (3-D sub-block of the joint covariance);
-  - rotation marginal (3-D sub-block).
-  The 6×6 covariance couples translation and rotation, so a single
-  scalar hides pathologies that target only one block — e.g. a LiDAR
-  filter that is well-calibrated in translation but overconfident in
-  yaw when the geometry degenerates along the motion direction.
-- **Interval score** on translation magnitude (Gneiting & Raftery, 2007).
-- **Calibration diagnostics**: PIT + KS test (Dawid, 1984), interval
-  coverage, Mahalanobis-normalised translation residuals.
-
-## Prequential scoring, not iid averaging
-
-Scoring runs in *walk-forward* / prequential mode (Dawid, 1984): at
-each matched timestep we score the SLAM backend's one-step-ahead
-predictive against the realised ground-truth pose. The resulting score
-series is **not** an iid sample. SLAM error is autocorrelated by
-construction — drift accumulates, regime changes (loop closure,
-entering or leaving a degenerate corridor) persist for many frames —
-so the textbook iid percentile bootstrap on the mean under-covers and
-hides the most diagnostically interesting structure of the time
-series.
-
-`smfeval` therefore aggregates per-step scores with the **stationary
-bootstrap** of Politis & Romano (1994), whose mean geometric block
-length `ℓ` is selected automatically from the data by the **Politis &
-White (2004)** flat-top lag-window estimator (hand-rolled in
-`src/scoring/summary.py`, no `arch` dependency). Every score row in
-the report carries the estimated `ℓ` next to its CI: `ℓ ≈ 1` means
-the series behaves like white noise; `ℓ ≫ 1` flags a strong temporal
-dependence that the scalar mean is summarising over.
-
-Pass `block_length=1.0` to `summarize()` to fall back to the iid
-percentile bootstrap when you want to compare.
+Full documentation lives under [`docs/`](docs/index.rst); run
+`make docs` to build the HTML version and `make test` to run the
+test suite.
 
 ## Install
 
+Requires Python ≥ 3.10. With [uv](https://docs.astral.sh/uv/):
+
 ```sh
-nix develop --command uv sync
+uv sync
 ```
 
-The dev shell pins NumPy ≥ 1.24 and SciPy ≥ 1.10; no other runtime
-dependencies. Docs and tests live under `docs/` and `tests/`.
+Runtime depends only on NumPy ≥ 1.24 and SciPy ≥ 1.10.
 
 ## Use
 
 Validate a trajectory file:
 
 ```sh
-nix develop --command uv run smfeval validate path/to/est.SQUARE
+uv run smfeval validate path/to/est.SQUARE
 ```
 
 Score an estimate against a ground-truth trajectory (SQUARE format or
 plain TUM):
 
 ```sh
-nix develop --command uv run smfeval score est.SQUARE gt.tum
+uv run smfeval score est.SQUARE gt.TUM
+```
+
+Example output:
+
+```
+Synchronization
+  Mode:                   interpolate_gt
+  Pairs matched:          5,738 / 5,738
+  Dropped:                0
+  GP σ (m):   median 0.0003, p95 0.0004, p99 0.0011
+
+Alignment
+  Gauge (declared):       gravity_yaw
+  Mode applied:           se3   (6 DoF)
+  Fitted Δxyz:            (-28.4562, 28.0381, -4.7399) m
+  Fit residual (m):       median 0.9007, p95 1.2460
+                          6 DoF removed over 649 m of trajectory
+
+Scores
+  Translation CRPS:           mean 0.281 m   [95% CI 0.224, 0.334]   (n=5738)
+                              median 0.313, std 0.124, min 0.014, max 0.503
+                              block length (Politis–White): 176.5
+  Rotation CRPS:              mean 0.036 rad   [95% CI 0.036, 0.037]   (n=5738)
+                              median 0.036, std 0.002, min 0.030, max 0.043
+                              block length (Politis–White): 173.8
+  Energy score (SE(3)):       mean 0.802   [95% CI 0.637, 0.960]   (n=5738)
+                              median 0.901, std 0.365, min 0.044, max 1.486
+                              block length (Politis–White): 176.5
+  Log score (joint):          mean 1401860.038   [95% CI 1050457.394, 1733644.908]
+                              median 1317643.220, std 848368.184
+                              block length (Politis–White): 175.1
+  Log score (translation):    mean 1008309.207   [95% CI 690401.685, 1341320.364]
+                              median 903201.643, std 777138.180
+                              block length (Politis–White): 175.5
+  Log score (rotation):       mean 271085.256   [95% CI 244685.182, 299495.521]
+                              median 271799.807, std 83672.340
+                              block length (Politis–White): 172.7
+  Interval score:             mean 15.996   [95% CI 12.522, 19.090]   (n=5738)
+                              median 17.973, std 7.325
+                              block length (Politis–White): 176.5
+
+Calibration
+  PIT uniformity (KS):    p = 0.000  ⚠ possible miscalibration
+  90% Mahalanobis coverage:  0.0%     (nominal 90.0%)
+  Translation z-score:    mean 741.74, std 349.38   (over-confident)
+
+Recommendations
+  - Coverage below nominal combined with KS p < 0.05 — the filter is
+    over-confident (claimed Σ too tight, truth falls outside the
+    predicted intervals); widen process noise. Miscalibration is
+    unlikely to be explained by sync error alone.
 ```
 
 The report has six sections — synchronisation, alignment, ensemble
 diagnostics (when applicable), scores, calibration, recommendations —
-following the layout in `SQUARE_spec.md`.
-
-## Layout
-
-| Module | Role |
-| --- | --- |
-| `src/scoring/` | proper scoring rules + calibration |
-| `src/scoring/summary.py` | Politis–White block-length + stationary bootstrap |
-| `src/scoring/logscore.py` | joint + trans-marginal + rot-marginal log scores |
-| `src/se3/` | SE(3) / SO(3) Lie group machinery |
-| `src/align/` | gauge-aware alignment of estimate to ground truth |
-| `src/sync/` | timestamp matching and sync-risk computation |
-| `src/io/` | header parser and reader/writer for the SQUARE text format |
-| `src/report/` | report dataclass, text renderer, recommendations |
-| `src/cli/` | `smfeval validate` / `smfeval score` |
-
-## References
-
-- Dawid, A. P. (1984). *Statistical theory: the prequential approach.* JRSS A 147(2), 278–292.
-- Efron, B. (1979). *Bootstrap methods: another look at the jackknife.* Annals of Statistics 7(1), 1–26.
-- Gneiting, T. & Raftery, A. E. (2007). *Strictly proper scoring rules, prediction, and estimation.* JASA 102(477), 359–378.
-- Good, I. J. (1952). *Rational decisions.* JRSS B 14(1), 107–114.
-- Matheson, J. E. & Winkler, R. L. (1976). *Scoring rules for continuous probability distributions.* Management Science 22(10), 1087–1096.
-- Politis, D. N. & Romano, J. P. (1994). *The stationary bootstrap.* JASA 89(428), 1303–1313.
-- Politis, D. N. & White, H. (2004). *Automatic block-length selection for the dependent bootstrap.* Econometric Reviews 23(1), 53–70.
-- Sturm, J., Engelhard, N., Endres, F., Burgard, W. & Cremers, D. (2012). *A benchmark for the evaluation of RGB-D SLAM systems.* IROS.
-- Székely, G. J. (2003). *E-statistics: the energy of statistical samples.* BGSU Tech. Rep. 03-05.
+following the layout in `SQUARE_spec.md`. See [`docs/`](docs/index.rst)
+for what each statistic means and how it's computed.

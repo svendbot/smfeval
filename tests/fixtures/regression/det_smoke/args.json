@@ -1,0 +1,6 @@
+{
+  "gt_body_frame": "imu",
+  "seed": 0,
+  "n_samples": 32,
+  "extra": []
+}

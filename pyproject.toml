@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "smfeval"
-version = "0.2.0"
+version = "0.3.0"
 description = "Probabilistic SLAM trajectory format and scoring tool"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -48,9 +48,46 @@ packages = ["src"]
 
 [tool.pyright]
 include = ["src", "tests"]
-pythonVersion = "3.12"
+pythonVersion = "3.10"
 venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+# Google Python Style Guide: 80-char lines, Py3.10 target. Indent width
+# is 2 (project preference) rather than the PSG default of 4.
+line-length = 80
+indent-width = 2
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import order)
+    "D",   # pydocstyle (Google convention enforced below)
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "D100", "D101", "D102", "D103", "D104", "D105", "D107",
+    # Formatter already enforces 80-char lines; remaining E501 hits are
+    # long output strings / docstrings the formatter cannot safely break.
+    # Google PSG documents this as an accepted exception.
+    "E501",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = false

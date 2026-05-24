@@ -1,0 +1,97 @@
+{
+  "sync": {
+    "mode": "nearest",
+    "n_matched": 6,
+    "n_total": 6,
+    "n_dropped": 0,
+    "gap_quantiles_ms": {
+      "median": 0.0,
+      "p95": 0.0,
+      "p99": 0.0
+    },
+    "risk_threshold": 0.3,
+    "risk_excess_count": 6,
+    "risk_quantiles": {
+      "median": Infinity,
+      "p95": NaN,
+      "p99": NaN
+    }
+  },
+  "alignment": {
+    "declared_gauge": "fixed",
+    "mode": "none",
+    "dof_removed": 0,
+    "scale": 1.0,
+    "translation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation_matrix": [
+      [
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "residual_quantiles": {
+      "p50": 0.019999999999999796,
+      "p95": 0.03749999999999998
+    },
+    "trajectory_length_m": 5.0
+  },
+  "ensemble": null,
+  "gaussian_validity": null,
+  "scores": {
+    "translation_crps": {
+      "n": 6,
+      "mean": 0.0072222222222221785,
+      "median": 0.006666666666666599,
+      "std": 0.003896817314833386,
+      "min": 0.0033333333333332624,
+      "max": 0.013333333333333345,
+      "ci_low": 0.00444444444444441,
+      "ci_high": 0.010555555555555504,
+      "ci_level": 0.95,
+      "block_length": 1.0
+    },
+    "rotation_crps": {
+      "n": 6,
+      "mean": 0.0,
+      "median": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "ci_level": 0.95,
+      "block_length": 1.0
+    },
+    "energy_score": {
+      "n": 6,
+      "mean": 0.02166666666666654,
+      "median": 0.019999999999999796,
+      "std": 0.01169045194450016,
+      "min": 0.009999999999999787,
+      "max": 0.040000000000000036,
+      "ci_low": 0.013333333333333195,
+      "ci_high": 0.029999999999999954,
+      "ci_level": 0.95,
+      "block_length": 1.0
+    }
+  },
+  "calibration": {},
+  "recommendations": [
+    "100.0% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_gt to confirm calibration findings."
+  ]
+}

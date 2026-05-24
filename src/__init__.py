@@ -1,19 +1,23 @@
-from src.types import (
-    FormatError,
-    Gauge,
-    Header,
-    Representation,
-    TangentConvention,
-    TangentOrder,
-    WeightFormat,
+from src.format import (
+  FORMAT_VERSION,
+  FormatError,
+  Gauge,
+  Representation,
+  SquareHeader,
+  TangentConvention,
+  TangentOrder,
+  TumHeader,
+  WeightFormat,
 )
 
 __all__ = [
-    "FormatError",
-    "Gauge",
-    "Header",
-    "Representation",
-    "TangentConvention",
-    "TangentOrder",
-    "WeightFormat",
+  "FORMAT_VERSION",
+  "FormatError",
+  "Gauge",
+  "Representation",
+  "SquareHeader",
+  "TangentConvention",
+  "TangentOrder",
+  "TumHeader",
+  "WeightFormat",
 ]
