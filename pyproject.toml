@@ -46,6 +46,17 @@ smfeval = "smfeval.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["smfeval"]
 
+[tool.hatch.build.targets.sdist]
+# keep the PyPI artifact lean: data fixtures, notebooks, and exporter
+# assets live in the repository, not the package
+exclude = [
+    "notebooks/",
+    "tests/fixtures/",
+    "exporters/",
+    "plans/",
+    "docs/",
+]
+
 [tool.pyright]
 include = ["smfeval", "tests"]
 pythonVersion = "3.10"
