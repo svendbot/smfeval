@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "smfeval"
-version = "0.3.0"
+version = "0.4.0"
 description = "Probabilistic SLAM trajectory format and scoring tool"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,7 +12,7 @@ license = { text = "Apache-2.0" }
 license-files = ["LICENSE"]
 authors = [{ name = "Ola Rønning", email = "oroe@itu.dk" }]
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
 ]
 dependencies = [

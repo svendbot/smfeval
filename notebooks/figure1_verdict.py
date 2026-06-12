@@ -36,7 +36,7 @@ for local, remote in FILES.items():
       shutil.copyfileobj(src, dst)
   else:
     shutil.copy(raw, local)
-print("data ready:", [f for f in FILES])
+print("data ready:", list(FILES))
 
 # %% [markdown]
 # ## The thirty-second verdict
@@ -142,7 +142,12 @@ ax.hist(finite, bins=bins, density=True, alpha=0.6, label="realised NEES")
 x = np.logspace(-2, 2, 400)
 ax.plot(x, chi2.pdf(x, df=3) * x * np.log(10), "k--", label=r"$\chi^2_3$ (calibrated)")
 ax.axvline(verdict.median_nees, color="C3", label=f"median = {verdict.median_nees:.3g}")
-ax.axvline(2.366, color="k", lw=0.8, label="calibrated median = 2.37")
+ax.axvline(
+  verdict.calibrated_median,
+  color="k",
+  lw=0.8,
+  label=f"calibrated median = {verdict.calibrated_median:.2f}",
+)
 ax.set_xscale("log")
 ax.set_xlabel("translation NEES (log scale)")
 ax.set_ylabel("density")

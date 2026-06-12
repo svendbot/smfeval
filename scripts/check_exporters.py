@@ -25,9 +25,8 @@ def check(d: Path) -> list[str]:
   if not upstream.is_file():
     errs.append("no UPSTREAM file")
   elif not any(
-    UPSTREAM_RE.match(s.strip())
-    for s in upstream.read_text().splitlines()
-    if s.strip()
+    UPSTREAM_RE.match(line.strip())
+    for line in upstream.read_text().splitlines()
   ):
     errs.append("UPSTREAM has no parsable 'URL @ sha' line")
   validation = d / "VALIDATION.md"
@@ -37,7 +36,7 @@ def check(d: Path) -> list[str]:
     m = NEES_RE.search(validation.read_text())
     if m is None:
       errs.append("VALIDATION.md has no 'median NEES' verdict line")
-    elif not float(m.group(1)) > 0:
+    elif float(m.group(1)) <= 0:
       errs.append(f"VALIDATION.md median NEES is degenerate ({m.group(1)})")
   return errs
 

@@ -370,14 +370,13 @@ def _validate(path: Path, strict: bool = False) -> int:
         row_problems = _strict_row_problems(k, s)
         if row_problems:
           n_bad += 1
-          if len(problems) < _STRICT_MAX_REPORTED:
-            problems.extend(row_problems)
+          problems.extend(row_problems)
   except (FormatError, OSError) as e:
     print(f"error: {e}", file=sys.stderr)
     return 2
 
   if problems:
-    for p in problems:
+    for p in problems[:_STRICT_MAX_REPORTED]:
       print(f"strict: {p}", file=sys.stderr)
     print(
       f"error: {path.name} failed strict validation "

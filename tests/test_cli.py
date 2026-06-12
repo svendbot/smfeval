@@ -568,43 +568,38 @@ def test_validate_strict_passes_on_real_fixture(capsys: pytest.CaptureFixture):
   assert "strict checks passed" in out
 
 
-def test_validate_strict_rejects_zero_covariance(
-  tmp_path: Path, capsys: pytest.CaptureFixture
+def _zero_cov(cov: np.ndarray) -> None:
+  cov[:] = 0.0
+
+
+def _negate_first(cov: np.ndarray) -> None:
+  cov[0, 0] = -1.0
+
+
+def _inflate(cov: np.ndarray) -> None:
+  cov[:] = np.eye(6) * 1e6
+
+
+@pytest.mark.parametrize(
+  ("mutate", "expected"),
+  [
+    (_zero_cov, "all-zero"),
+    (_negate_first, "not positive definite"),
+    (_inflate, "plausible range"),
+  ],
+  ids=["zero", "non-pd", "implausible"],
+)
+def test_validate_strict_rejects_bad_covariance(
+  tmp_path: Path, capsys: pytest.CaptureFixture, mutate, expected
 ):
-  p = tmp_path / "zero.SQUARE"
+  p = tmp_path / "bad.SQUARE"
   step = _gauss_step(0.0, np.zeros(3))
-  step.covariance[:] = 0.0
+  mutate(step.covariance)
   _write(p, _gauss_header(), [step])
   rc = main(["validate", "--strict", str(p)])
   err = capsys.readouterr().err
   assert rc == 2
-  assert "all-zero" in err
-
-
-def test_validate_strict_rejects_non_pd_covariance(
-  tmp_path: Path, capsys: pytest.CaptureFixture
-):
-  p = tmp_path / "npd.SQUARE"
-  step = _gauss_step(0.0, np.zeros(3))
-  step.covariance[0, 0] = -1.0
-  _write(p, _gauss_header(), [step])
-  rc = main(["validate", "--strict", str(p)])
-  err = capsys.readouterr().err
-  assert rc == 2
-  assert "not positive definite" in err
-
-
-def test_validate_strict_rejects_implausible_magnitude(
-  tmp_path: Path, capsys: pytest.CaptureFixture
-):
-  p = tmp_path / "huge.SQUARE"
-  step = _gauss_step(0.0, np.zeros(3))
-  step.covariance = np.eye(6) * 1e6
-  _write(p, _gauss_header(), [step])
-  rc = main(["validate", "--strict", str(p)])
-  err = capsys.readouterr().err
-  assert rc == 2
-  assert "plausible range" in err
+  assert expected in err
 
 
 def test_validate_without_strict_accepts_zero_covariance(tmp_path: Path):
