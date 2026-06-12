@@ -1,0 +1,29 @@
+diff --git a/src/laser_mapping.cc b/src/laser_mapping.cc
+index 42d8031..68fac08 100644
+--- a/src/laser_mapping.cc
++++ b/src/laser_mapping.cc
+@@ -705,17 +705,14 @@ void LaserMapping::PublishOdometry(const ros::Publisher &pub_odom_aft_mapped) {
+     odom_aft_mapped_.child_frame_id = tf_imu_frame_;
+     odom_aft_mapped_.header.stamp = ros::Time().fromSec(lidar_end_time_);  // ros::Time().fromSec(lidar_end_time_);
+     SetPosestamp(odom_aft_mapped_.pose);
++    // IKFoM state is (pos, rot, …) — top-left 6x6 of P already matches
++    // REP-103 nav_msgs/Odometry layout. Upstream applied a rot/pos swap
++    // here AND ran it after publish() (dead write); fix both.
++    const auto P = kf_.get_P();
++    for (int i = 0; i < 6; i++)
++        for (int j = 0; j < 6; j++)
++            odom_aft_mapped_.pose.covariance[i * 6 + j] = P(i, j);
+     pub_odom_aft_mapped.publish(odom_aft_mapped_);
+-    auto P = kf_.get_P();
+-    for (int i = 0; i < 6; i++) {
+-        int k = i < 3 ? i + 3 : i - 3;
+-        odom_aft_mapped_.pose.covariance[i * 6 + 0] = P(k, 3);
+-        odom_aft_mapped_.pose.covariance[i * 6 + 1] = P(k, 4);
+-        odom_aft_mapped_.pose.covariance[i * 6 + 2] = P(k, 5);
+-        odom_aft_mapped_.pose.covariance[i * 6 + 3] = P(k, 0);
+-        odom_aft_mapped_.pose.covariance[i * 6 + 4] = P(k, 1);
+-        odom_aft_mapped_.pose.covariance[i * 6 + 5] = P(k, 2);
+-    }
+ 
+     static tf::TransformBroadcaster br;
+     tf::Transform transform;

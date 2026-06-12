@@ -553,3 +553,63 @@ def test_pair_body_frame_mismatch_needs_transform(
   assert rc == 2
   assert "body frames differ" in err
   del rng
+
+
+# --- validate --strict ----------------------------------------------------------
+
+
+def test_validate_strict_passes_on_real_fixture(capsys: pytest.CaptureFixture):
+  fixture = (
+    Path(__file__).parent / "fixtures/regression/real_point_lio/est.smfeval"
+  )
+  rc = main(["validate", "--strict", str(fixture)])
+  out = capsys.readouterr().out
+  assert rc == 0
+  assert "strict checks passed" in out
+
+
+def test_validate_strict_rejects_zero_covariance(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  p = tmp_path / "zero.SQUARE"
+  step = _gauss_step(0.0, np.zeros(3))
+  step.covariance[:] = 0.0
+  _write(p, _gauss_header(), [step])
+  rc = main(["validate", "--strict", str(p)])
+  err = capsys.readouterr().err
+  assert rc == 2
+  assert "all-zero" in err
+
+
+def test_validate_strict_rejects_non_pd_covariance(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  p = tmp_path / "npd.SQUARE"
+  step = _gauss_step(0.0, np.zeros(3))
+  step.covariance[0, 0] = -1.0
+  _write(p, _gauss_header(), [step])
+  rc = main(["validate", "--strict", str(p)])
+  err = capsys.readouterr().err
+  assert rc == 2
+  assert "not positive definite" in err
+
+
+def test_validate_strict_rejects_implausible_magnitude(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  p = tmp_path / "huge.SQUARE"
+  step = _gauss_step(0.0, np.zeros(3))
+  step.covariance = np.eye(6) * 1e6
+  _write(p, _gauss_header(), [step])
+  rc = main(["validate", "--strict", str(p)])
+  err = capsys.readouterr().err
+  assert rc == 2
+  assert "plausible range" in err
+
+
+def test_validate_without_strict_accepts_zero_covariance(tmp_path: Path):
+  p = tmp_path / "zero.SQUARE"
+  step = _gauss_step(0.0, np.zeros(3))
+  step.covariance[:] = 0.0
+  _write(p, _gauss_header(), [step])
+  assert main(["validate", str(p)]) == 0

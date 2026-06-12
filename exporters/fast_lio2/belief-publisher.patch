@@ -1,0 +1,115 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5f91a33..2715ca1 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -71,11 +71,13 @@ include_directories(
+ add_message_files(
+   FILES
+   Pose6D.msg
++  Belief.msg
+ )
+ 
+ generate_messages(
+  DEPENDENCIES
+  geometry_msgs
++ std_msgs
+ )
+ 
+ catkin_package(
+diff --git a/msg/Belief.msg b/msg/Belief.msg
+new file mode 100644
+index 0000000..86979ae
+--- /dev/null
++++ b/msg/Belief.msg
+@@ -0,0 +1,12 @@
++# Gaussian belief over SE(3) pose for SQUARE/0.2 (gaussian_se3 representation).
++# Mean:       standard ROS pose (TUM-compatible: tx, ty, tz, qx, qy, qz, qw).
++# Covariance: 6x6 in IKFoM-native tangent space, row-major.
++#   TANGENT_CONVENTION: right_perturbation
++#   TANGENT_ORDER:      translation_rotation  (pos at [0..2], rot at [3..5])
++#   ROTATION_PARAM:     axis_angle
++# gauge: which DoF the algorithm pinned by initialization
++#        ('fixed' | 'se3' | 'gravity_yaw' | 'sim3'). Set by the publishing node.
++Header header
++geometry_msgs/Pose pose
++float64[36] covariance
++string gauge
+diff --git a/src/laserMapping.cpp b/src/laserMapping.cpp
+index fc41408..a29b248 100644
+--- a/src/laserMapping.cpp
++++ b/src/laserMapping.cpp
+@@ -46,6 +46,7 @@
+ #include "IMU_Processing.hpp"
+ #include <nav_msgs/Odometry.h>
+ #include <nav_msgs/Path.h>
++#include <fast_lio/Belief.h>
+ #include <visualization_msgs/Marker.h>
+ #include <pcl_conversions/pcl_conversions.h>
+ #include <pcl/point_cloud.h>
+@@ -82,7 +83,7 @@ mutex mtx_buffer;
+ condition_variable sig_buffer;
+ 
+ string root_dir = ROOT_DIR;
+-string map_file_path, lid_topic, imu_topic;
++string map_file_path, lid_topic, imu_topic, gauge;
+ 
+ double res_mean_last = 0.05, total_residual = 0.0;
+ double last_timestamp_lidar = 0, last_timestamp_imu = -1.0;
+@@ -586,7 +587,7 @@ void set_posestamp(T & out)
+     
+ }
+ 
+-void publish_odometry(const ros::Publisher & pubOdomAftMapped)
++void publish_odometry(const ros::Publisher & pubOdomAftMapped, const ros::Publisher & pubOdomBelief)
+ {
+     odomAftMapped.header.frame_id = "camera_init";
+     odomAftMapped.child_frame_id = "body";
+@@ -605,6 +606,17 @@ void publish_odometry(const ros::Publisher & pubOdomAftMapped)
+         odomAftMapped.pose.covariance[i*6 + 5] = P(k, 2);
+     }
+ 
++    // 6x6 tangent-space covariance in IKFoM-native order (translation_rotation,
++    // right_perturbation, axis_angle). See msg/Belief.msg for the full convention.
++    fast_lio::Belief beliefMsg;
++    beliefMsg.header = odomAftMapped.header;
++    beliefMsg.pose = odomAftMapped.pose.pose;
++    for (int i = 0; i < 6; i++)
++        for (int j = 0; j < 6; j++)
++            beliefMsg.covariance[i*6 + j] = P(i, j);
++    beliefMsg.gauge = gauge;
++    pubOdomBelief.publish(beliefMsg);
++
+     static tf::TransformBroadcaster br;
+     tf::Transform                   transform;
+     tf::Quaternion                  q;
+@@ -762,6 +774,7 @@ int main(int argc, char** argv)
+     nh.param<bool>("publish/scan_publish_en",scan_pub_en, true);
+     nh.param<bool>("publish/dense_publish_en",dense_pub_en, true);
+     nh.param<bool>("publish/scan_bodyframe_pub_en",scan_body_pub_en, true);
++    nh.param<string>("publish/gauge", gauge, "gravity_yaw");
+     nh.param<int>("max_iteration",NUM_MAX_ITERATIONS,4);
+     nh.param<string>("map_file_path",map_file_path,"");
+     nh.param<string>("common/lid_topic",lid_topic,"/livox/lidar");
+@@ -854,9 +867,11 @@ int main(int argc, char** argv)
+             ("/cloud_effected", 100000);
+     ros::Publisher pubLaserCloudMap = nh.advertise<sensor_msgs::PointCloud2>
+             ("/Laser_map", 100000);
+-    ros::Publisher pubOdomAftMapped = nh.advertise<nav_msgs::Odometry> 
++    ros::Publisher pubOdomAftMapped = nh.advertise<nav_msgs::Odometry>
+             ("/Odometry", 100000);
+-    ros::Publisher pubPath          = nh.advertise<nav_msgs::Path> 
++    ros::Publisher pubOdomBelief    = nh.advertise<fast_lio::Belief>
++            ("/Belief", 100000);
++    ros::Publisher pubPath          = nh.advertise<nav_msgs::Path>
+             ("/path", 100000);
+ //------------------------------------------------------------------------------------------------------
+     signal(SIGINT, SigHandle);
+@@ -969,7 +984,7 @@ int main(int argc, char** argv)
+             double t_update_end = omp_get_wtime();
+ 
+             /******* Publish odometry *******/
+-            publish_odometry(pubOdomAftMapped);
++            publish_odometry(pubOdomAftMapped, pubOdomBelief);
+ 
+             /*** add the feature points to map kdtree ***/
+             t3 = omp_get_wtime();

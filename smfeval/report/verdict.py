@@ -16,6 +16,7 @@ filter within sampling noise of calibrated prints "consistent" even when
 k is not exactly 1.
 """
 
+import re
 from dataclasses import dataclass
 
 import numpy as np
@@ -107,10 +108,10 @@ def nees_verdict(
 
 
 def _fmt(x: float) -> str:
-  """Compact magnitude formatting: 2.37, 12.4, 537, 5.63e3."""
+  """Compact magnitude formatting: 2.37, 12.4, 537, 5.63e3, 4.2e10."""
   if not np.isfinite(x):
     return "nan"
-  return f"{x:.3g}".replace("e+0", "e").replace("e-0", "e-")
+  return re.sub(r"e\+?(-?)0*(\d)", r"e\1\2", f"{x:.3g}")
 
 
 def render_nees_verdict(v: NeesVerdict) -> str:

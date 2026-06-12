@@ -183,6 +183,13 @@ def main(argv: list[str] | None = None) -> int:
 
   pv = sub.add_parser("validate", help="header and row sanity checks")
   pv.add_argument("file", type=Path)
+  pv.add_argument(
+    "--strict",
+    action="store_true",
+    help="per-row exporter checks: covariance SPD, plausible magnitude, "
+    "not degenerate-zero, finite poses (the gate for contributed "
+    "exporters; no ground truth needed)",
+  )
 
   pn = sub.add_parser(
     "nees",
@@ -302,7 +309,7 @@ def main(argv: list[str] | None = None) -> int:
   args = parser.parse_args(argv)
 
   if args.cmd == "validate":
-    return _validate(args.file)
+    return _validate(args.file, strict=args.strict)
   if args.cmd == "nees":
     return _nees(args)
   if args.cmd == "pair":
@@ -312,15 +319,76 @@ def main(argv: list[str] | None = None) -> int:
   return 1
 
 
-def _validate(path: Path) -> int:
+# --strict per-row covariance magnitude plausibility bounds (m^2 / rad^2):
+# below the floor the covariance is numerically degenerate-zero; above the
+# ceiling it is physically implausible for a pose belief.
+_STRICT_DIAG_FLOOR = 1e-12
+_STRICT_DIAG_CEIL = 1e4
+_STRICT_MAX_REPORTED = 5
+
+
+def _strict_row_problems(k: int, s: Step) -> list[str]:
+  """Mechanical exporter checks for one step (the contributor-facing gate)."""
+  problems: list[str] = []
+  if isinstance(s, GaussianStep):
+    cov = s.covariance
+    if not np.all(np.isfinite(cov)):
+      return [f"row {k}: non-finite covariance entries"]
+    diag = np.diag(cov)
+    if np.all(diag == 0.0):
+      problems.append(f"row {k}: covariance is all-zero (degenerate)")
+    else:
+      try:
+        np.linalg.cholesky(cov)
+      except np.linalg.LinAlgError:
+        problems.append(f"row {k}: covariance is not positive definite")
+      if np.any(diag < _STRICT_DIAG_FLOOR) or np.any(diag > _STRICT_DIAG_CEIL):
+        problems.append(
+          f"row {k}: covariance diagonal outside plausible range "
+          f"[{_STRICT_DIAG_FLOOR:g}, {_STRICT_DIAG_CEIL:g}]: "
+          f"min {diag.min():.3g}, max {diag.max():.3g}"
+        )
+  if isinstance(s, GaussianStep | DeterministicStep):
+    if not (
+      np.all(np.isfinite(s.translation)) and np.all(np.isfinite(s.quat_xyzw))
+    ):
+      problems.append(f"row {k}: non-finite pose")
+  return problems
+
+
+def _validate(path: Path, strict: bool = False) -> int:
+  problems: list[str] = []
+  n_bad = 0
   try:
     with path.open() as f:
       header = parse_header(f)
-      n = sum(1 for _ in iter_steps(f, header))
+      n = 0
+      for k, s in enumerate(iter_steps(f, header)):
+        n += 1
+        if not strict:
+          continue
+        row_problems = _strict_row_problems(k, s)
+        if row_problems:
+          n_bad += 1
+          if len(problems) < _STRICT_MAX_REPORTED:
+            problems.extend(row_problems)
   except (FormatError, OSError) as e:
     print(f"error: {e}", file=sys.stderr)
     return 2
-  print(f"ok: {path.name} ({header.representation.value}, {n} timesteps)")
+
+  if problems:
+    for p in problems:
+      print(f"strict: {p}", file=sys.stderr)
+    print(
+      f"error: {path.name} failed strict validation "
+      f"({n_bad}/{n} rows with problems)",
+      file=sys.stderr,
+    )
+    return 2
+  suffix = ", strict checks passed" if strict else ""
+  print(
+    f"ok: {path.name} ({header.representation.value}, {n} timesteps{suffix})"
+  )
   return 0
 
 

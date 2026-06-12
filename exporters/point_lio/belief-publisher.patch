@@ -1,0 +1,31 @@
+diff --git a/src/laserMapping.cpp b/src/laserMapping.cpp
+index 2c360de..6abba6b 100755
+--- a/src/laserMapping.cpp
++++ b/src/laserMapping.cpp
+@@ -281,7 +281,25 @@ void publish_odometry(const ros::Publisher & pubOdomAftMapped)
+         odomAftMapped.header.stamp = ros::Time().fromSec(lidar_end_time);
+     }
+     set_posestamp(odomAftMapped.pose.pose);
+-    
++
++    // Fill pose.covariance with the active IKFoM filter's 6x6 SE(3) pose
++    // block in (pos, rot) tangent order. Matches REP-103 nav_msgs layout
++    // and SQUARE gaussian_se3 TANGENT_ORDER=translation_rotation.
++    if (use_imu_as_input)
++    {
++        const auto& P = kf_input.get_P();
++        for (int i = 0; i < 6; i++)
++            for (int j = 0; j < 6; j++)
++                odomAftMapped.pose.covariance[i*6 + j] = P(i, j);
++    }
++    else
++    {
++        const auto& P = kf_output.get_P();
++        for (int i = 0; i < 6; i++)
++            for (int j = 0; j < 6; j++)
++                odomAftMapped.pose.covariance[i*6 + j] = P(i, j);
++    }
++
+     pubOdomAftMapped.publish(odomAftMapped);
+ 
+     static tf::TransformBroadcaster br;
