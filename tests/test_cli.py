@@ -153,8 +153,14 @@ def test_calibration_flag_consistent(
   est_path, gt_path = _write_calibration_case(tmp_path, scale=1.0)
   rc = main(
     [
-      "score", str(est_path), str(gt_path),
-      "--align", "none", "--alpha", "0.01", "--calibration",
+      "score",
+      str(est_path),
+      str(gt_path),
+      "--align",
+      "none",
+      "--alpha",
+      "0.01",
+      "--calibration",
     ]
   )
   out = capsys.readouterr().out
@@ -189,8 +195,16 @@ def test_calibration_flag_skipped_for_deterministic(
 ):
   est_path = tmp_path / "est.SQUARE"
   gt_path = tmp_path / "gt.SQUARE"
-  _write(est_path, _det_header(), [_det_step(t, np.array([t, 0, 0])) for t in range(5)])
-  _write(gt_path, _det_header(), [_det_step(t, np.array([t, 0, 0])) for t in range(5)])
+  _write(
+    est_path,
+    _det_header(),
+    [_det_step(t, np.array([t, 0, 0])) for t in range(5)],
+  )
+  _write(
+    gt_path,
+    _det_header(),
+    [_det_step(t, np.array([t, 0, 0])) for t in range(5)],
+  )
   rc = main(["score", str(est_path), str(gt_path), "--calibration"])
   err = capsys.readouterr().err
   assert rc == 0
@@ -198,10 +212,12 @@ def test_calibration_flag_skipped_for_deterministic(
 
 
 def _joint_anees(out: str) -> float:
-  line = next(ln for ln in out.splitlines()
-              if "CALIBRATION_SPLIT slice=joint" in ln)
-  return float(next(tok.split("=")[1] for tok in line.split()
-                    if tok.startswith("anees=")))
+  line = next(
+    ln for ln in out.splitlines() if "CALIBRATION_SPLIT slice=joint" in ln
+  )
+  return float(
+    next(tok.split("=")[1] for tok in line.split() if tok.startswith("anees="))
+  )
 
 
 def test_consume_gt_cov_requires_interpolate(
@@ -223,16 +239,32 @@ def test_consume_gt_cov_reduces_calibration_term(
   est_t = gt_t + 0.05
   gt_pos = np.column_stack([gt_t * 0.5, np.zeros(n), np.zeros(n)])
   est_pos = np.column_stack([est_t * 0.5, np.zeros(n), np.zeros(n)])
-  est_pos += rng.normal(scale=0.3, size=est_pos.shape)  # over-confident (Σ tight)
+  est_pos += rng.normal(
+    scale=0.3, size=est_pos.shape
+  )  # over-confident (Σ tight)
   est_path = tmp_path / "est.SQUARE"
   gt_path = tmp_path / "gt.SQUARE"
-  _write(est_path, _gauss_header(),
-         [_gauss_step(t, p) for t, p in zip(est_t, est_pos, strict=False)])
-  _write(gt_path, _det_header(),
-         [_det_step(t, p) for t, p in zip(gt_t, gt_pos, strict=False)])
+  _write(
+    est_path,
+    _gauss_header(),
+    [_gauss_step(t, p) for t, p in zip(est_t, est_pos, strict=False)],
+  )
+  _write(
+    gt_path,
+    _det_header(),
+    [_det_step(t, p) for t, p in zip(gt_t, gt_pos, strict=False)],
+  )
 
-  common = ["score", str(est_path), str(gt_path), "--align", "none",
-            "--sync", "interpolate_gt", "--calibration"]
+  common = [
+    "score",
+    str(est_path),
+    str(gt_path),
+    "--align",
+    "none",
+    "--sync",
+    "interpolate_gt",
+    "--calibration",
+  ]
   rc = main(common)
   base = _joint_anees(capsys.readouterr().out)
   assert rc == 0
@@ -250,8 +282,14 @@ def test_ess_inflate_scales_anees(
   est_path, gt_path = _write_calibration_case(tmp_path, scale=3.0)
   cfile = tmp_path / "cfile.txt"
   cfile.write_text("# t c\n0 4.0\n30 4.0\n")  # constant c=4 over the range
-  base = ["score", str(est_path), str(gt_path), "--align", "none",
-          "--calibration"]
+  base = [
+    "score",
+    str(est_path),
+    str(gt_path),
+    "--align",
+    "none",
+    "--calibration",
+  ]
   rc = main(base)
   a_base = _joint_anees(capsys.readouterr().out)
   assert rc == 0

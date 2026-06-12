@@ -16,7 +16,10 @@ prediction, and estimation*. JASA 102(477), 359–378.
 import numpy as np
 
 from smfeval.format import TangentOrder
-from smfeval.scoring._kernel import energy_score_estimator, sample_gaussian_tangent
+from smfeval.scoring._kernel import (
+  energy_score_estimator,
+  sample_gaussian_tangent,
+)
 from smfeval.se3.lie import pose_matrix, relative, se3_log
 from smfeval.steps import EnsembleStep, GaussianStep, Step
 

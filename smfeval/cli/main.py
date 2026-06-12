@@ -29,7 +29,12 @@ from smfeval.io import (
   looks_like_tum,
   parse_header,
 )
-from smfeval.report import build_report, diagnose, recommendations, render_report
+from smfeval.report import (
+  build_report,
+  diagnose,
+  recommendations,
+  render_report,
+)
 from smfeval.scoring import (
   ScoreSummary,
   anees_consistency,
@@ -246,9 +251,12 @@ def _resolve_sync(
   est_steps: list,
   gt_steps: list,
   tangent_order: TangentOrder | None,
-) -> tuple[
-  MatchResult, list, np.ndarray, np.ndarray, np.ndarray, np.ndarray | None
-] | None:
+) -> (
+  tuple[
+    MatchResult, list, np.ndarray, np.ndarray, np.ndarray, np.ndarray | None
+  ]
+  | None
+):
   """Pair estimate and GT poses by --sync mode.
 
   Sixth element is the matched GT covariance (Q, 6, 6) under interpolate_gt
@@ -294,8 +302,14 @@ def _resolve_sync(
       # Risk surrogate: GP predictive σ — interpolation hits the query exactly,
       # but the predictive variance bounds how trustworthy that hit is.
       risks = np.sqrt(np.maximum(interp_cov[est_idx, 0, 0], 0.0))
-      return match_res, matched_est, matched_gt_t, matched_gt_q, risks, \
-        interp_cov[est_idx]
+      return (
+        match_res,
+        matched_est,
+        matched_gt_t,
+        matched_gt_q,
+        risks,
+        interp_cov[est_idx],
+      )
 
     case SyncMode.NEAREST:
       match_res = match_timestamps(
@@ -543,9 +557,9 @@ def _score(args: argparse.Namespace) -> int:
         scored_est.append(s)
         continue
       cov = s.covariance
-      if ess_c is not None:               # Σ → c·Σ  (ESS inflation)
+      if ess_c is not None:  # Σ → c·Σ  (ESS inflation)
         cov = ess_c[k] * cov
-      if args.consume_gt_cov:             # + Σ_gt   (observer uncertainty)
+      if args.consume_gt_cov:  # + Σ_gt   (observer uncertainty)
         cov = cov + gt_cov[k]
       scored_est.append(replace(s, covariance=cov))
 
@@ -613,7 +627,8 @@ def _score(args: argparse.Namespace) -> int:
   if args.calibration and len(matched_gt_t) > 2:
     bv_windows = (
       [float(x) for x in args.rpe_window.split(",") if x.strip()]
-      if args.rpe_window else [0.1, 1.0, 10.0]
+      if args.rpe_window
+      else [0.1, 1.0, 10.0]
     )
     rep.bias_variance = [
       r.to_dict()
@@ -630,8 +645,9 @@ def _score(args: argparse.Namespace) -> int:
   if split is not None:
     _emit_calibration_machine_lines(split)
   if args.student_t:
-    _report_student_t(args, scored_est, matched_gt_t, matched_gt_q, order,
-                      est_header)
+    _report_student_t(
+      args, scored_est, matched_gt_t, matched_gt_q, order, est_header
+    )
   return 0
 
 
@@ -751,7 +767,10 @@ def _calibration_split_dict(
   if args.rpe_window:
     windows = [float(x) for x in args.rpe_window.split(",") if x.strip()]
     rows = relative_calibration(
-      aligned_est, matched_gt_t, windows_s=windows, tangent_order=order,
+      aligned_est,
+      matched_gt_t,
+      windows_s=windows,
+      tangent_order=order,
       alpha=args.alpha,
     )
     split["windowed"] = [
@@ -825,8 +844,9 @@ def _report_student_t(
     if not isinstance(s, GaussianStep):
       continue
     xi = se3_log(
-      relative(pose_matrix(s.translation, s.quat_xyzw),
-               pose_matrix(gt_t, gt_q)),
+      relative(
+        pose_matrix(s.translation, s.quat_xyzw), pose_matrix(gt_t, gt_q)
+      ),
       order=order,
     )
     gauss.append(gaussian_log_score(s, gt_t, gt_q, order).joint)
@@ -850,13 +870,17 @@ def _report_student_t(
   for nu in nus:
     t = _mean(tcols[nu])
     print(f"  {nu:>10.1f} {t:>14.3f} {t - g:>16.3f}")
-    print(f"  STUDENT_T nu={nu:g} mean_neglogp={t:.6f} delta_vs_gauss={t - g:.6f}")
+    print(
+      f"  STUDENT_T nu={nu:g} mean_neglogp={t:.6f} delta_vs_gauss={t - g:.6f}"
+    )
     if t < best:
       best, best_nu = t, nu
   if best_nu is not None:
-    print(f"  -> nu*={best_nu:g} improves the proper score by {g - best:.3f} "
-          "nat/scan: errors are heavy-tailed, a robust (Student-t) likelihood "
-          "would help.")
+    print(
+      f"  -> nu*={best_nu:g} improves the proper score by {g - best:.3f} "
+      "nat/scan: errors are heavy-tailed, a robust (Student-t) likelihood "
+      "would help."
+    )
   else:
     print("  -> no finite nu beats Gaussian: errors are not heavy-tailed.")
 

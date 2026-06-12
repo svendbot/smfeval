@@ -34,7 +34,13 @@ from scipy.special import gammaln
 from scipy.stats import chi2
 
 from smfeval.format import TangentOrder
-from smfeval.se3.lie import pose_matrix, relative, rot_slice, se3_log, trans_slice
+from smfeval.se3.lie import (
+  pose_matrix,
+  relative,
+  rot_slice,
+  se3_log,
+  trans_slice,
+)
 from smfeval.steps import GaussianStep
 
 
@@ -193,9 +199,13 @@ def gaussian_log_score_components(
   )
 
 
-def student_t_neg_log_density(xi: np.ndarray, cov: np.ndarray, nu: float) -> float:
-  r"""Negative log density of :math:`\xi` under a multivariate Student-t whose
-  *covariance equals* ``cov`` (a covariance-matched heavy-tailed belief).
+def student_t_neg_log_density(
+  xi: np.ndarray, cov: np.ndarray, nu: float
+) -> float:
+  r"""Negative log density under a covariance-matched multivariate Student-t.
+
+  Scores :math:`\xi` under a Student-t whose *covariance equals* ``cov``
+  (a covariance-matched heavy-tailed belief).
 
   The t scale matrix is :math:`S=\Sigma\,(\nu-2)/\nu` (needs :math:`\nu>2`), so
   the belief keeps the published second moment but has heavier tails; the
@@ -263,7 +273,11 @@ def anees_consistency(
   lo = float(chi2.ppf(alpha / 2.0, df=n * dof) / n)
   hi = float(chi2.ppf(1.0 - alpha / 2.0, df=n * dof) / n)
   verdict = (
-    "optimistic" if anees > hi else "conservative" if anees < lo else "consistent"
+    "optimistic"
+    if anees > hi
+    else "conservative"
+    if anees < lo
+    else "consistent"
   )
   return AneesResult(
     anees=anees, dof=dof, n=n, lo=lo, hi=hi, verdict=verdict, median=median

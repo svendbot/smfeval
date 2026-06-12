@@ -81,8 +81,11 @@ def _signal(slice_name: str, s: dict) -> str:
 
 
 def _regime(s: dict) -> str:
-  """Is the over-confidence a heavy-dynamics TAIL (median NEES ≈ dof, bulk
-  calibrated, mean inflated by outliers) or the BULK (median also hot)?"""
+  """Classify the over-confidence regime.
+
+  Either a heavy-dynamics TAIL (median NEES ≈ dof, bulk calibrated, mean
+  inflated by outliers) or the BULK (median also hot).
+  """
   med = s.get("nees_median", float("nan"))
   hi = s.get("hi", float("nan"))
   if med != med or hi != hi:
@@ -196,7 +199,9 @@ def _diagnose_absolute(absolute: dict) -> list[Diagnosis]:
 def _diagnose_windowed(windowed: list[dict]) -> list[Diagnosis]:
   """Horizon attribution from the windowed (relative) calibration slices."""
   out: list[Diagnosis] = []
-  rows = sorted((w for w in windowed if w.get("n", 1)), key=lambda w: w["window_s"])
+  rows = sorted(
+    (w for w in windowed if w.get("n", 1)), key=lambda w: w["window_s"]
+  )
   if not rows:
     return out
   shortest, longest = rows[0], rows[-1]
@@ -263,9 +268,12 @@ _AXIS_CHANNEL = {
 
 
 def _diagnose_bias_variance(bv: list[dict]) -> list[Diagnosis]:
-  """B1: a high bias_fraction ⇒ systematic error; the dominant axis localises
-  the channel (vertical→gravity/init, along→scale/time-offset, cross→extrinsic).
-  Distinguishes 'recalibrate the rig/init' from 'tune the noise model'."""
+  """B1: a high bias_fraction ⇒ systematic error.
+
+  The dominant axis localises the channel (vertical→gravity/init,
+  along→scale/time-offset, cross→extrinsic). Distinguishes 'recalibrate
+  the rig/init' from 'tune the noise model'.
+  """
   rows = [w for w in bv if w.get("bias_fraction") == w.get("bias_fraction")]
   if not rows:
     return []
@@ -318,7 +326,9 @@ def diagnose(rep: Report) -> list[Diagnosis]:
       out.append(
         Diagnosis(
           mode=FailureMode.GAUSSIAN_TANGENT_INVALID,
-          severity=Severity.CRITICAL if n_hard / n_total > 0.05 else Severity.WARNING,
+          severity=Severity.CRITICAL
+          if n_hard / n_total > 0.05
+          else Severity.WARNING,
           signals_triggered=[
             f"{n_hard}/{n_total} steps exceed the tangent-Gaussian hard limit"
           ],
@@ -342,7 +352,9 @@ def diagnose(rep: Report) -> list[Diagnosis]:
             f"{n_soft}/{n_total} steps approach the tangent-Gaussian soft limit"
           ],
           explanation="Rotation scores degrade as σ approaches the soft limit.",
-          recommended_actions=["Treat rotation calibration as approximate here."],
+          recommended_actions=[
+            "Treat rotation calibration as approximate here."
+          ],
         )
       )
 

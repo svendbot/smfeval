@@ -36,8 +36,8 @@ class BiasVarianceResult:
   n_pairs: int
   mse: float
   bias_fraction: float
-  bias: list[float]   # [along, cross, vertical] (m)
-  std: list[float]    # [along, cross, vertical] (m)
+  bias: list[float]  # [along, cross, vertical] (m)
+  std: list[float]  # [along, cross, vertical] (m)
   dominant_axis: str
 
   def to_dict(self) -> dict:
@@ -59,11 +59,13 @@ def _track_frame_errors(
   a = horiz[keep] / hmag[keep, None]
   c = np.cross(np.broadcast_to(up, a.shape), a)
   ek = e[keep]
-  return np.column_stack([
-    np.einsum("ij,ij->i", ek, a),
-    np.einsum("ij,ij->i", ek, c),
-    ek[:, 2],
-  ])
+  return np.column_stack(
+    [
+      np.einsum("ij,ij->i", ek, a),
+      np.einsum("ij,ij->i", ek, c),
+      ek[:, 2],
+    ]
+  )
 
 
 def bias_variance(
@@ -91,8 +93,8 @@ def bias_variance(
       continue
     bias = ef.mean(axis=0)
     var = ef.var(axis=0)
-    mse = float((ef ** 2).sum(axis=1).mean())
-    bias_sq = float((bias ** 2).sum())
+    mse = float((ef**2).sum(axis=1).mean())
+    bias_sq = float((bias**2).sum())
     out.append(
       BiasVarianceResult(
         window_s=float(w),

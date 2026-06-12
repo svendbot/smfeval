@@ -56,7 +56,11 @@ import numpy as np
 
 from smfeval.format import TangentOrder
 from smfeval.scoring.crps import _gaussian_crps
-from smfeval.scoring.logscore import AneesResult, _score_components, anees_consistency
+from smfeval.scoring.logscore import (
+  AneesResult,
+  _score_components,
+  anees_consistency,
+)
 from smfeval.scoring.summary import ScoreSummary, summarize
 from smfeval.se3.lie import trans_slice
 from smfeval.steps import GaussianStep, Step
@@ -64,7 +68,7 @@ from smfeval.steps import GaussianStep, Step
 
 @dataclass
 class RelativeCrpsResult:
-  """Relative translation CRPS at one window :math:`\\Delta t`."""
+  r"""Relative translation CRPS at one window :math:`\Delta t`."""
 
   window_s: float
   n_pairs: int

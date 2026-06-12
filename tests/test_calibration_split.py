@@ -43,6 +43,7 @@ def test_student_t_non_pd_is_inf():
   cov = np.diag([-1.0, 0.05, 0.05, 0.01, 0.01, 0.01])
   assert student_t_neg_log_density(np.ones(6), cov, nu=5.0) == float("inf")
 
+
 RNG = np.random.default_rng(7)
 
 
@@ -190,8 +191,11 @@ def test_relative_calibration_requires_gaussian():
   from smfeval.steps import DeterministicStep
 
   steps = [
-    DeterministicStep(timestamp=float(i), translation=np.array([i, 0.0, 0.0]),
-                      quat_xyzw=np.array([0.0, 0.0, 0.0, 1.0]))
+    DeterministicStep(
+      timestamp=float(i),
+      translation=np.array([i, 0.0, 0.0]),
+      quat_xyzw=np.array([0.0, 0.0, 0.0, 1.0]),
+    )
     for i in range(5)
   ]
   with pytest.raises(TypeError):
