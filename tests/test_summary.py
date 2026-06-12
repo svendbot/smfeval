@@ -95,6 +95,17 @@ def test_pw_block_length_handles_constant_series():
   assert politis_white_block_length(np.full(100, 3.14)) == 1.0
 
 
+def test_pw_block_length_heavy_autocorrelation_no_indexerror():
+  """Regression: with strong autocorrelation, k_star can land above
+  M_max/2, so M = 2·k_star exceeds M_max — and the autocovariance lookup
+  R[|ks|] indexes past the precomputed array, raising IndexError.
+  Deterministically triggered by n=1000, rho=0.9, seed=0.
+  """
+  rng = np.random.default_rng(0)
+  b = politis_white_block_length(_ar1(1000, 0.9, rng))
+  assert np.isfinite(b) and b >= 1.0
+
+
 def test_block_bootstrap_ci_widens_with_autocorrelation():
   """Stationary bootstrap on an AR(1) series must produce a wider CI on the
   mean than the iid bootstrap on the same series, because the iid bootstrap
