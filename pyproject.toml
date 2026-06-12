@@ -54,6 +54,9 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: long-running tests (deselect with -m 'not slow')",
+]
 
 [tool.ruff]
 # Google Python Style Guide: 80-char lines, Py3.10 target. Indent width
