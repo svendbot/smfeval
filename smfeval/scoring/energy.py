@@ -5,7 +5,7 @@ introduced by Székely (2003) and characterised as a strictly proper
 multivariate kernel score by Gneiting & Raftery (2007).
 
 References:
-----------
+-----------
 Székely, G. J. (2003). *E-statistics: The energy of statistical
 samples*. Bowling Green State University, Tech. Rep. 03-05.
 

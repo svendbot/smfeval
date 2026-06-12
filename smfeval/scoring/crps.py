@@ -8,7 +8,7 @@ energy-form characterisation we use here is from Gneiting & Raftery
 geodesic distance as a (negative-definite) kernel.
 
 References:
-----------
+-----------
 Matheson, J. E. & Winkler, R. L. (1976). *Scoring rules for continuous
 probability distributions*. Management Science 22(10), 1087–1096.
 
@@ -151,7 +151,7 @@ def rotation_crps(
   angle.
 
   References:
-  ----------
+  -----------
   Grimit, Gneiting, Berrocal & Johnson (2006) for the circular kernel
   CRPS; Sejdinovic, Sriperumbudur, Gretton & Fukumizu (2013) for
   propriety of distance-based kernel scores.

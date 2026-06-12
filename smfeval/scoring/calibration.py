@@ -24,7 +24,7 @@ predictive samples; under a well-calibrated belief :math:`p \sim U(0, 1)`
 (Dawid, 1984; Diebold, Gunther & Tay, 1998).
 
 References:
-----------
+-----------
 Dawid, A. P. (1984). *Statistical theory: The prequential approach*.
 JRSS A 147(2), 278–292.
 

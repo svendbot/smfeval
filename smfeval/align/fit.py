@@ -8,7 +8,7 @@ Modes mirror the four GAUGE values:
 - ``sim3``: Umeyama (1991) closed-form similarity (7 DoF)
 
 References:
-----------
+-----------
 Kabsch, W. (1976). *A solution for the best rotation to relate two sets
 of vectors*. Acta Crystallographica A 32(5), 922–923.
 

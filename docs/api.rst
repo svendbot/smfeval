@@ -7,13 +7,17 @@ Scoring rules and calibration
 .. autosummary::
    :toctree: _autosummary
 
-   src.scoring.crps
-   src.scoring.energy
-   src.scoring.interval
-   src.scoring.logscore
-   src.scoring.calibration
-   src.scoring.ensemble_diag
-   src.scoring.summary
+   smfeval.scoring.crps
+   smfeval.scoring.energy
+   smfeval.scoring.interval
+   smfeval.scoring.logscore
+   smfeval.scoring.calibration
+   smfeval.scoring.pairwise
+   smfeval.scoring.relative
+   smfeval.scoring.bias_variance
+   smfeval.scoring.ensemble_diag
+   smfeval.scoring.gaussian_diag
+   smfeval.scoring.summary
 
 SE(3) geometry
 --------------
@@ -21,9 +25,9 @@ SE(3) geometry
 .. autosummary::
    :toctree: _autosummary
 
-   src.se3.lie
-   src.se3.quat
-   src.se3.tangent
+   smfeval.se3.lie
+   smfeval.se3.quat
+   smfeval.se3.tangent
 
 Alignment
 ---------
@@ -31,8 +35,8 @@ Alignment
 .. autosummary::
    :toctree: _autosummary
 
-   src.align.fit
-   src.align.propagate
+   smfeval.align.fit
+   smfeval.align.propagate
 
 Synchronisation
 ---------------
@@ -40,8 +44,9 @@ Synchronisation
 .. autosummary::
    :toctree: _autosummary
 
-   src.sync.match
-   src.sync.risk
+   smfeval.sync.match
+   smfeval.sync.interpolate
+   smfeval.sync.risk
 
 I/O and types
 -------------
@@ -49,11 +54,12 @@ I/O and types
 .. autosummary::
    :toctree: _autosummary
 
-   src.io.header
-   src.io.reader
-   src.io.writer
-   src.steps
-   src.format
+   smfeval.io.header
+   smfeval.io.load
+   smfeval.io.reader
+   smfeval.io.writer
+   smfeval.steps
+   smfeval.format
 
 Reporting and CLI
 -----------------
@@ -61,7 +67,9 @@ Reporting and CLI
 .. autosummary::
    :toctree: _autosummary
 
-   src.report.builder
-   src.report.text
-   src.report.recommendations
-   src.cli.main
+   smfeval.report.builder
+   smfeval.report.verdict
+   smfeval.report.diagnostics
+   smfeval.report.text
+   smfeval.report.recommendations
+   smfeval.cli.main

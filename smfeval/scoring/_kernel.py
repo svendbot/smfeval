@@ -4,7 +4,7 @@ Uniform code path for ensembles (native) and Gaussians (sampled): both
 end up as point clouds, then the same estimator runs.
 
 References:
-----------
+-----------
 Gneiting, T. & Raftery, A. E. (2007). *Strictly proper scoring rules,
 prediction, and estimation*. JASA 102(477), 359–378.
 """
@@ -40,7 +40,7 @@ def energy_score_estimator(
   yields the unbiased U-statistic estimator.
 
   References:
-  ----------
+  -----------
   Gneiting & Raftery (2007), eqs. (21)–(22).
   """
   m = samples.shape[0]
@@ -64,7 +64,7 @@ def crps_estimator(samples: np.ndarray, observation: float) -> float:
   (the 1-D specialisation of the energy score).
 
   References:
-  ----------
+  -----------
   Gneiting & Raftery (2007), eq. (20).
   """
   m = samples.size

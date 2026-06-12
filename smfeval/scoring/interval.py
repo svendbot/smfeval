@@ -32,7 +32,7 @@ def interval_score(
   :math:`\bigl(F^{-1}(\alpha/2),\ F^{-1}(1-\alpha/2)\bigr)`.
 
   References:
-  ----------
+  -----------
   Gneiting, T. & Raftery, A. E. (2007). *Strictly proper scoring rules,
   prediction, and estimation*. JASA 102(477), 359–378.
   """

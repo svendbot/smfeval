@@ -14,7 +14,7 @@ We follow the conventions of Solà, Deray & Atchuthan (2018) and Barfoot
 with a Taylor fallback for :math:`\theta < \texttt{\_EPS}`.
 
 References:
-----------
+-----------
 Solà, J., Deray, J. & Atchuthan, D. (2018). *A micro Lie theory for
 state estimation in robotics*. arXiv:1812.01537.
 

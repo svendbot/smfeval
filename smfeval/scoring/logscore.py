@@ -20,7 +20,7 @@ three numbers are not independent (the joint encodes their
 cross-covariance) but together they decompose the scalar.
 
 References:
-----------
+-----------
 Good, I. J. (1952). *Rational decisions*. JRSS B 14(1), 107–114.
 
 Gneiting, T. & Raftery, A. E. (2007). *Strictly proper scoring rules,

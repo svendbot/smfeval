@@ -58,14 +58,14 @@ def interpolate_gt_at(
       for numerical stability of K_zz inversion.
 
   Returns:
-  -------
+  --------
   translations : (Q, 3) interpolated translations (zeros where ``keep`` is False).
   quats : (Q, 4) interpolated quaternions xyzw.
   covariances : (Q, 6, 6) tangent-space predictive covariance in
       ``translation_rotation`` order. Same scalar variance on all six diagonal
       entries (kernel is shared across components, per the paper).
-  keep : (Q,) bool — False where the query fell outside ``[gt_times[0],
-      gt_times[-1]]``.
+  keep : (Q,) bool — False where the query fell outside the GT time span
+      ``[gt_times[0], gt_times[-1]]``.
   """
   query_times = np.asarray(query_times, dtype=float)
   gt_times = np.asarray(gt_times, dtype=float)

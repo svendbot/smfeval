@@ -12,7 +12,7 @@ sequential Monte Carlo by Liu & Chen (1995):
    \qquad \sum_i w_i = 1.
 
 References:
-----------
+-----------
 Kong, A., Liu, J. S. & Wong, W. H. (1994). *Sequential imputations and
 Bayesian missing data problems*. JASA 89(425), 278–288.
 

@@ -8,14 +8,15 @@ Build with::
 import os
 import sys
 from datetime import datetime
+from importlib.metadata import version as _pkg_version
 
-# Make the `src` package importable for autodoc.
+# Make the `smfeval` package importable for autodoc.
 sys.path.insert(0, os.path.abspath(".."))
 
 project = "smfeval"
 author = "Ola Rønning"
 copyright = f"{datetime.now():%Y}, {author}"
-release = "0.2.0"
+release = _pkg_version("smfeval")
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -33,7 +34,9 @@ autodoc_default_options = {
     "show-inheritance": True,
 }
 autodoc_typehints = "description"
-napoleon_google_docstring = False
+# the codebase uses Google-style docstrings (ruff pydocstyle convention)
+# with occasional NumPy-style sections in older modules; accept both.
+napoleon_google_docstring = True
 napoleon_numpy_docstring = True
 napoleon_use_rtype = False
 

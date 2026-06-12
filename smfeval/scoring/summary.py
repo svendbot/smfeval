@@ -23,7 +23,7 @@ summaries (mean / median / std / min / max) are kept (Sturm et al.,
 2012); only the CI aggregation changes.
 
 References:
-----------
+-----------
 Dawid, A. P. (1984). *Statistical theory: The prequential approach*.
 JRSS A 147(2), 278–292.
 

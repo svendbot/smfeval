@@ -204,21 +204,20 @@ def relative_translation_crps(
 ) -> list[RelativeCrpsResult]:
   r"""Short-window relative translation CRPS at each window in ``windows_s``.
 
-  Parameters
-  ----------
-  steps
-      SE(3)-aligned estimate steps. Must be :class:`GaussianStep` — the
-      relative metric needs a published position covariance.
-  gt_translations
-      Matched ground-truth translations, element-aligned with ``steps``.
-  windows_s
-      Relative-pose windows :math:`\Delta t` in seconds.
-  tolerance_s
-      Max allowed deviation of a realised pair gap from the requested
-      window. Defaults to half the median sampling period.
+  Args:
+    steps: SE(3)-aligned estimate steps. Must be :class:`GaussianStep` —
+      the relative metric needs a published position covariance.
+    gt_translations: Matched ground-truth translations, element-aligned
+      with ``steps``.
+    windows_s: Relative-pose windows :math:`\Delta t` in seconds.
+    tangent_order: Tangent block order of the step covariances.
+    rng: Generator for the bootstrap CI on the per-pair CRPS series.
+    tolerance_s: Max allowed deviation of a realised pair gap from the
+      requested window. Defaults to half the median sampling period.
 
-  Returns one :class:`RelativeCrpsResult` per window (skipping windows
-  with no valid pairs).
+  Returns:
+    One :class:`RelativeCrpsResult` per window (skipping windows with no
+    valid pairs).
   """
   if not all(isinstance(s, GaussianStep) for s in steps):
     raise TypeError(
