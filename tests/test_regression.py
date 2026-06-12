@@ -52,9 +52,11 @@ def _build_argv(scenario: Path, json_out: Path) -> tuple[list[str], bool]:
 
   gt = scenario / ("gt.tum" if (scenario / "gt.tum").exists() else "gt.smfeval")
   est = scenario / "est.smfeval"
-  argv = [cmd, str(est), str(gt), "--seed", str(spec.get("seed", 0))]
-  if cmd == "score" and "n_samples" in spec:
-    argv += ["--n_samples", str(spec["n_samples"])]
+  argv = [cmd, str(est), str(gt)]
+  if cmd == "score":
+    argv += ["--seed", str(spec.get("seed", 0))]
+    if "n_samples" in spec:
+      argv += ["--n_samples", str(spec["n_samples"])]
   if spec.get("gt_body_frame"):
     argv += ["--gt-body-frame", spec["gt_body_frame"]]
   if spec.get("gt_pose_frame"):

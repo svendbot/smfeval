@@ -173,22 +173,27 @@ def pair_translation_nees(
     d[k] = xi[ti_a]
     cov[k] = sa.covariance[ti_a, ti_a] + sb.covariance[ti_b, ti_b]
 
+  # batched scoring over the staged (n,3) / (n,3,3) arrays
   nees = np.full(n, np.nan)
   logs = np.full(n, np.nan)
   nees_ax = np.full((n, 3), np.nan)
-  for k in range(n):
-    if not (np.all(np.isfinite(cov[k])) and np.all(np.isfinite(d[k]))):
-      continue
-    sign, logdet = np.linalg.slogdet(cov[k])
-    if sign <= 0:
-      continue
-    nees[k] = float(d[k] @ np.linalg.solve(cov[k], d[k]))
-    logs[k] = 0.5 * nees[k] + 0.5 * (logdet + 3.0 * np.log(2.0 * np.pi))
-    var = np.diag(cov[k])
-    if np.all(var > 0):
-      nees_ax[k] = d[k] ** 2 / var
+  ok = np.isfinite(d).all(axis=1) & np.isfinite(cov).all(axis=(1, 2))
+  if ok.any():
+    sign, logdet = np.linalg.slogdet(cov[ok])
+    pd = sign > 0
+    idx = np.flatnonzero(ok)[pd]
+    if idx.size:
+      sol = np.linalg.solve(cov[idx], d[idx, :, None])[:, :, 0]
+      nees[idx] = np.einsum("ij,ij->i", d[idx], sol)
+      logs[idx] = 0.5 * nees[idx] + 0.5 * (
+        logdet[pd] + 3.0 * np.log(2.0 * np.pi)
+      )
+      var = cov[idx][:, [0, 1, 2], [0, 1, 2]]
+      pos = (var > 0).all(axis=1)
+      nees_ax[idx[pos]] = d[idx[pos]] ** 2 / var[pos]
 
   fin = np.isfinite(nees)
+  anees = anees_consistency(nees, dof=3, alpha=alpha)
   return PairResult(
     n_matched=m.n_matched,
     join_frac=m.n_matched / min(len(ts_a), len(ts_b)),
@@ -198,7 +203,7 @@ def pair_translation_nees(
     nees=nees,
     nees_axis=nees_ax,
     log_score_mean=float(np.mean(logs[fin])) if fin.any() else float("nan"),
-    anees=anees_consistency(nees, dof=3, alpha=alpha),
-    k_pair=_med(nees) / _CHI2_MED_3,
+    anees=anees,
+    k_pair=anees.median / _CHI2_MED_3,
     k_axis=tuple(_med(nees_ax[:, i]) / _CHI2_MED_1 for i in range(3)),
   )

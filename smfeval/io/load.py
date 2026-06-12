@@ -226,3 +226,61 @@ def load_square(path: Path) -> tuple[SquareHeader, list[Step]]:
     header = parse_header(f)
     steps = list(iter_steps(f, header))
   return header, steps
+
+
+def load_estimate(
+  path: Path,
+  *,
+  cov: Path | None = None,
+  pose_frame: str = "world",
+  body_frame: str | None = None,
+  tangent_convention: TangentConvention = TangentConvention.RIGHT,
+  tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
+  gauge: Gauge = Gauge.SE3,
+) -> tuple[SquareHeader, list[Step]]:
+  """Load an estimate: SQUARE natively, or the bare-TUM escape hatches.
+
+  A header-less file may be wide TUM (29 columns: pose + the 21
+  lower-triangle covariance entries), plain TUM with a ``cov`` sidecar,
+  or plain TUM (deterministic). Either way ``body_frame`` must declare
+  what the missing header would have. Raises FormatError on
+  undeclared or unrecognized input.
+  """
+  if not looks_like_tum(path):
+    return load_square(path)
+
+  if body_frame is None:
+    raise FormatError(
+      "estimate file is header-less (bare TUM) so its body frame is "
+      "unknown; pass --est-body-frame <name>"
+    )
+  ncols = sniff_tum_columns(path)
+  if ncols == 29:
+    return load_tum_gaussian(
+      path,
+      pose_frame=pose_frame,
+      body_frame=body_frame,
+      tangent_convention=tangent_convention,
+      tangent_order=tangent_order,
+      gauge=gauge,
+    )
+  if ncols == 8 and cov is not None:
+    return load_tum_with_sidecar(
+      path,
+      cov,
+      pose_frame=pose_frame,
+      body_frame=body_frame,
+      tangent_convention=tangent_convention,
+      tangent_order=tangent_order,
+      gauge=gauge,
+    )
+  if ncols == 8:
+    tum, steps = load_tum(path, pose_frame=pose_frame, body_frame=body_frame)
+    header = tum.to_square()
+    header.gauge = gauge
+    return header, steps
+  raise FormatError(
+    f"header-less estimate has {ncols} columns; expected 8 (TUM, "
+    "optionally with --cov sidecar) or 29 (TUM + 21 lower-triangle "
+    "covariance entries)"
+  )

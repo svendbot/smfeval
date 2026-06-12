@@ -16,12 +16,13 @@ filter within sampling noise of calibrated prints "consistent" even when
 k is not exactly 1.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 import numpy as np
 from scipy.stats import chi2
 
 from smfeval.scoring.logscore import AneesResult, anees_consistency
+from smfeval.scoring.pairwise import PairResult
 
 _DIRECTION = {
   "optimistic": "too tight",
@@ -33,19 +34,44 @@ _DIRECTION = {
 
 @dataclass
 class NeesVerdict:
+  """Verdict statistics; the k/direction fields derive from these."""
+
   median_nees: float
-  calibrated_median: float  # chi2.ppf(0.5, dof)
-  k: float  # median_nees / calibrated_median
-  per_axis_factor: float  # sqrt(k)
   coverage: float  # fraction inside the nominal ellipsoid
   nominal_coverage: float
   dof: int
   n: int
-  direction: str  # too tight | too loose | consistent
   anees: AneesResult
 
+  @property
+  def calibrated_median(self) -> float:
+    return float(chi2.ppf(0.5, df=self.dof))
+
+  @property
+  def k(self) -> float:
+    return self.median_nees / self.calibrated_median
+
+  @property
+  def per_axis_factor(self) -> float:
+    return float(np.sqrt(self.k)) if self.k >= 0 else float("nan")
+
+  @property
+  def direction(self) -> str:
+    return _DIRECTION[self.anees.verdict]
+
   def to_dict(self) -> dict:
-    return asdict(self)
+    return {
+      "median_nees": self.median_nees,
+      "calibrated_median": self.calibrated_median,
+      "k": self.k,
+      "per_axis_factor": self.per_axis_factor,
+      "coverage": self.coverage,
+      "nominal_coverage": self.nominal_coverage,
+      "dof": self.dof,
+      "n": self.n,
+      "direction": self.direction,
+      "anees": self.anees.to_dict(),
+    }
 
 
 def nees_verdict(
@@ -54,25 +80,28 @@ def nees_verdict(
   dof: int = 3,
   nominal: float = 0.90,
   alpha: float = 0.05,
+  anees: AneesResult | None = None,
 ) -> NeesVerdict:
-  """Summarize a per-pose NEES series into the three-line verdict."""
+  """Summarize a per-pose NEES series into the three-line verdict.
+
+  Pass ``anees`` when an :func:`anees_consistency` result for the same
+  series is already in hand (e.g. from :class:`PairResult`) to avoid
+  recomputing it.
+  """
   vals = np.asarray(nees, dtype=float)
   vals = vals[np.isfinite(vals)]
-  cal_median = float(chi2.ppf(0.5, df=dof))
   q_nominal = float(chi2.ppf(nominal, df=dof))
-  res = anees_consistency(vals, dof=dof, alpha=alpha)
-  median = float(np.median(vals)) if vals.size else float("nan")
-  k = median / cal_median
+  res = (
+    anees
+    if anees is not None
+    else anees_consistency(vals, dof=dof, alpha=alpha)
+  )
   return NeesVerdict(
-    median_nees=median,
-    calibrated_median=cal_median,
-    k=k,
-    per_axis_factor=float(np.sqrt(k)) if k >= 0 else float("nan"),
+    median_nees=res.median,
     coverage=float((vals <= q_nominal).mean()) if vals.size else float("nan"),
     nominal_coverage=nominal,
     dof=dof,
     n=int(vals.size),
-    direction=_DIRECTION[res.verdict],
     anees=res,
   )
 
@@ -81,11 +110,7 @@ def _fmt(x: float) -> str:
   """Compact magnitude formatting: 2.37, 12.4, 537, 5.63e3."""
   if not np.isfinite(x):
     return "nan"
-  if x == 0:
-    return "0"
-  if abs(x) >= 1e3 or abs(x) < 1e-2:
-    return f"{x:.3g}".replace("e+0", "e").replace("e-0", "e-")
-  return f"{x:.3g}"
+  return f"{x:.3g}".replace("e+0", "e").replace("e-0", "e-")
 
 
 def render_nees_verdict(v: NeesVerdict) -> str:
@@ -108,7 +133,23 @@ def render_nees_verdict(v: NeesVerdict) -> str:
   )
 
 
-def render_pair_verdict(v: NeesVerdict, *, caveat: str) -> str:
+def pair_verdict_dict(res: PairResult, v: NeesVerdict, caveat: str) -> dict:
+  """The pair verb's machine-readable schema (pinned by pair_smoke golden)."""
+  return {
+    "n_matched": res.n_matched,
+    "n_scored": res.n_scored,
+    "join_frac": res.join_frac,
+    "gap_median_ms": res.gap_median_ms,
+    "med_d_norm_m": res.med_d_norm,
+    "log_score_mean": res.log_score_mean,
+    "k_pair_lower_bound": res.k_pair,
+    "k_axis_lower_bound": list(res.k_axis),
+    "verdict": v.to_dict(),
+    "caveat": caveat,
+  }
+
+
+def render_pair_verdict(res: PairResult, v: NeesVerdict, *, caveat: str) -> str:
   """Pair variant: k only lower-bounds the gap (see the propriety caveat)."""
   if v.direction == "consistent":
     gap = f"pairwise scale gap k >= {_fmt(v.k)}  (lower bound)"
@@ -118,6 +159,8 @@ def render_pair_verdict(v: NeesVerdict, *, caveat: str) -> str:
       f">={_fmt(v.per_axis_factor)}x {v.direction} per axis  (lower bound)"
     )
   lines = [
+    f"matched {res.n_matched} pose pairs, scored {res.n_scored}  "
+    f"(join {res.join_frac:.2f}, median gap {res.gap_median_ms:.1f} ms)",
     caveat,
     "",
     f"pairwise median NEES {_fmt(v.median_nees)}   "

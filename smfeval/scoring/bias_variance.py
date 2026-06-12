@@ -25,7 +25,7 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 
-from smfeval.scoring.relative import _window_pairs
+from smfeval.scoring.relative import _default_tolerance, _window_pairs
 
 _AXES = ("along", "cross", "vertical")
 
@@ -80,8 +80,7 @@ def bias_variance(
   ts = np.array([s.timestamp for s in steps], dtype=float)
   mu = np.array([s.translation for s in steps], dtype=float)
   gt = np.asarray(gt_translations, dtype=float)
-  dt_med = float(np.median(np.diff(np.sort(ts)))) if ts.size > 1 else 0.0
-  tol = tolerance_s if tolerance_s is not None else 0.5 * dt_med
+  tol = _default_tolerance(ts, tolerance_s)
 
   out: list[BiasVarianceResult] = []
   for w in windows_s:

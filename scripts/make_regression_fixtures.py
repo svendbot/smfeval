@@ -26,6 +26,7 @@ import yaml
 
 from smfeval.format import Representation
 from smfeval.io import load_square, write_header, write_steps
+from smfeval.se3.lie import homogeneous, invert
 
 BENCH = Path.home() / "smf" / "slam_benchmark"
 EVAL = BENCH / "evaluation"
@@ -62,13 +63,12 @@ def imu_to_lidar(algo: str) -> dict:
     (BENCH / "algorithms" / algo / "configs" / "spires.yaml").read_text()
   )
   m = cfg.get("mapping") or cfg.get("lio") or {}
-  R, t = m["extrinsic_R"], m["extrinsic_T"]
-  Rt = [R[3 * j + i] for i in range(3) for j in range(3)]
-  nt = [
-    -(Rt[3 * i] * t[0] + Rt[3 * i + 1] * t[1] + Rt[3 * i + 2] * t[2])
-    for i in range(3)
-  ]
-  return {"R": Rt, "t": nt}
+  T = homogeneous(
+    np.array(m["extrinsic_R"], dtype=float).reshape(3, 3),
+    np.array(m["extrinsic_T"], dtype=float),
+  )
+  T_inv = invert(T)
+  return {"R": T_inv[:3, :3].flatten().tolist(), "t": T_inv[:3, 3].tolist()}
 
 
 def check_steps(steps: list, name: str) -> None:
@@ -110,7 +110,7 @@ def write_fixture(name: str, run: Path, est_name: str = "est.smfeval") -> tuple:
   with (scen / est_name).open("w") as f:
     write_header(f, header)
     write_steps(f, cut, header)
-  return header, cut, scen
+  return cut, scen
 
 
 def provenance(scen: Path, runs: list[Path]) -> None:
@@ -129,7 +129,7 @@ def provenance(scen: Path, runs: list[Path]) -> None:
 def main() -> None:
   for name, (algo, cmd, needs_tf) in FILTERS.items():
     run = newest_run(algo)
-    _, cut, scen = write_fixture(f"real_{name}", run)
+    cut, scen = write_fixture(f"real_{name}", run)
     gt_rows = cut_gt(cut[0].timestamp, cut[-1].timestamp)
     (scen / "gt.tum").write_text("\n".join(gt_rows) + "\n")
     args: dict = {"cmd": cmd, "gt_body_frame": "lidar", "seed": 0, "extra": []}
@@ -147,7 +147,7 @@ def main() -> None:
   # pair fixture: two filters, same sequence and span, no GT involved.
   run_a = newest_run("fast_lio2_belief")
   run_b = newest_run("point_lio_belief")
-  _, cut_a, scen = write_fixture("pair_smoke", run_a, "a.smfeval")
+  cut_a, scen = write_fixture("pair_smoke", run_a, "a.smfeval")
   hb, steps_b = load_square(run_b / "traj.SQUARE")
   cut_b = steps_b[ROW_LO:ROW_HI]
   check_steps(cut_b, "pair_smoke/b")

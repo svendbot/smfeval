@@ -5,6 +5,8 @@ pair pipeline (timestamp match -> Umeyama A->B -> tangent difference ->
 NEES under summed covariance) is exercised end to end.
 """
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 from hypothesis import given
@@ -94,11 +96,8 @@ def test_pair_is_symmetric(seed, offset):
   rng = np.random.default_rng(seed)
   a = _gauss_traj(rng, n=25, jitter=0.05)
   b = [
-    GaussianStep(
-      timestamp=s.timestamp,
-      translation=s.translation + offset + rng.normal(scale=0.05, size=3),
-      quat_xyzw=s.quat_xyzw,
-      covariance=s.covariance,
+    replace(
+      s, translation=s.translation + offset + rng.normal(scale=0.05, size=3)
     )
     for s in a
   ]
@@ -203,13 +202,7 @@ def test_non_pd_rows_are_skipped_not_fatal():
   rng = np.random.default_rng(0)
   a = _gauss_traj(rng, n=15, jitter=0.05)
   b = _gauss_traj(rng, n=15, jitter=0.05)
-  bad = a[3]
-  a[3] = GaussianStep(
-    timestamp=bad.timestamp,
-    translation=bad.translation,
-    quat_xyzw=bad.quat_xyzw,
-    covariance=-np.eye(6),
-  )
+  a[3] = replace(a[3], covariance=-np.eye(6))
   res = pair_translation_nees(_header(), a, _header(), b)
   assert res.n_matched == 15
   assert res.n_scored == 14

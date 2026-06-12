@@ -27,13 +27,11 @@ from smfeval.format import (
 )
 from smfeval.io import (
   iter_steps,
+  load_estimate,
   load_square,
   load_tum,
-  load_tum_gaussian,
-  load_tum_with_sidecar,
   looks_like_tum,
   parse_header,
-  sniff_tum_columns,
 )
 from smfeval.report import (
   build_report,
@@ -43,6 +41,7 @@ from smfeval.report import (
 )
 from smfeval.report.verdict import (
   nees_verdict,
+  pair_verdict_dict,
   render_nees_verdict,
   render_pair_verdict,
 )
@@ -64,6 +63,7 @@ from smfeval.scoring import (
   translation_crps,
   translation_magnitude_interval_score,
 )
+from smfeval.scoring.logscore import _gaussian_neg_log_density
 from smfeval.scoring.pairwise import (
   PROPRIETY_CAVEAT,
   PairInputError,
@@ -88,7 +88,6 @@ def _add_common_args(p: argparse.ArgumentParser) -> None:
     "--align", default=None, choices=["none", "se3", "gravity_yaw", "sim3"]
   )
   p.add_argument("--n_to_align", type=int, default=None)
-  p.add_argument("--seed", type=int, default=0)
   p.add_argument(
     "--gt-body-frame",
     default=None,
@@ -200,6 +199,12 @@ def main(argv: list[str] | None = None) -> int:
     help="which tangent block to score (default: translation, dof 3)",
   )
   pn.add_argument(
+    "--alpha",
+    type=float,
+    default=0.05,
+    help="significance level of the two-sided ANEES chi2 verdict",
+  )
+  pn.add_argument(
     "--json", action="store_true", help="print the verdict as JSON"
   )
 
@@ -236,6 +241,7 @@ def main(argv: list[str] | None = None) -> int:
   _add_common_args(ps)
   ps.add_argument("--alpha", type=float, default=0.1)
   ps.add_argument("--n_samples", type=int, default=128)
+  ps.add_argument("--seed", type=int, default=0)
   ps.add_argument(
     "--rpe-window",
     type=str,
@@ -473,25 +479,17 @@ def _compute_scores(
     crps_r.append(rotation_crps(s, gt_q, order, rng=rng))
     es.append(energy_score(s, gt_t, gt_q, order, n_samples, rng))
 
-    match s:
-      case GaussianStep():
-        ls = gaussian_log_score(s, gt_t, gt_q, order)
-        log_joint.append(ls.joint)
-        log_trans.append(ls.translation)
-        log_rot.append(ls.rotation)
-        is_t.append(
-          translation_magnitude_interval_score(
-            s, gt_t, alpha, n_samples, rng, order
-          )
+    if isinstance(s, GaussianStep):
+      ls = gaussian_log_score(s, gt_t, gt_q, order)
+      log_joint.append(ls.joint)
+      log_trans.append(ls.translation)
+      log_rot.append(ls.rotation)
+    if not isinstance(s, DeterministicStep):
+      is_t.append(
+        translation_magnitude_interval_score(
+          s, gt_t, alpha, n_samples, rng, order
         )
-      case EnsembleStep():
-        is_t.append(
-          translation_magnitude_interval_score(
-            s, gt_t, alpha, n_samples, rng, order
-          )
-        )
-      case DeterministicStep():
-        pass
+      )
 
   boot_rng = np.random.default_rng(seed + 2)
   scores: dict[str, ScoreSummary] = {
@@ -525,58 +523,50 @@ class PreparedRun:
 
 
 def _load_estimate(args: argparse.Namespace) -> tuple[SquareHeader, list[Step]]:
-  """Load the estimate: SQUARE natively, or the bare-TUM escape hatches.
-
-  A header-less estimate may be wide TUM (29 columns: pose + the 21
-  lower-triangle covariance entries) or plain TUM (8 columns) with a
-  ``--cov`` sidecar; either way ``--est-body-frame`` must declare what the
-  missing header would have. Raises FormatError on undeclared/unknown input.
-  """
-  if not looks_like_tum(args.est):
-    return load_square(args.est)
-
-  if args.est_body_frame is None:
-    raise FormatError(
-      "estimate file is header-less (bare TUM) so its body frame is "
-      "unknown; pass --est-body-frame <name>"
-    )
-  ncols = sniff_tum_columns(args.est)
-  common = dict(
+  """io.load_estimate plus a stderr note when the escape hatch kicked in."""
+  was_tum = looks_like_tum(args.est)
+  header, steps = load_estimate(
+    args.est,
+    cov=args.cov,
     pose_frame=args.est_pose_frame,
     body_frame=args.est_body_frame,
     tangent_convention=args.tangent_convention,
     tangent_order=args.tangent_order,
     gauge=args.gauge,
   )
-  if ncols == 29:
-    header, steps = load_tum_gaussian(args.est, **common)
-  elif ncols == 8 and args.cov is not None:
-    header, steps = load_tum_with_sidecar(args.est, args.cov, **common)
-  elif ncols == 8:
-    tum, steps = load_tum(
-      args.est, pose_frame=args.est_pose_frame, body_frame=args.est_body_frame
+  if was_tum:
+    suffix = ""
+    if header.representation is Representation.GAUSSIAN_SE3:
+      suffix = (
+        f", {header.tangent_convention.value}, {header.tangent_order.value}"
+      )
+    print(
+      f"note: bare-TUM estimate read as {header.representation.value} "
+      f"(body_frame={header.body_frame!r}, pose_frame={header.pose_frame!r}, "
+      f"gauge={header.gauge.value}{suffix})",
+      file=sys.stderr,
     )
-    header = replace(tum.to_square(), gauge=args.gauge)
-  else:
-    raise FormatError(
-      f"header-less estimate has {ncols} columns; expected 8 (TUM, "
-      "optionally with --cov sidecar) or 29 (TUM + 21 lower-triangle "
-      "covariance entries)"
-    )
-  print(
-    f"note: bare-TUM estimate read as {header.representation.value} "
-    f"(body_frame={header.body_frame!r}, pose_frame={header.pose_frame!r}, "
-    f"gauge={header.gauge.value}"
-    + (
-      f", {header.tangent_convention.value}, {header.tangent_order.value})"
-      if header.representation is Representation.GAUSSIAN_SE3
-      and header.tangent_convention is not None
-      and header.tangent_order is not None
-      else ")"
-    ),
-    file=sys.stderr,
-  )
   return header, steps
+
+
+def _rebody(
+  header: SquareHeader,
+  steps: list[Step],
+  target_body_frame: str,
+  transform_path: Path,
+) -> tuple[SquareHeader, list[Step]]:
+  """Re-express a trajectory in another body frame and relabel its header."""
+  T_off = _load_body_frame_transform(transform_path)
+  steps = [
+    apply_body_transform(
+      s,
+      T_off,
+      tangent_convention=header.tangent_convention,
+      tangent_order=header.tangent_order,
+    )
+    for s in steps
+  ]
+  return replace(header, body_frame=target_body_frame), steps
 
 
 def _prepare(args: argparse.Namespace) -> PreparedRun | None:
@@ -630,16 +620,9 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
         file=sys.stderr,
       )
       return None
-    T_body_off = _load_body_frame_transform(args.body_frame_transform)
-    est_steps = [
-      apply_body_transform(
-        s,
-        T_body_off,
-        tangent_convention=est_header.tangent_convention,
-        tangent_order=est_header.tangent_order,
-      )
-      for s in est_steps
-    ]
+    est_header, est_steps = _rebody(
+      est_header, est_steps, gt_header.body_frame, args.body_frame_transform
+    )
 
   resolved = _resolve_sync(args, est_steps, gt_steps, est_header.tangent_order)
   if resolved is None:
@@ -701,7 +684,7 @@ def _nees(args: argparse.Namespace) -> int:
     vals.append(getattr(dec, args.slice).nees)
 
   dof = 6 if args.slice == "joint" else 3
-  v = nees_verdict(np.asarray(vals), dof=dof)
+  v = nees_verdict(np.asarray(vals), dof=dof, alpha=args.alpha)
   if args.json:
     print(json.dumps(v.to_dict(), indent=2, default=_json_default))
   else:
@@ -722,17 +705,9 @@ def _pair(args: argparse.Namespace) -> int:
     header_a.body_frame != header_b.body_frame
     and args.body_frame_transform is not None
   ):
-    T_off = _load_body_frame_transform(args.body_frame_transform)
-    steps_a = [
-      apply_body_transform(
-        s,
-        T_off,
-        tangent_convention=header_a.tangent_convention,
-        tangent_order=header_a.tangent_order,
-      )
-      for s in steps_a
-    ]
-    header_a = replace(header_a, body_frame=header_b.body_frame)
+    header_a, steps_a = _rebody(
+      header_a, steps_a, header_b.body_frame, args.body_frame_transform
+    )
 
   try:
     res = pair_translation_nees(
@@ -748,27 +723,12 @@ def _pair(args: argparse.Namespace) -> int:
     print(f"error: {e}", file=sys.stderr)
     return 2
 
-  v = nees_verdict(res.nees, dof=3, alpha=args.alpha)
+  v = nees_verdict(res.nees, dof=3, alpha=args.alpha, anees=res.anees)
   if args.json:
-    out = {
-      "n_matched": res.n_matched,
-      "n_scored": res.n_scored,
-      "join_frac": res.join_frac,
-      "gap_median_ms": res.gap_median_ms,
-      "med_d_norm_m": res.med_d_norm,
-      "log_score_mean": res.log_score_mean,
-      "k_pair_lower_bound": res.k_pair,
-      "k_axis_lower_bound": list(res.k_axis),
-      "verdict": v.to_dict(),
-      "caveat": PROPRIETY_CAVEAT,
-    }
+    out = pair_verdict_dict(res, v, PROPRIETY_CAVEAT)
     print(json.dumps(out, indent=2, default=_json_default))
   else:
-    print(
-      f"matched {res.n_matched} pose pairs, scored {res.n_scored}  "
-      f"(join {res.join_frac:.2f}, median gap {res.gap_median_ms:.1f} ms)"
-    )
-    print(render_pair_verdict(v, caveat=PROPRIETY_CAVEAT))
+    print(render_pair_verdict(res, v, caveat=PROPRIETY_CAVEAT))
   return 0
 
 
@@ -782,6 +742,12 @@ def _score(args: argparse.Namespace) -> int:
   matched_gt_t = pr.matched_gt_t
   matched_gt_q = pr.matched_gt_q
   match, fit, risks, gt_cov = pr.match, pr.fit, pr.risks, pr.gt_cov
+  order = pr.order
+  rpe_windows = (
+    [float(x) for x in args.rpe_window.split(",") if x.strip()]
+    if args.rpe_window
+    else None
+  )
 
   ensemble_diag = None
   if est_header.representation is Representation.ENSEMBLE_SE3:
@@ -790,8 +756,6 @@ def _score(args: argparse.Namespace) -> int:
       est_header.weight_format or WeightFormat.LINEAR,
       normalized=bool(est_header.weights_normalized),
     )
-
-  order = est_header.tangent_order or TangentOrder.TRANS_ROT
 
   # A5: fold the GT observer covariance into the predictive — Σ_eff = Σ_pred +
   # Σ_gt — so the score consumes ground-truth uncertainty, not just the
@@ -866,7 +830,7 @@ def _score(args: argparse.Namespace) -> int:
   if args.calibration:
     if est_header.representation is Representation.GAUSSIAN_SE3:
       split = _calibration_split_dict(
-        args, scored_est, matched_gt_t, matched_gt_q, order
+        args, scored_est, matched_gt_t, matched_gt_q, order, rpe_windows
       )
     else:
       print(
@@ -890,11 +854,7 @@ def _score(args: argparse.Namespace) -> int:
   )
   rep.calibration_split = split
   if args.calibration and len(matched_gt_t) > 2:
-    bv_windows = (
-      [float(x) for x in args.rpe_window.split(",") if x.strip()]
-      if args.rpe_window
-      else [0.1, 1.0, 10.0]
-    )
+    bv_windows = rpe_windows or [0.1, 1.0, 10.0]
     rep.bias_variance = [
       r.to_dict()
       for r in bias_variance(aligned_est, matched_gt_t, windows_s=bv_windows)
@@ -905,8 +865,10 @@ def _score(args: argparse.Namespace) -> int:
     _write_report_json(rep, args.json_out)
   print(render_report(rep))
 
-  if args.rpe_window:
-    _report_relative_crps(args, aligned_est, matched_gt_t, order, est_header)
+  if rpe_windows:
+    _report_relative_crps(
+      args, aligned_est, matched_gt_t, order, est_header, rpe_windows
+    )
   if split is not None:
     _emit_calibration_machine_lines(split)
   if args.student_t:
@@ -922,6 +884,7 @@ def _report_relative_crps(
   matched_gt_t: np.ndarray,
   order: TangentOrder,
   est_header: SquareHeader,
+  windows: list[float],
 ) -> None:
   r"""Compute and print short-window relative translation CRPS.
 
@@ -937,7 +900,6 @@ def _report_relative_crps(
       file=sys.stderr,
     )
     return
-  windows = [float(x) for x in args.rpe_window.split(",") if x.strip()]
   results = relative_translation_crps(
     aligned_est,
     matched_gt_t,
@@ -975,6 +937,7 @@ def _calibration_split_dict(
   matched_gt_t: np.ndarray,
   matched_gt_q: np.ndarray,
   order: TangentOrder,
+  windows: list[float] | None,
 ) -> dict | None:
   r"""Build the calibration/sharpness split dict consumed by the report + diagnose.
 
@@ -1016,21 +979,16 @@ def _calibration_split_dict(
     res = anees_consistency(
       np.asarray(nees[name], dtype=float), dof=dof[name], alpha=args.alpha
     )
+    d = res.to_dict()
+    d["nees_median"] = d.pop("median")
     absolute[name] = {
-      "anees": res.anees,
-      "nees_median": res.median,
-      "dof": res.dof,
-      "n": res.n,
-      "lo": res.lo,
-      "hi": res.hi,
-      "verdict": res.verdict,
+      **d,
       "calibration_median": _median_finite(calib[name]),
       "sharpness_median": _median_finite(sharp[name]),
     }
 
   split: dict = {"absolute": absolute}
-  if args.rpe_window:
-    windows = [float(x) for x in args.rpe_window.split(",") if x.strip()]
+  if windows:
     rows = relative_calibration(
       aligned_est,
       matched_gt_t,
@@ -1114,7 +1072,7 @@ def _report_student_t(
       ),
       order=order,
     )
-    gauss.append(gaussian_log_score(s, gt_t, gt_q, order).joint)
+    gauss.append(_gaussian_neg_log_density(xi, s.covariance))
     for nu in nus:
       tcols[nu].append(student_t_neg_log_density(xi, s.covariance, nu))
 

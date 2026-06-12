@@ -56,11 +56,7 @@ import numpy as np
 
 from smfeval.format import TangentOrder
 from smfeval.scoring.crps import _gaussian_crps
-from smfeval.scoring.logscore import (
-  AneesResult,
-  _score_components,
-  anees_consistency,
-)
+from smfeval.scoring.logscore import AneesResult, anees_consistency
 from smfeval.scoring.summary import ScoreSummary, summarize
 from smfeval.se3.lie import trans_slice
 from smfeval.steps import GaussianStep, Step
@@ -76,6 +72,14 @@ class RelativeCrpsResult:
   mean_z2: float
   sigma_rel_median_m: float
   rpe_rmse_m: float
+
+
+def _default_tolerance(ts: np.ndarray, tolerance_s: float | None) -> float:
+  """Window-pair tolerance: caller's value, else half the median period."""
+  if tolerance_s is not None:
+    return tolerance_s
+  dt_med = float(np.median(np.diff(np.sort(ts)))) if ts.size > 1 else 0.0
+  return 0.5 * dt_med
 
 
 def _window_pairs(
@@ -153,9 +157,7 @@ def relative_calibration(
   sl = trans_slice(tangent_order)
   cov_tt = np.array([s.covariance[sl, sl] for s in steps], dtype=float)
   gt = np.asarray(gt_translations, dtype=float)
-
-  dt_med = float(np.median(np.diff(np.sort(ts)))) if ts.size > 1 else 0.0
-  tol = tolerance_s if tolerance_s is not None else 0.5 * dt_med
+  tol = _default_tolerance(ts, tolerance_s)
 
   results: list[RelativeCalibrationResult] = []
   for w in windows_s:
@@ -163,17 +165,17 @@ def relative_calibration(
     if i.size == 0:
       continue
     r = (gt[j] - gt[i]) - (mu[j] - mu[i])  # relative residual (M, 3)
-    nees = np.empty(i.size)
-    calib = np.empty(i.size)
-    sharp = np.empty(i.size)
-    sig = np.empty(i.size)
-    for k in range(i.size):
-      cov_rel = cov_tt[i[k]] + cov_tt[j[k]]  # iid upper bound
-      comp = _score_components(r[k], cov_rel)
-      nees[k] = comp.nees
-      calib[k] = comp.calibration
-      sharp[k] = comp.sharpness
-      sig[k] = np.sqrt(np.trace(cov_rel))
+    cov_rel = cov_tt[i] + cov_tt[j]  # iid upper bound, (M, 3, 3)
+    # batched _score_components: nan/inf where Sigma_rel is not PD
+    nees = np.full(i.size, np.inf)
+    sign, logdet = np.linalg.slogdet(cov_rel)
+    pd = sign > 0
+    if pd.any():
+      sol = np.linalg.solve(cov_rel[pd], r[pd, :, None])[:, :, 0]
+      nees[pd] = np.einsum("ij,ij->i", r[pd], sol)
+    calib = 0.5 * nees
+    sharp = np.where(pd, 0.5 * (logdet + 3.0 * np.log(2.0 * np.pi)), np.inf)
+    sig = np.sqrt(cov_rel[:, [0, 1, 2], [0, 1, 2]].sum(axis=1))
     finite = np.isfinite(calib)
     results.append(
       RelativeCalibrationResult(
@@ -229,11 +231,7 @@ def relative_translation_crps(
   var = np.array([np.diag(s.covariance)[sl] for s in steps], dtype=float)
   gt = np.asarray(gt_translations, dtype=float)
 
-  if ts.size > 1:
-    dt_med = float(np.median(np.diff(np.sort(ts))))
-  else:
-    dt_med = 0.0
-  tol = tolerance_s if tolerance_s is not None else 0.5 * dt_med
+  tol = _default_tolerance(ts, tolerance_s)
 
   results: list[RelativeCrpsResult] = []
   for w in windows_s:

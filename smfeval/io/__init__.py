@@ -2,6 +2,7 @@ from smfeval.io.header import parse_header, write_header
 from smfeval.io.load import (
   attach_covariances,
   load_cov_sidecar,
+  load_estimate,
   load_square,
   load_tum,
   load_tum_gaussian,
@@ -20,6 +21,7 @@ __all__ = [
   "expand_lower_triangular",
   "iter_steps",
   "load_cov_sidecar",
+  "load_estimate",
   "load_square",
   "load_tum",
   "load_tum_gaussian",
