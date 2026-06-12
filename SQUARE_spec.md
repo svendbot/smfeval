@@ -192,6 +192,52 @@ No existing tool combines proper scoring rules, SE(3)-aware geometry, a standard
 
 **Adjacent SLAM work.** PALoc (arXiv:2401.17826) derives factor-graph covariances for ground-truth trajectory generation — the inverse direction of smfeval's concern. NEES (Normalized Estimation Error Squared) has long been used in the filtering community as a consistency check but is rarely reported in modern optimization-based SLAM papers and is subsumed by the calibration section of the smfeval report.
 
+## Appendix: escape hatch — TUM poses + covariance without a SQUARE header
+
+SQUARE adoption is not a precondition for getting a verdict. A filter that
+prints its covariance anywhere can be scored from header-less files in two
+ways; both reuse the SQUARE covariance packing (row-major lower triangle of
+the 6×6 tangent covariance: `c11 c21 c22 c31 … c66`, 21 entries).
+
+**(a) Wide TUM (29 columns).** Standard TUM pose columns followed by the 21
+covariance entries:
+
+```
+timestamp x y z qx qy qz qw c11 c21 c22 c31 ... c66
+```
+
+A wide-TUM file is byte-identical to a SQUARE `gaussian_se3` body without
+the header.
+
+**(b) Sidecar covariance file (`--cov`).** Plain 8-column TUM poses plus a
+separate file with rows
+
+```
+timestamp c11 c21 c22 c31 ... c66
+```
+
+(22 fields). `#` comments are allowed. The sidecar must match the pose file
+1:1 by timestamp (tolerance 1e-6 s) — covariance attachment is
+identity-critical, so there is no nearest-neighbour fallback. Optional
+header lines `#%TANGENT_CONVENTION <v>` / `#%TANGENT_ORDER <v>` in the
+sidecar override the CLI defaults.
+
+Because the header is missing, the metadata it would carry comes from
+flags: `--est-body-frame` (required), `--est-pose-frame` (default `world`),
+`--tangent-convention` (default `right_perturbation`), `--tangent-order`
+(default `translation_rotation`), `--gauge` (default `se3`). The assumed
+values are echoed on stderr so a wrong guess is visible:
+
+```
+$ smfeval nees est.tum gt.tum --cov est.cov --est-body-frame imu --gt-body-frame imu
+note: bare-TUM estimate read as gaussian_se3 (body_frame='imu', ...)
+median NEES 2.31   (calibrated: 2.37)
+...
+```
+
+The `pair` verb requires SQUARE inputs (it needs both filters' declared
+conventions to sum covariances safely).
+
 ## Why Multiple Scores
 
 Every proper scoring rule captures something real about the predictive distribution but none captures everything. CRPS is sensitive to distributional shape in the bulk; log score is sensitive to tails and punishes overconfidence; interval score targets a specified coverage level; energy score handles joint structure across dimensions; calibration diagnostics like PIT and coverage are orthogonal to all of the above. Like the parable of the blind monks and the elephant, each rule touches a different part of the animal — one reports a snake, another a tree trunk, another a fan — and only by combining them do you get a faithful picture of what the algorithm is actually doing. The scoring report reports all of them together, alongside the data-quality diagnostics that tell you whether to trust any of them, precisely because no single number is sufficient.

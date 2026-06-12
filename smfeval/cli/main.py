@@ -18,8 +18,10 @@ from smfeval.align import (
 from smfeval.align.fit import AlignmentFit
 from smfeval.format import (
   FormatError,
+  Gauge,
   Representation,
   SquareHeader,
+  TangentConvention,
   TangentOrder,
   WeightFormat,
 )
@@ -27,8 +29,11 @@ from smfeval.io import (
   iter_steps,
   load_square,
   load_tum,
+  load_tum_gaussian,
+  load_tum_with_sidecar,
   looks_like_tum,
   parse_header,
+  sniff_tum_columns,
 )
 from smfeval.report import (
   build_report,
@@ -125,6 +130,51 @@ def _add_common_args(p: argparse.ArgumentParser) -> None:
     type=float,
     default=0.1,
     help="SE-kernel length scale in seconds when --sync=interpolate_gt",
+  )
+  # escape hatch: estimates without a SQUARE header --------------------------
+  p.add_argument(
+    "--cov",
+    type=Path,
+    default=None,
+    help="sidecar covariance file for a bare-TUM estimate: rows "
+    "'timestamp c11 c21 c22 ... c66' (21 row-major lower-triangle entries "
+    "of the 6x6 tangent covariance, same packing as SQUARE), matched 1:1 "
+    "to the pose rows by timestamp",
+  )
+  p.add_argument(
+    "--est-body-frame",
+    default=None,
+    help="body frame of the estimate when it is a bare TUM file (required "
+    "in that case; SQUARE estimates declare it in the header)",
+  )
+  p.add_argument(
+    "--est-pose-frame",
+    default="world",
+    help='pose frame of a bare-TUM estimate (default "world")',
+  )
+  p.add_argument(
+    "--tangent-convention",
+    type=TangentConvention,
+    choices=list(TangentConvention),
+    default=TangentConvention.RIGHT,
+    help="tangent perturbation convention of a bare-TUM estimate's "
+    "covariance (default right_perturbation)",
+  )
+  p.add_argument(
+    "--tangent-order",
+    type=TangentOrder,
+    choices=list(TangentOrder),
+    default=TangentOrder.TRANS_ROT,
+    help="tangent block order of a bare-TUM estimate's covariance "
+    "(default translation_rotation)",
+  )
+  p.add_argument(
+    "--gauge",
+    type=Gauge,
+    choices=list(Gauge),
+    default=Gauge.SE3,
+    help="gauge freedom of a bare-TUM estimate (default se3: full SE(3) "
+    "alignment is fitted before scoring)",
   )
 
 
@@ -474,13 +524,68 @@ class PreparedRun:
   gt_cov: np.ndarray | None  # GP predictive Σ_gt under interpolate_gt
 
 
+def _load_estimate(args: argparse.Namespace) -> tuple[SquareHeader, list[Step]]:
+  """Load the estimate: SQUARE natively, or the bare-TUM escape hatches.
+
+  A header-less estimate may be wide TUM (29 columns: pose + the 21
+  lower-triangle covariance entries) or plain TUM (8 columns) with a
+  ``--cov`` sidecar; either way ``--est-body-frame`` must declare what the
+  missing header would have. Raises FormatError on undeclared/unknown input.
+  """
+  if not looks_like_tum(args.est):
+    return load_square(args.est)
+
+  if args.est_body_frame is None:
+    raise FormatError(
+      "estimate file is header-less (bare TUM) so its body frame is "
+      "unknown; pass --est-body-frame <name>"
+    )
+  ncols = sniff_tum_columns(args.est)
+  common = dict(
+    pose_frame=args.est_pose_frame,
+    body_frame=args.est_body_frame,
+    tangent_convention=args.tangent_convention,
+    tangent_order=args.tangent_order,
+    gauge=args.gauge,
+  )
+  if ncols == 29:
+    header, steps = load_tum_gaussian(args.est, **common)
+  elif ncols == 8 and args.cov is not None:
+    header, steps = load_tum_with_sidecar(args.est, args.cov, **common)
+  elif ncols == 8:
+    tum, steps = load_tum(
+      args.est, pose_frame=args.est_pose_frame, body_frame=args.est_body_frame
+    )
+    header = replace(tum.to_square(), gauge=args.gauge)
+  else:
+    raise FormatError(
+      f"header-less estimate has {ncols} columns; expected 8 (TUM, "
+      "optionally with --cov sidecar) or 29 (TUM + 21 lower-triangle "
+      "covariance entries)"
+    )
+  print(
+    f"note: bare-TUM estimate read as {header.representation.value} "
+    f"(body_frame={header.body_frame!r}, pose_frame={header.pose_frame!r}, "
+    f"gauge={header.gauge.value}"
+    + (
+      f", {header.tangent_convention.value}, {header.tangent_order.value})"
+      if header.representation is Representation.GAUSSIAN_SE3
+      and header.tangent_convention is not None
+      and header.tangent_order is not None
+      else ")"
+    ),
+    file=sys.stderr,
+  )
+  return header, steps
+
+
 def _prepare(args: argparse.Namespace) -> PreparedRun | None:
   """Load est+gt, check frames, sync, and align (shared by score/nees).
 
   Prints to stderr and returns None on any input error.
   """
   try:
-    est_header, est_steps = load_square(args.est)
+    est_header, est_steps = _load_estimate(args)
     if looks_like_tum(args.gt):
       if args.gt_body_frame is None:
         print(
