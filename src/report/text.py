@@ -30,6 +30,10 @@ def render_report(rep: Report) -> str:
     out.append(_render_gaussian_validity(rep))
   out.append(_render_scores(rep))
   out.append(_render_calibration(rep))
+  if rep.calibration_split:
+    out.append(_render_calibration_split(rep))
+  if rep.diagnoses:
+    out.append(_render_diagnoses(rep))
   out.append(_render_recommendations(rep))
   return "\n".join(out)
 
@@ -241,6 +245,51 @@ def _render_calibration(rep: Report) -> str:
       f"  Translation z-score:    mean {_fmt_float(z_mean, 2)},"
       f" std {_fmt_float(z_std, 2)}{comment}"
     )
+  lines.append("")
+  return "\n".join(lines)
+
+
+def _render_calibration_split(rep: Report) -> str:
+  split = rep.calibration_split or {}
+  lines = ["Log-score calibration / sharpness split (ANEES χ² verdict)"]
+  absolute = split.get("absolute") or {}
+  for name in ("joint", "translation", "rotation"):
+    s = absolute.get(name)
+    if not s:
+      continue
+    lines.append(
+      f"  {name:<12} dof {s['dof']}  ANEES {_fmt_float(s['anees'], 3)}"
+      f" (median {_fmt_float(s.get('nees_median', float('nan')), 3)})"
+      f"  χ²[{_fmt_float(s['lo'], 2)}, {_fmt_float(s['hi'], 2)}]"
+      f"  → {s['verdict']}"
+    )
+  windowed = split.get("windowed") or []
+  if windowed:
+    lines.append("  windowed (horizon, dof-3, one-sided):")
+    for w in windowed:
+      lines.append(
+        f"    Δt {w['window_s']:>6g}s  ANEES {_fmt_float(w['anees'], 3)}"
+        f"  → {w['verdict']}"
+      )
+  lines.append("")
+  return "\n".join(lines)
+
+
+_SEVERITY_MARK = {"critical": "✗", "warning": "⚠", "info": "·"}
+
+
+def _render_diagnoses(rep: Report) -> str:
+  lines = ["Diagnoses (attribution → action)"]
+  for d in rep.diagnoses:
+    mode = getattr(d.mode, "value", d.mode)
+    sev = getattr(d.severity, "value", d.severity)
+    mark = _SEVERITY_MARK.get(sev, "·")
+    lines.append(f"  {mark} [{sev}] {mode}")
+    lines.append(f"      {d.explanation}")
+    for sig in d.signals_triggered:
+      lines.append(f"      · {sig}")
+    for act in d.recommended_actions:
+      lines.append(f"      → {act}")
   lines.append("")
   return "\n".join(lines)
 

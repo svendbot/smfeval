@@ -1,3 +1,7 @@
+from src.scoring.bias_variance import (
+  BiasVarianceResult,
+  bias_variance,
+)
 from src.scoring.calibration import (
   CalibrationResult,
   calibrate,
@@ -16,7 +20,22 @@ from src.scoring.interval import (
   interval_score,
   translation_magnitude_interval_score,
 )
-from src.scoring.logscore import GaussianLogScore, gaussian_log_score
+from src.scoring.logscore import (
+  AneesResult,
+  DecomposedLogScore,
+  GaussianLogScore,
+  ScoreComponents,
+  anees_consistency,
+  gaussian_log_score,
+  gaussian_log_score_components,
+  student_t_neg_log_density,
+)
+from src.scoring.relative import (
+  RelativeCalibrationResult,
+  RelativeCrpsResult,
+  relative_calibration,
+  relative_translation_crps,
+)
 from src.scoring.summary import (
   ScoreSummary,
   politis_white_block_length,
@@ -24,15 +43,27 @@ from src.scoring.summary import (
 )
 
 __all__ = [
+  "AneesResult",
+  "BiasVarianceResult",
   "CalibrationResult",
+  "DecomposedLogScore",
   "EnsembleDiagnostic",
   "GaussianLogScore",
   "GaussianValidityDiagnostic",
+  "RelativeCalibrationResult",
+  "RelativeCrpsResult",
+  "ScoreComponents",
   "ScoreSummary",
+  "anees_consistency",
+  "bias_variance",
   "calibrate",
+  "relative_calibration",
+  "relative_translation_crps",
   "energy_score",
   "ensemble_diagnostics",
   "gaussian_log_score",
+  "gaussian_log_score_components",
+  "student_t_neg_log_density",
   "gaussian_rotation_validity",
   "interval_score",
   "politis_white_block_length",

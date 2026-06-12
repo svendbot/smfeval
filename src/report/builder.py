@@ -23,7 +23,15 @@ class Report:
   gaussian_validity: dict[str, Any] | None = None
   scores: dict[str, Any] = field(default_factory=dict)
   calibration: dict[str, Any] = field(default_factory=dict)
+  # Populated under --calibration: {"absolute": {joint,translation,rotation},
+  # "windowed": [...]} of the log-score calibration/sharpness split (A1).
+  calibration_split: dict[str, Any] | None = None
+  # Populated under --calibration: list of per-window track-frame bias/variance
+  # (B1) — bias_fraction + dominant axis, read by diagnose() for systematic bias.
+  bias_variance: list[dict[str, Any]] | None = None
   recommendations: list[str] = field(default_factory=list)
+  # Structured, actionable diagnoses (A3); list of Diagnosis dataclasses.
+  diagnoses: list[Any] = field(default_factory=list)
 
 
 def _quantiles(arr: np.ndarray, qs: tuple[float, ...]) -> dict[str, float]:
