@@ -1,0 +1,47 @@
+name: Bug report
+description: Something produced a wrong result, an error, or a crash
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Most issues with a measurement tool trace back to the input
+        files, so we ask for them first — a report without the input is
+        usually impossible to act on.
+  - type: textarea
+    id: input-files
+    attributes:
+      label: Input file(s)
+      description: >-
+        Attach (or paste a representative excerpt of) the SQUARE file —
+        or TUM + covariance files — that reproduce the issue. Truncate to
+        the smallest excerpt that still reproduces it. If the data cannot
+        be shared, say so and describe the header fields and row shape.
+      placeholder: Drag and drop the file(s) here, or paste an excerpt.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command line
+      placeholder: smfeval nees est.SQUARE gt.tum --gt-body-frame lidar ...
+    validations:
+      required: true
+  - type: textarea
+    id: validate-output
+    attributes:
+      label: Output of `smfeval validate --strict <your estimate file>`
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: smfeval version (`pip show smfeval`)
+    validations:
+      required: true

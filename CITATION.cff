@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: >-
+  If you use smfeval in your research, please cite it as below. A paper
+  describing the methodology is in preparation; this entry will be
+  updated to point at it once published.
+title: "smfeval: probabilistic SLAM trajectory scoring"
+type: software
+authors:
+  - family-names: "Rønning"
+    given-names: "Ola"
+    email: oroe@itu.dk
+version: 0.4.0
+date-released: 2026-06-12
+repository-code: "https://github.com/svendbot/smfeval"
+license: Apache-2.0
+keywords:
+  - SLAM
+  - uncertainty quantification
+  - proper scoring rules
+  - calibration
+  - trajectory evaluation

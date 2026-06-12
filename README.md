@@ -1,90 +1,123 @@
-# smfeval
+# smfeval — score the belief, not just the mean
 
-Score SLAM trajectories that report uncertainty. Works on Gaussian-,
-ensemble-, or deterministic-pose estimates on SE(3) and gives back
-proper scoring rules plus calibration diagnostics.
-
-Full documentation lives under [`docs/`](docs/index.rst); run
-`make docs` to build the HTML version and `make test` to run the
-test suite.
+A SLAM filter reports a pose *and* a covariance. ATE/RPE check the pose;
+smfeval checks whether the covariance is telling the truth.
 
 ## Install
 
-Requires Python ≥ 3.10. With [uv](https://docs.astral.sh/uv/):
+```sh
+pip install smfeval
+```
+
+The only dependencies are NumPy and SciPy (Python ≥ 3.10).
+
+## Thirty seconds to a verdict
+
+```
+$ smfeval nees estimate.SQUARE reference.tum --gt-body-frame lidar
+median NEES 5.85e3   (calibrated: 2.37)
+covariance scale gap k = 2.47e3, ~49.7x too tight per axis
+90% coverage: 0.000  (calibrated: 0.900)
+```
+
+(Point-LIO on Oxford Spires `christ-church-03` — see
+`exporters/point_lio/VALIDATION.md` for the full reproduction.)
+
+Under a calibrated belief the per-pose translation NEES is χ²₃-distributed
+(median 2.37). The scale gap **k = median NEES / 2.37** is the factor by
+which the published covariance is too tight; per axis that is √k. Here the
+filter's 90% credible ellipsoid never contains the truth.
+
+## No ground truth? Run two filters and score them against each other
+
+```
+$ smfeval pair a.SQUARE b.SQUARE
+matched 3101 pose pairs, scored 3101  (join 1.00, median gap 0.0 ms)
+propriety caveat: pairwise scores are strictly proper only under a
+truthful reference sigma and independent errors; both violations push
+conservative, so NEES_pair lower-bounds miscalibration.
+
+pairwise median NEES 56.1   (calibrated: 2.37)
+pairwise scale gap k >= 23.7, >=4.87x too tight per axis  (lower bound)
+verdict: optimistic  (ANEES 71.7 vs chi2 interval [2.91, 3.09])
+```
+
+An elevated pairwise NEES **certifies overconfidence with no reference
+consulted**: filter A is aligned to filter B directly and the difference is
+scored under the summed covariances. Common-mode error and an understated
+reference covariance both push the statistic *down*, so the verdict is a
+lower bound on the miscalibration — when it fires, it fires honestly.
+
+## Try it now
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/svendbot/smfeval/blob/main/notebooks/figure1_verdict.ipynb)
+
+The notebook reproduces the headline verdict on one Oxford Spires sequence
+end to end (install → data → verdict → NEES-vs-χ²₃ plot) in a few seconds.
+
+---
+
+## Your filter doesn't write SQUARE yet?
+
+Two on-ramps, no format adoption required (`SQUARE_spec.md`, appendix):
+
+- **Wide TUM**: standard TUM pose columns plus the 21 row-major
+  lower-triangle entries of the 6×6 tangent covariance (29 columns total).
+- **Sidecar file**: plain TUM poses plus `--cov cov.txt` with
+  `timestamp c11 c21 c22 … c66` rows.
 
 ```sh
-uv sync
+smfeval nees est.tum gt.tum --cov est.cov --est-body-frame imu --gt-body-frame imu
 ```
 
-Runtime depends only on NumPy ≥ 1.24 and SciPy ≥ 1.10.
+And for four popular LiDAR-inertial filters the export already exists:
+[`exporters/`](exporters/) carries the audited few-line diff that makes
+**FAST-LIO2, Faster-LIO, Point-LIO, and I2EKF-LO** publish their belief,
+each with its pinned upstream commit, a bag→SQUARE converter, and a
+validation run on a named public sequence. Contributions follow the PR
+template (`smfeval validate --strict` is the mechanical gate).
 
-## Use
+## The full report
 
-Validate a trajectory file:
+`smfeval score est.SQUARE gt.tum` produces the complete analysis:
+synchronization and alignment diagnostics, proper scoring rules
+(translation/rotation CRPS, energy score, log score with its exact
+calibration/sharpness split, interval score) with stationary-bootstrap
+confidence intervals, PIT/coverage calibration, windowed relative-pose
+calibration (`--rpe-window`), track-frame bias/variance attribution, and
+structured failure-mode diagnoses with recommended actions.
+`--json-out` emits the whole report machine-readable.
+
+Why several scores? Each proper scoring rule touches a different part of
+the predictive distribution — bulk shape, tails, joint structure, a chosen
+coverage level — and no single number is sufficient. `SQUARE_spec.md`
+documents the format, the taxonomy, and the theory.
+
+## Commands
+
+| Verb | What it does |
+|---|---|
+| `smfeval nees est gt` | three-line calibration verdict (median NEES, scale gap k, coverage) |
+| `smfeval pair a b` | no-reference pairwise verdict (lower bound on miscalibration) |
+| `smfeval score est gt` | full scoring report (`--json-out` for machines) |
+| `smfeval validate file` | header/row sanity checks (`--strict`: exporter gate) |
+
+## Development
 
 ```sh
-uv run smfeval validate path/to/est.SQUARE
+uv sync && uv run pytest
 ```
 
-Score an estimate against a ground-truth trajectory (SQUARE format or
-plain TUM):
+Docs live under [`docs/`](docs/index.rst) (`make docs`). The test suite
+includes property-based invariants (hypothesis) and seeded Monte Carlo
+power tests of the verdict machinery itself — see `tests/test_power.py`.
 
-```sh
-uv run smfeval score est.SQUARE gt.TUM
-```
+## Provenance
 
-Example output:
-
-```
-Synchronization
-  Mode:                   interpolate_gt
-  Pairs matched:          5,738 / 5,738
-  Dropped:                0
-  GP σ (m):   median 0.0003, p95 0.0004, p99 0.0011
-
-Alignment
-  Gauge (declared):       gravity_yaw
-  Mode applied:           se3   (6 DoF)
-  Fitted Δxyz:            (-28.4562, 28.0381, -4.7399) m
-  Fit residual (m):       median 0.9007, p95 1.2460
-                          6 DoF removed over 649 m of trajectory
-
-Scores
-  Translation CRPS:           mean 0.281 m   [95% CI 0.224, 0.334]   (n=5738)
-                              median 0.313, std 0.124, min 0.014, max 0.503
-                              block length (Politis–White): 176.5
-  Rotation CRPS:              mean 0.036 rad   [95% CI 0.036, 0.037]   (n=5738)
-                              median 0.036, std 0.002, min 0.030, max 0.043
-                              block length (Politis–White): 173.8
-  Energy score (SE(3)):       mean 0.802   [95% CI 0.637, 0.960]   (n=5738)
-                              median 0.901, std 0.365, min 0.044, max 1.486
-                              block length (Politis–White): 176.5
-  Log score (joint):          mean 1401860.038   [95% CI 1050457.394, 1733644.908]
-                              median 1317643.220, std 848368.184
-                              block length (Politis–White): 175.1
-  Log score (translation):    mean 1008309.207   [95% CI 690401.685, 1341320.364]
-                              median 903201.643, std 777138.180
-                              block length (Politis–White): 175.5
-  Log score (rotation):       mean 271085.256   [95% CI 244685.182, 299495.521]
-                              median 271799.807, std 83672.340
-                              block length (Politis–White): 172.7
-  Interval score:             mean 15.996   [95% CI 12.522, 19.090]   (n=5738)
-                              median 17.973, std 7.325
-                              block length (Politis–White): 176.5
-
-Calibration
-  PIT uniformity (KS):    p = 0.000  ⚠ possible miscalibration
-  90% Mahalanobis coverage:  0.0%     (nominal 90.0%)
-  Translation z-score:    mean 741.74, std 349.38   (over-confident)
-
-Recommendations
-  - Coverage below nominal combined with KS p < 0.05 — the filter is
-    over-confident (claimed Σ too tight, truth falls outside the
-    predicted intervals); widen process noise. Miscalibration is
-    unlikely to be explained by sync error alone.
-```
-
-The report has six sections — synchronisation, alignment, ensemble
-diagnostics (when applicable), scores, calibration, recommendations —
-following the layout in `SQUARE_spec.md`. See [`docs/`](docs/index.rst)
-for what each statistic means and how it's computed.
+smfeval grew out of a systematic audit of uncertainty calibration in
+LiDAR-inertial odometry —
+[slam_benchmark](https://github.com/svendbot/slam_benchmark) is the audit
+that motivated this tool (DOI forthcoming). The trajectory data used in
+fixtures and the notebook derives from the
+[Oxford Spires Dataset](https://dynamic.robots.ox.ac.uk/datasets/oxford-spires/)
+(CC BY-NC-SA 4.0; see the data license notes in those directories).

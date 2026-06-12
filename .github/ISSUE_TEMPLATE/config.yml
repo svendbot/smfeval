@@ -1,0 +1,7 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Contribute an exporter
+    url: https://github.com/svendbot/smfeval/blob/main/exporters/README.md
+    about: >-
+      Make a new filter write its belief: open a PR with the diff, the
+      pinned upstream commit, and a validation run (see the PR template).
