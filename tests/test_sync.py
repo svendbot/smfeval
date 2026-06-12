@@ -1,8 +1,8 @@
 import numpy as np
 
-from src.format import TangentOrder
-from src.steps import GaussianStep
-from src.sync import match_timestamps, sync_risk
+from smfeval.format import TangentOrder
+from smfeval.steps import GaussianStep
+from smfeval.sync import match_timestamps, sync_risk
 
 
 def test_match_basic():

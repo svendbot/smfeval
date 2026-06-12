@@ -1,10 +1,10 @@
 import numpy as np
 
-from src.align import align_mode_for_gauge, fit_alignment, propagate_step
-from src.format import Gauge, TangentConvention, TangentOrder
-from src.se3.lie import se3_exp
-from src.se3.quat import rot_to_quat_xyzw
-from src.steps import DeterministicStep, EnsembleStep, GaussianStep
+from smfeval.align import align_mode_for_gauge, fit_alignment, propagate_step
+from smfeval.format import Gauge, TangentConvention, TangentOrder
+from smfeval.se3.lie import se3_exp
+from smfeval.se3.quat import rot_to_quat_xyzw
+from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep
 
 RNG = np.random.default_rng(7)
 

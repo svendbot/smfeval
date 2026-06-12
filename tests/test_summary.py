@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.scoring.summary import (
+from smfeval.scoring.summary import (
   politis_white_block_length,
   summarize,
 )

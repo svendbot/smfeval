@@ -8,14 +8,14 @@ ANEES verdict (optimistic | consistent | conservative).
 import numpy as np
 from scipy.stats import chi2
 
-from src.scoring.logscore import (
+from smfeval.scoring.logscore import (
   anees_consistency,
   gaussian_log_score,
   gaussian_log_score_components,
   student_t_neg_log_density,
 )
-from src.scoring.relative import relative_calibration
-from src.steps import GaussianStep
+from smfeval.scoring.relative import relative_calibration
+from smfeval.steps import GaussianStep
 
 
 def _gauss_neglogp(xi, cov):
@@ -187,7 +187,7 @@ def test_relative_calibration_optimistic_when_overconfident():
 def test_relative_calibration_requires_gaussian():
   import pytest
 
-  from src.steps import DeterministicStep
+  from smfeval.steps import DeterministicStep
 
   steps = [
     DeterministicStep(timestamp=float(i), translation=np.array([i, 0.0, 0.0]),

@@ -2,7 +2,7 @@ import io
 
 import pytest
 
-from src import (
+from smfeval import (
   FORMAT_VERSION,
   FormatError,
   Gauge,
@@ -12,7 +12,7 @@ from src import (
   TangentOrder,
   WeightFormat,
 )
-from src.io import parse_header, write_header
+from smfeval.io import parse_header, write_header
 
 COMMON = f"""\
 #%FORMAT {FORMAT_VERSION}

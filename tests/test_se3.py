@@ -2,8 +2,8 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from src.format import TangentOrder
-from src.se3 import (
+from smfeval.format import TangentOrder
+from smfeval.se3 import (
   adjoint,
   compose,
   hat_so3,

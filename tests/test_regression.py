@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from src.cli.main import main
+from smfeval.cli.main import main
 
 FIXTURES = Path(__file__).parent / "fixtures" / "regression"
 RTOL = 1e-9

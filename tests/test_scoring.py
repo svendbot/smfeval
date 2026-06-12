@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.stats import chi
 
-from src.format import TangentOrder, WeightFormat
-from src.scoring import (
+from smfeval.format import TangentOrder, WeightFormat
+from smfeval.scoring import (
   calibrate,
   energy_score,
   ensemble_diagnostics,
@@ -11,10 +11,10 @@ from src.scoring import (
   rotation_crps,
   translation_crps,
 )
-from src.scoring.interval import interval_from_samples
-from src.se3.lie import se3_exp
-from src.se3.quat import rot_to_quat_xyzw
-from src.steps import EnsembleStep, GaussianStep
+from smfeval.scoring.interval import interval_from_samples
+from smfeval.se3.lie import se3_exp
+from smfeval.se3.quat import rot_to_quat_xyzw
+from smfeval.steps import EnsembleStep, GaussianStep
 
 RNG = np.random.default_rng(11)
 
@@ -103,8 +103,8 @@ def test_gaussian_log_score_rotation_marginal_isolates_yaw_miscalibration():
   gt_t = np.zeros(3)
   # Non-zero rotation residual against an over-confident rotation block:
   # tight Σ_rr makes the marginal NLL spike at xi_r ≠ 0.
-  from src.se3.lie import so3_exp
-  from src.se3.quat import rot_to_quat_xyzw
+  from smfeval.se3.lie import so3_exp
+  from smfeval.se3.quat import rot_to_quat_xyzw
 
   R_obs = so3_exp(np.array([0.1, 0.0, 0.0]))  # ~5.7° error
   gt_q_off = rot_to_quat_xyzw(R_obs)
@@ -169,7 +169,7 @@ def _draw_calibrated_pair(mu_t, mu_q, cov, rng):
   """
   L = np.linalg.cholesky(cov)
   xi = L @ rng.standard_normal(6)
-  from src.se3.lie import pose_matrix
+  from smfeval.se3.lie import pose_matrix
 
   T_mean = pose_matrix(mu_t, mu_q)
   T_obs = T_mean @ se3_exp(xi, order=TangentOrder.TRANS_ROT)

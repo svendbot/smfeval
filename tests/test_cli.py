@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.cli.main import main
-from src.format import (
+from smfeval.cli.main import main
+from smfeval.format import (
   FORMAT_VERSION,
   Gauge,
   Representation,
@@ -12,8 +12,8 @@ from src.format import (
   TangentConvention,
   TangentOrder,
 )
-from src.io import write_header, write_steps
-from src.steps import DeterministicStep, GaussianStep
+from smfeval.io import write_header, write_steps
+from smfeval.steps import DeterministicStep, GaussianStep
 
 
 def _gauss_header(

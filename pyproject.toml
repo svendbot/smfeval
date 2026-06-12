@@ -41,13 +41,13 @@ docs = [
 ]
 
 [project.scripts]
-smfeval = "src.cli:main"
+smfeval = "smfeval.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["smfeval"]
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["smfeval", "tests"]
 pythonVersion = "3.10"
 venvPath = "."
 venv = ".venv"

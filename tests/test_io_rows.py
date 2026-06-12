@@ -3,7 +3,7 @@ import io
 import numpy as np
 import pytest
 
-from src.format import (
+from smfeval.format import (
   FORMAT_VERSION,
   FormatError,
   Gauge,
@@ -13,8 +13,8 @@ from src.format import (
   TangentOrder,
   WeightFormat,
 )
-from src.io import iter_steps, parse_header, write_header, write_steps
-from src.steps import DeterministicStep, EnsembleStep, GaussianStep
+from smfeval.io import iter_steps, parse_header, write_header, write_steps
+from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep
 
 RNG = np.random.default_rng(42)
 

@@ -1,7 +1,7 @@
 """A3: each FailureMode fires on a crafted Report, and not otherwise."""
 
-from src.report.builder import Report
-from src.report.diagnostics import FailureMode, Severity, diagnose
+from smfeval.report.builder import Report
+from smfeval.report.diagnostics import FailureMode, Severity, diagnose
 
 
 def _slice(verdict: str, anees: float, *, dof: int = 3, lo: float = 2.9,

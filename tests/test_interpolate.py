@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from src.sync import interpolate_gt_at
+from smfeval.sync import interpolate_gt_at
 
 
 def _circular_trajectory(n: int = 60, radius: float = 1.0, omega: float = 1.0):
