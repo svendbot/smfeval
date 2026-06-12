@@ -3,7 +3,7 @@
 import argparse
 import json
 import sys
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from enum import Enum
 from pathlib import Path
 
@@ -15,6 +15,7 @@ from smfeval.align import (
   fit_alignment,
   propagate_step,
 )
+from smfeval.align.fit import AlignmentFit
 from smfeval.format import (
   FormatError,
   Representation,
@@ -35,6 +36,11 @@ from smfeval.report import (
   recommendations,
   render_report,
 )
+from smfeval.report.verdict import (
+  nees_verdict,
+  render_nees_verdict,
+  render_pair_verdict,
+)
 from smfeval.scoring import (
   ScoreSummary,
   anees_consistency,
@@ -53,6 +59,11 @@ from smfeval.scoring import (
   translation_crps,
   translation_magnitude_interval_score,
 )
+from smfeval.scoring.pairwise import (
+  PROPRIETY_CAVEAT,
+  PairInputError,
+  pair_translation_nees,
+)
 from smfeval.se3.lie import homogeneous, pose_matrix, relative, se3_log
 from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
 from smfeval.sync import (
@@ -64,38 +75,28 @@ from smfeval.sync import (
 )
 
 
-def main(argv: list[str] | None = None) -> int:
-  parser = argparse.ArgumentParser(prog="smfeval")
-  sub = parser.add_subparsers(dest="cmd", required=True)
-
-  pv = sub.add_parser("validate", help="header and row sanity checks")
-  pv.add_argument("file", type=Path)
-
-  ps = sub.add_parser("score", help="produce a scoring report")
-  ps.add_argument("est", type=Path, help="smfeval-format estimate file")
-  ps.add_argument("gt", type=Path, help="ground-truth file (smfeval or TUM)")
-  ps.add_argument("--t_max_diff", type=float, default=0.01)
-  ps.add_argument("--t_offset", type=float, default=0.0)
-  ps.add_argument(
+def _add_common_args(p: argparse.ArgumentParser) -> None:
+  """Flags shared by the verbs that pair an estimate with a reference."""
+  p.add_argument("--t_max_diff", type=float, default=0.01)
+  p.add_argument("--t_offset", type=float, default=0.0)
+  p.add_argument(
     "--align", default=None, choices=["none", "se3", "gravity_yaw", "sim3"]
   )
-  ps.add_argument("--n_to_align", type=int, default=None)
-  ps.add_argument("--alpha", type=float, default=0.1)
-  ps.add_argument("--n_samples", type=int, default=128)
-  ps.add_argument("--seed", type=int, default=0)
-  ps.add_argument(
+  p.add_argument("--n_to_align", type=int, default=None)
+  p.add_argument("--seed", type=int, default=0)
+  p.add_argument(
     "--gt-body-frame",
     default=None,
     help="body frame of the ground-truth file (required when GT is plain TUM)",
   )
-  ps.add_argument(
+  p.add_argument(
     "--gt-pose-frame",
     default="world",
     help="pose frame (outer container) of the ground-truth file when GT is "
     'plain TUM. Default "world", matching the common TUM convention. '
     "Must equal the estimate's POSE_FRAME — no in-tool transform.",
   )
-  ps.add_argument(
+  p.add_argument(
     "--body-frame-transform",
     type=Path,
     default=None,
@@ -103,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     "T_est_body__gt_body (the new body frame's pose in the old body "
     "frame). Required when est and gt declare different BODY_FRAMEs.",
   )
-  ps.add_argument(
+  p.add_argument(
     "--sync",
     type=SyncMode,
     choices=list(SyncMode),
@@ -113,18 +114,78 @@ def main(argv: list[str] | None = None) -> int:
     "local window of GT samples and queries it at each est timestamp "
     "(Zhang & Scaramuzza 2019, §IV.B).",
   )
-  ps.add_argument(
+  p.add_argument(
     "--sync_window",
     type=int,
     default=10,
     help="number of GT samples per GP window when --sync=interpolate_gt",
   )
-  ps.add_argument(
+  p.add_argument(
     "--sync_length_scale",
     type=float,
     default=0.1,
     help="SE-kernel length scale in seconds when --sync=interpolate_gt",
   )
+
+
+def main(argv: list[str] | None = None) -> int:
+  parser = argparse.ArgumentParser(prog="smfeval")
+  sub = parser.add_subparsers(dest="cmd", required=True)
+
+  pv = sub.add_parser("validate", help="header and row sanity checks")
+  pv.add_argument("file", type=Path)
+
+  pn = sub.add_parser(
+    "nees",
+    help="three-line calibration verdict: median NEES, covariance scale "
+    "gap k, coverage",
+  )
+  pn.add_argument("est", type=Path, help="SQUARE-format estimate file")
+  pn.add_argument("gt", type=Path, help="ground-truth file (SQUARE or TUM)")
+  _add_common_args(pn)
+  pn.add_argument(
+    "--slice",
+    choices=["translation", "joint", "rotation"],
+    default="translation",
+    help="which tangent block to score (default: translation, dof 3)",
+  )
+  pn.add_argument(
+    "--json", action="store_true", help="print the verdict as JSON"
+  )
+
+  pp = sub.add_parser(
+    "pair",
+    help="no-reference verdict: score two filters against each other; "
+    "an elevated pairwise NEES certifies overconfidence with no ground "
+    "truth consulted (lower bound)",
+  )
+  pp.add_argument("a", type=Path, help="SQUARE-format trajectory A (scored)")
+  pp.add_argument("b", type=Path, help="SQUARE-format trajectory B (reference)")
+  pp.add_argument("--t_max_diff", type=float, default=0.01)
+  pp.add_argument("--alpha", type=float, default=0.05)
+  pp.add_argument(
+    "--min-matched",
+    type=int,
+    default=10,
+    help="minimum timestamp matches required to score the pair",
+  )
+  pp.add_argument(
+    "--body-frame-transform",
+    type=Path,
+    default=None,
+    help='JSON file {"R": [...], "t": [...]} re-expressing A in B\'s body '
+    "frame; required when the two files declare different BODY_FRAMEs.",
+  )
+  pp.add_argument(
+    "--json", action="store_true", help="print the verdict as JSON"
+  )
+
+  ps = sub.add_parser("score", help="produce a full scoring report")
+  ps.add_argument("est", type=Path, help="SQUARE-format estimate file")
+  ps.add_argument("gt", type=Path, help="ground-truth file (SQUARE or TUM)")
+  _add_common_args(ps)
+  ps.add_argument("--alpha", type=float, default=0.1)
+  ps.add_argument("--n_samples", type=int, default=128)
   ps.add_argument(
     "--rpe-window",
     type=str,
@@ -186,6 +247,10 @@ def main(argv: list[str] | None = None) -> int:
 
   if args.cmd == "validate":
     return _validate(args.file)
+  if args.cmd == "nees":
+    return _nees(args)
+  if args.cmd == "pair":
+    return _pair(args)
   if args.cmd == "score":
     return _score(args)
   return 1
@@ -393,7 +458,27 @@ def _compute_scores(
   return scores
 
 
-def _score(args: argparse.Namespace) -> int:
+@dataclass
+class PreparedRun:
+  """Estimate/GT pair after loading, frame checks, sync, and alignment."""
+
+  est_header: SquareHeader
+  matched_est: list[Step]
+  aligned_est: list[Step]
+  matched_gt_t: np.ndarray
+  matched_gt_q: np.ndarray
+  match: MatchResult
+  fit: AlignmentFit
+  order: TangentOrder
+  risks: np.ndarray
+  gt_cov: np.ndarray | None  # GP predictive Σ_gt under interpolate_gt
+
+
+def _prepare(args: argparse.Namespace) -> PreparedRun | None:
+  """Load est+gt, check frames, sync, and align (shared by score/nees).
+
+  Prints to stderr and returns None on any input error.
+  """
   try:
     est_header, est_steps = load_square(args.est)
     if looks_like_tum(args.gt):
@@ -405,7 +490,7 @@ def _score(args: argparse.Namespace) -> int:
           f"{est_header.body_frame!r}).",
           file=sys.stderr,
         )
-        return 2
+        return None
       gt_tum, gt_steps = load_tum(
         args.gt,
         pose_frame=args.gt_pose_frame,
@@ -416,7 +501,7 @@ def _score(args: argparse.Namespace) -> int:
       gt_header, gt_steps = load_square(args.gt)
   except (FormatError, OSError) as e:
     print(f"error: {e}", file=sys.stderr)
-    return 2
+    return None
 
   if est_header.pose_frame != gt_header.pose_frame:
     print(
@@ -427,7 +512,7 @@ def _score(args: argparse.Namespace) -> int:
       "if the GT file is plain TUM and the default 'world' is wrong.",
       file=sys.stderr,
     )
-    return 2
+    return None
 
   if est_header.body_frame != gt_header.body_frame:
     if args.body_frame_transform is None:
@@ -439,43 +524,21 @@ def _score(args: argparse.Namespace) -> int:
         "frame.",
         file=sys.stderr,
       )
-      return 2
+      return None
     T_body_off = _load_body_frame_transform(args.body_frame_transform)
-    new_est: list[Step] = []
-    for s in est_steps:
-      match s:
-        case GaussianStep():
-          new_est.append(
-            apply_body_transform(
-              s,
-              T_body_off,
-              tangent_convention=est_header.tangent_convention,
-              tangent_order=est_header.tangent_order,
-            )
-          )
-        case EnsembleStep():
-          new_est.append(
-            apply_body_transform(
-              s,
-              T_body_off,
-              tangent_convention=est_header.tangent_convention,
-              tangent_order=est_header.tangent_order,
-            )
-          )
-        case DeterministicStep():
-          new_est.append(
-            apply_body_transform(
-              s,
-              T_body_off,
-              tangent_convention=est_header.tangent_convention,
-              tangent_order=est_header.tangent_order,
-            )
-          )
-    est_steps = new_est
+    est_steps = [
+      apply_body_transform(
+        s,
+        T_body_off,
+        tangent_convention=est_header.tangent_convention,
+        tangent_order=est_header.tangent_order,
+      )
+      for s in est_steps
+    ]
 
   resolved = _resolve_sync(args, est_steps, gt_steps, est_header.tangent_order)
   if resolved is None:
-    return 2
+    return None
   match, matched_est, matched_gt_t, matched_gt_q, risks, gt_cov = resolved
 
   align_mode = args.align or align_mode_for_gauge(est_header.gauge)
@@ -484,39 +547,136 @@ def _score(args: argparse.Namespace) -> int:
   fit_t = np.array([s.translation for s in matched_est[:n_align]])
   fit = fit_alignment(fit_t, matched_gt_t[:n_align], mode=align_mode)
 
-  aligned_est: list[Step] = []
-  for s in matched_est:
-    match s:
-      case GaussianStep():
-        aligned_est.append(
-          propagate_step(
-            s,
-            fit.transform,
-            scale=fit.scale,
-            tangent_convention=est_header.tangent_convention,
-            tangent_order=est_header.tangent_order,
-          )
-        )
-      case EnsembleStep():
-        aligned_est.append(
-          propagate_step(
-            s,
-            fit.transform,
-            scale=fit.scale,
-            tangent_convention=est_header.tangent_convention,
-            tangent_order=est_header.tangent_order,
-          )
-        )
-      case DeterministicStep():
-        aligned_est.append(
-          propagate_step(
-            s,
-            fit.transform,
-            scale=fit.scale,
-            tangent_convention=est_header.tangent_convention,
-            tangent_order=est_header.tangent_order,
-          )
-        )
+  aligned_est: list[Step] = [
+    propagate_step(
+      s,
+      fit.transform,
+      scale=fit.scale,
+      tangent_convention=est_header.tangent_convention,
+      tangent_order=est_header.tangent_order,
+    )
+    for s in matched_est
+  ]
+
+  return PreparedRun(
+    est_header=est_header,
+    matched_est=matched_est,
+    aligned_est=aligned_est,
+    matched_gt_t=matched_gt_t,
+    matched_gt_q=matched_gt_q,
+    match=match,
+    fit=fit,
+    order=est_header.tangent_order or TangentOrder.TRANS_ROT,
+    risks=risks,
+    gt_cov=gt_cov,
+  )
+
+
+def _nees(args: argparse.Namespace) -> int:
+  """Three-line calibration verdict on one estimate vs a reference."""
+  pr = _prepare(args)
+  if pr is None:
+    return 2
+  if pr.est_header.representation is not Representation.GAUSSIAN_SE3:
+    print(
+      "error: nees needs gaussian_se3 (a published covariance); got "
+      f"{pr.est_header.representation.value}. Use 'score' for "
+      "deterministic or ensemble trajectories.",
+      file=sys.stderr,
+    )
+    return 2
+
+  vals: list[float] = []
+  for s, gt_t, gt_q in zip(
+    pr.aligned_est, pr.matched_gt_t, pr.matched_gt_q, strict=False
+  ):
+    if not isinstance(s, GaussianStep):
+      continue
+    dec = gaussian_log_score_components(s, gt_t, gt_q, pr.order)
+    vals.append(getattr(dec, args.slice).nees)
+
+  dof = 6 if args.slice == "joint" else 3
+  v = nees_verdict(np.asarray(vals), dof=dof)
+  if args.json:
+    print(json.dumps(v.to_dict(), indent=2, default=_json_default))
+  else:
+    print(render_nees_verdict(v))
+  return 0
+
+
+def _pair(args: argparse.Namespace) -> int:
+  """No-reference pairwise verdict: filter A scored against filter B."""
+  try:
+    header_a, steps_a = load_square(args.a)
+    header_b, steps_b = load_square(args.b)
+  except (FormatError, OSError) as e:
+    print(f"error: {e}", file=sys.stderr)
+    return 2
+
+  if (
+    header_a.body_frame != header_b.body_frame
+    and args.body_frame_transform is not None
+  ):
+    T_off = _load_body_frame_transform(args.body_frame_transform)
+    steps_a = [
+      apply_body_transform(
+        s,
+        T_off,
+        tangent_convention=header_a.tangent_convention,
+        tangent_order=header_a.tangent_order,
+      )
+      for s in steps_a
+    ]
+    header_a = replace(header_a, body_frame=header_b.body_frame)
+
+  try:
+    res = pair_translation_nees(
+      header_a,
+      steps_a,
+      header_b,
+      steps_b,
+      t_max_diff=args.t_max_diff,
+      min_matched=args.min_matched,
+      alpha=args.alpha,
+    )
+  except PairInputError as e:
+    print(f"error: {e}", file=sys.stderr)
+    return 2
+
+  v = nees_verdict(res.nees, dof=3, alpha=args.alpha)
+  if args.json:
+    out = {
+      "n_matched": res.n_matched,
+      "n_scored": res.n_scored,
+      "join_frac": res.join_frac,
+      "gap_median_ms": res.gap_median_ms,
+      "med_d_norm_m": res.med_d_norm,
+      "log_score_mean": res.log_score_mean,
+      "k_pair_lower_bound": res.k_pair,
+      "k_axis_lower_bound": list(res.k_axis),
+      "verdict": v.to_dict(),
+      "caveat": PROPRIETY_CAVEAT,
+    }
+    print(json.dumps(out, indent=2, default=_json_default))
+  else:
+    print(
+      f"matched {res.n_matched} pose pairs, scored {res.n_scored}  "
+      f"(join {res.join_frac:.2f}, median gap {res.gap_median_ms:.1f} ms)"
+    )
+    print(render_pair_verdict(v, caveat=PROPRIETY_CAVEAT))
+  return 0
+
+
+def _score(args: argparse.Namespace) -> int:
+  pr = _prepare(args)
+  if pr is None:
+    return 2
+  est_header = pr.est_header
+  matched_est = pr.matched_est
+  aligned_est = pr.aligned_est
+  matched_gt_t = pr.matched_gt_t
+  matched_gt_q = pr.matched_gt_q
+  match, fit, risks, gt_cov = pr.match, pr.fit, pr.risks, pr.gt_cov
 
   ensemble_diag = None
   if est_header.representation is Representation.ENSEMBLE_SE3:

@@ -385,3 +385,171 @@ def test_score_body_frame_transform_applied(
   assert rc == 0
   # After the transform, rotation CRPS should be ≈ 0 (well below π/2 saturation).
   assert "Rotation CRPS" in out
+
+
+# --- nees verb ----------------------------------------------------------------
+
+
+def test_nees_consistent_three_line_verdict(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  est, gt = _write_calibration_case(tmp_path, scale=1.0)
+  # --align none: the SE(3) Umeyama fit would absorb part of the injected
+  # error and read exactly-calibrated data as slightly conservative.
+  rc = main(["nees", str(est), str(gt), "--align", "none"])
+  out = capsys.readouterr().out
+  assert rc == 0
+  assert "median NEES" in out
+  assert "(calibrated: 2.37)" in out
+  assert "consistent" in out
+  assert "90% coverage" in out
+
+
+def test_nees_overconfident_reports_scale_gap(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  est, gt = _write_calibration_case(tmp_path, scale=10.0)
+  rc = main(["nees", str(est), str(gt)])
+  out = capsys.readouterr().out
+  assert rc == 0
+  assert "covariance scale gap k" in out
+  assert "too tight per axis" in out
+  # coverage collapses when sigma is 10x understated
+  assert "coverage: 0.0" in out
+
+
+def test_nees_json(tmp_path: Path, capsys: pytest.CaptureFixture):
+  import json as _json
+
+  est, gt = _write_calibration_case(tmp_path, scale=3.0)
+  rc = main(["nees", str(est), str(gt), "--json"])
+  out = capsys.readouterr().out
+  assert rc == 0
+  v = _json.loads(out)
+  assert v["dof"] == 3
+  assert v["n"] == 200
+  assert v["k"] == pytest.approx(v["median_nees"] / 2.3659738, rel=1e-6)
+  assert 0.0 <= v["coverage"] <= 1.0
+  assert v["anees"]["verdict"] == "optimistic"
+
+
+def test_nees_rejects_deterministic(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  p = tmp_path / "det.SQUARE"
+  g = tmp_path / "gt.SQUARE"
+  steps = [_det_step(0.1 * i, np.array([i * 0.1, 0.0, 0.0])) for i in range(20)]
+  _write(p, _det_header(), steps)
+  _write(g, _det_header(), steps)
+  rc = main(["nees", str(p), str(g)])
+  err = capsys.readouterr().err
+  assert rc == 2
+  assert "gaussian_se3" in err
+
+
+# --- pair verb ----------------------------------------------------------------
+
+
+def _write_pair_case(
+  tmp_path: Path, scale_a: float, n: int = 200
+) -> tuple[Path, Path]:
+  """Two gaussian filters on one latent track; A's true error is scale_a^2x."""
+  rng = np.random.default_rng(5)
+  ts = np.linspace(0.0, 20.0, n)
+  latent = np.column_stack([ts * 0.5, np.sin(ts), np.zeros(n)])
+  # _gauss_step publishes sigma_t = 0.1 m per axis
+  a_pos = latent + rng.normal(scale=scale_a * 0.1, size=latent.shape)
+  b_pos = latent + rng.normal(scale=0.1, size=latent.shape)
+  a_path = tmp_path / "a.SQUARE"
+  b_path = tmp_path / "b.SQUARE"
+  _write(
+    a_path,
+    _gauss_header(),
+    [_gauss_step(t, p) for t, p in zip(ts, a_pos, strict=False)],
+  )
+  _write(
+    b_path,
+    _gauss_header(),
+    [_gauss_step(t, p) for t, p in zip(ts, b_pos, strict=False)],
+  )
+  return a_path, b_path
+
+
+def test_pair_end_to_end_consistent(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  a, b = _write_pair_case(tmp_path, scale_a=1.0)
+  rc = main(["pair", str(a), str(b)])
+  out = capsys.readouterr().out
+  assert rc == 0
+  assert "propriety caveat" in out
+  assert "pairwise median NEES" in out
+  assert "lower bound" in out
+  assert "verdict: consistent" in out
+  assert "matched 200 pose pairs" in out
+
+
+def test_pair_detects_overconfidence_without_reference(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  # A's true error is 5x its published sigma; B is calibrated. No ground
+  # truth is consulted, yet the verdict certifies overconfidence.
+  a, b = _write_pair_case(tmp_path, scale_a=5.0)
+  rc = main(["pair", str(a), str(b)])
+  out = capsys.readouterr().out
+  assert rc == 0
+  assert "verdict: optimistic" in out
+  assert "pairwise scale gap k >=" in out
+
+
+def test_pair_json(tmp_path: Path, capsys: pytest.CaptureFixture):
+  import json as _json
+
+  a, b = _write_pair_case(tmp_path, scale_a=5.0)
+  rc = main(["pair", str(a), str(b), "--json"])
+  out = capsys.readouterr().out
+  assert rc == 0
+  v = _json.loads(out)
+  assert v["n_matched"] == 200
+  assert v["verdict"]["anees"]["verdict"] == "optimistic"
+  assert v["k_pair_lower_bound"] > 1.0
+  assert "caveat" in v
+
+
+def test_pair_rejects_deterministic(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  a = tmp_path / "a.SQUARE"
+  b = tmp_path / "b.SQUARE"
+  steps = [_det_step(0.1 * i, np.array([i * 0.1, 0.0, 0.0])) for i in range(20)]
+  _write(a, _det_header(), steps)
+  _write(b, _det_header(), steps)
+  rc = main(["pair", str(a), str(b)])
+  err = capsys.readouterr().err
+  assert rc == 2
+  assert "gaussian_se3" in err
+
+
+def test_pair_body_frame_mismatch_needs_transform(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  rng = np.random.default_rng(5)
+  ts = np.linspace(0.0, 5.0, 50)
+  pos = np.column_stack([ts, np.zeros(50), np.zeros(50)])
+  a = tmp_path / "a.SQUARE"
+  b = tmp_path / "b.SQUARE"
+  _write(
+    a,
+    _gauss_header(body_frame="imu"),
+    [_gauss_step(t, p) for t, p in zip(ts, pos, strict=False)],
+  )
+  _write(
+    b,
+    _gauss_header(body_frame="lidar"),
+    [_gauss_step(t, p) for t, p in zip(ts, pos, strict=False)],
+  )
+  rc = main(["pair", str(a), str(b)])
+  err = capsys.readouterr().err
+  assert rc == 2
+  assert "body frames differ" in err
+  del rng

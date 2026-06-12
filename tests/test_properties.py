@@ -27,36 +27,9 @@ from smfeval.scoring.summary import summarize
 from smfeval.se3.lie import homogeneous, se3_exp
 from smfeval.se3.quat import rot_to_quat_xyzw
 from smfeval.steps import DeterministicStep, GaussianStep
-
-_FINITE = {"allow_nan": False, "allow_infinity": False}
-
-
-def _floats(lo: float, hi: float):
-  return st.floats(min_value=lo, max_value=hi, **_FINITE)
-
-
-def _vec(n: int, lo: float = -10.0, hi: float = 10.0):
-  return st.lists(_floats(lo, hi), min_size=n, max_size=n).map(np.array)
-
-
-@st.composite
-def spd6(draw, scale_lo: float = 1e-2, scale_hi: float = 10.0):
-  """Well-conditioned SPD 6x6 via a Gram matrix plus identity ridge."""
-  a = draw(_vec(36, -1.0, 1.0)).reshape(6, 6)
-  s = draw(_floats(scale_lo, scale_hi))
-  return s * (a @ a.T + np.eye(6))
-
-
-@st.composite
-def pose(draw, t_lo: float = -10.0, t_hi: float = 10.0):
-  """Random SE(3) pose as (translation, quat_xyzw), angle < pi."""
-  rotvec = draw(_vec(3, -1.0, 1.0))
-  norm = np.linalg.norm(rotvec)
-  assume(norm < np.pi - 1e-3)
-  t = draw(_vec(3, t_lo, t_hi))
-  q = Rotation.from_rotvec(rotvec).as_quat()
-  return t, q
-
+from tests._strategies import floats as _floats
+from tests._strategies import pose, spd6
+from tests._strategies import vec as _vec
 
 # P1 — SPD lower-triangle packing round trip ---------------------------------
 

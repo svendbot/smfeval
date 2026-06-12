@@ -30,6 +30,12 @@ from smfeval.scoring.logscore import (
   gaussian_log_score_components,
   student_t_neg_log_density,
 )
+from smfeval.scoring.pairwise import (
+  PROPRIETY_CAVEAT,
+  PairInputError,
+  PairResult,
+  pair_translation_nees,
+)
 from smfeval.scoring.relative import (
   RelativeCalibrationResult,
   RelativeCrpsResult,
@@ -43,6 +49,7 @@ from smfeval.scoring.summary import (
 )
 
 __all__ = [
+  "PROPRIETY_CAVEAT",
   "AneesResult",
   "BiasVarianceResult",
   "CalibrationResult",
@@ -50,6 +57,8 @@ __all__ = [
   "EnsembleDiagnostic",
   "GaussianLogScore",
   "GaussianValidityDiagnostic",
+  "PairInputError",
+  "PairResult",
   "RelativeCalibrationResult",
   "RelativeCrpsResult",
   "ScoreComponents",
@@ -66,6 +75,7 @@ __all__ = [
   "student_t_neg_log_density",
   "gaussian_rotation_validity",
   "interval_score",
+  "pair_translation_nees",
   "politis_white_block_length",
   "rotation_crps",
   "summarize",
