@@ -32,7 +32,10 @@ from src.format import TangentOrder
 
 # Small-angle threshold below which the closed-form SO(3)/SE(3) Jacobians
 # are numerically ill-conditioned; we switch to their Taylor expansion.
-_EPS = 1e-12
+# At theta = 1e-2 the naive (1-cos)/theta^2 loses ~eps/theta^2 ~ 2e-12 to
+# cancellation while the two-term Taylor truncation error is theta^6/40320
+# ~ 2.5e-17; below this the Taylor branch is strictly more accurate.
+_EPS = 1e-2
 
 
 def homogeneous(R: np.ndarray, t: np.ndarray) -> np.ndarray:
@@ -87,20 +90,25 @@ def so3_log(R: np.ndarray) -> np.ndarray:
 def _v_jacobian(w: np.ndarray) -> np.ndarray:
   theta = float(np.linalg.norm(w))
   W = hat_so3(w)
+  t2 = theta * theta
   if theta < _EPS:
-    return np.eye(3) + 0.5 * W + (1.0 / 6.0) * W @ W
-  a = (1.0 - np.cos(theta)) / theta**2
-  b = (theta - np.sin(theta)) / theta**3
+    a = 0.5 - t2 / 24.0 + t2 * t2 / 720.0
+    b = 1.0 / 6.0 - t2 / 120.0 + t2 * t2 / 5040.0
+  else:
+    a = (1.0 - np.cos(theta)) / t2
+    b = (theta - np.sin(theta)) / (t2 * theta)
   return np.eye(3) + a * W + b * (W @ W)
 
 
 def _v_jacobian_inv(w: np.ndarray) -> np.ndarray:
   theta = float(np.linalg.norm(w))
   W = hat_so3(w)
+  t2 = theta * theta
   if theta < _EPS:
-    return np.eye(3) - 0.5 * W + (1.0 / 12.0) * (W @ W)
-  half = theta / 2.0
-  c = (1.0 / theta**2) - (1.0 / (2.0 * theta)) * (np.cos(half) / np.sin(half))
+    c = 1.0 / 12.0 + t2 / 720.0 + t2 * t2 / 30240.0
+  else:
+    half = theta / 2.0
+    c = (1.0 / t2) - (1.0 / (2.0 * theta)) * (np.cos(half) / np.sin(half))
   return np.eye(3) - 0.5 * W + c * (W @ W)
 
 
