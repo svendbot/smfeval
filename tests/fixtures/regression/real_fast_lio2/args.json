@@ -1,0 +1,8 @@
+{
+  "cmd": "score",
+  "gt_body_frame": "lidar",
+  "seed": 0,
+  "extra": [],
+  "n_samples": 32,
+  "body_frame_transform": "imu_to_lidar.json"
+}

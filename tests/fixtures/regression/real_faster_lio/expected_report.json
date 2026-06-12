@@ -1,0 +1,20 @@
+{
+  "median_nees": 38812425.46875889,
+  "calibrated_median": 2.3659738843753377,
+  "k": 16404418.3771733,
+  "per_axis_factor": 4050.2368297635758,
+  "coverage": 0.0,
+  "nominal_coverage": 0.9,
+  "dof": 3,
+  "n": 309,
+  "direction": "too tight",
+  "anees": {
+    "anees": 52614030.889793515,
+    "dof": 3,
+    "n": 309,
+    "lo": 2.7330668413077825,
+    "hi": 3.2791921347707778,
+    "verdict": "optimistic",
+    "median": 38812425.46875889
+  }
+}

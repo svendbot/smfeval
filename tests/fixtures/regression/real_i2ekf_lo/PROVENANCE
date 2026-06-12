@@ -1,0 +1,6 @@
+Source: slam_benchmark evaluation runs on Oxford Spires
+Sequence: 2024-03-18-christ-church-03
+Run: i2ekf_lo_belief_spires_2024-03-18-christ-church-03_1710755015_2024-03-18-09-43-36_0_20260608_163912
+Rows: traj.SQUARE data rows [50, 360) (stationary start skipped); GT span +-0.5 s
+Cut: scripts/make_regression_fixtures.py, 2026-06-12
+License: see ../DATA_LICENSE.md (CC BY-NC-SA 4.0, Oxford Spires)

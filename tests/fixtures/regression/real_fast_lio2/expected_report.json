@@ -1,0 +1,176 @@
+{
+  "sync": {
+    "mode": "nearest",
+    "n_matched": 309,
+    "n_total": 310,
+    "n_dropped": 1,
+    "gap_quantiles_ms": {
+      "median": 0.038623809814453125,
+      "p95": 7.568168640136716,
+      "p99": 8.545770645141603
+    },
+    "risk_threshold": 0.3,
+    "risk_excess_count": 101,
+    "risk_quantiles": {
+      "median": 0.05588394145429371,
+      "p95": 7.799125952174818,
+      "p99": 8.437851996276411
+    }
+  },
+  "alignment": {
+    "declared_gauge": "gravity_yaw",
+    "mode": "gravity_yaw",
+    "dof_removed": 4,
+    "scale": 1.0,
+    "translation": [
+      -27.76745903389894,
+      24.620439115300943,
+      1.7061471304368947
+    ],
+    "rotation_matrix": [
+      [
+        0.7542887569176683,
+        -0.6565428174823016,
+        0.0
+      ],
+      [
+        0.6565428174823016,
+        0.7542887569176683,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "residual_quantiles": {
+      "p50": 1.393939147345625,
+      "p95": 2.8828700183375777
+    },
+    "trajectory_length_m": 31.978294994730874
+  },
+  "ensemble": null,
+  "gaussian_validity": {
+    "n_total": 309,
+    "max_sigma_r": 0.00018386412381934144,
+    "soft_limit_rad": 0.3,
+    "hard_limit_rad": 0.5,
+    "n_exceeding_soft": 0,
+    "n_exceeding_hard": 0
+  },
+  "scores": {
+    "translation_crps": {
+      "n": 309,
+      "mean": 0.5453185686465155,
+      "median": 0.5228458930035979,
+      "std": 0.3376474585653686,
+      "min": 0.0039971363882454055,
+      "max": 1.181537632572174,
+      "ci_low": 0.32629975687767043,
+      "ci_high": 0.77932795554931,
+      "ci_level": 0.95,
+      "block_length": 27.386793079499412
+    },
+    "rotation_crps": {
+      "n": 309,
+      "mean": 0.2325670963794523,
+      "median": 0.2330028773823006,
+      "std": 0.0024042192966609362,
+      "min": 0.2227240726351663,
+      "max": 0.23717125559818444,
+      "ci_low": 0.23126115231500985,
+      "ci_high": 0.23357435459835468,
+      "ci_level": 0.95,
+      "block_length": 25.269920321153716
+    },
+    "energy_score": {
+      "n": 309,
+      "mean": 1.4866105432532675,
+      "median": 1.4149908893644025,
+      "std": 0.8637778590413632,
+      "min": 0.23095394044382755,
+      "max": 3.0523778069248864,
+      "ci_low": 0.9065140963694901,
+      "ci_high": 2.099794713394075,
+      "ci_level": 0.95,
+      "block_length": 27.39108442001954
+    },
+    "log_score": {
+      "n": 309,
+      "mean": 4829460.107163015,
+      "median": 4642717.672153743,
+      "std": 1048143.4136506156,
+      "min": 3573723.0803155326,
+      "max": 9857352.424740842,
+      "ci_low": 4252887.256109023,
+      "ci_high": 5437402.680465967,
+      "ci_level": 0.95,
+      "block_length": 27.082199035929253
+    },
+    "log_score_translation": {
+      "n": 309,
+      "mean": 1538081.1236777734,
+      "median": 1090443.3286361718,
+      "std": 1510340.7891844055,
+      "min": 80.85275270724918,
+      "max": 7169105.437800514,
+      "ci_low": 642227.8528796402,
+      "ci_high": 2662744.8481404916,
+      "ci_level": 0.95,
+      "block_length": 27.045876923354143
+    },
+    "log_score_rotation": {
+      "n": 309,
+      "mean": 2937479.3920124094,
+      "median": 2962728.699580161,
+      "std": 481178.7639285211,
+      "min": 1943309.1469143422,
+      "max": 3827973.70686677,
+      "ci_low": 2610532.3131550727,
+      "ci_high": 3245135.020589792,
+      "ci_level": 0.95,
+      "block_length": 27.426353349061664
+    },
+    "interval_score": {
+      "n": 309,
+      "mean": 28.96413008610989,
+      "median": 27.83765569781433,
+      "std": 17.75680095861414,
+      "min": 0.1582959805194903,
+      "max": 60.69881376092564,
+      "ci_low": 16.648850494620454,
+      "ci_high": 41.12798267524001,
+      "ci_level": 0.95,
+      "block_length": 27.397356504882314
+    }
+  },
+  "calibration": {
+    "ks_p_translation": 0.0,
+    "ks_p_rotation": 0.0,
+    "coverage": 0.0,
+    "nominal_coverage": 0.9,
+    "z_translation_mean": 875.7818973216748,
+    "z_translation_std": 509.15974082134767
+  },
+  "calibration_split": null,
+  "bias_variance": null,
+  "recommendations": [
+    "32.7% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_gt to confirm calibration findings.",
+    "4 DoF removed over 32 m of trajectory; post-alignment residuals are biased low. Consider --n_to_align to fit on a prefix and score on the remainder.",
+    "Coverage below nominal combined with KS p < 0.05 \u2014 the filter is over-confident (claimed \u03a3 too tight, truth falls outside the predicted intervals); widen process noise. Miscalibration is unlikely to be explained by sync error alone."
+  ],
+  "diagnoses": [
+    {
+      "mode": "sync_risk",
+      "severity": "warning",
+      "signals_triggered": [
+        "32.7% of pairs exceed sync risk 0.3"
+      ],
+      "explanation": "A competing confounder: timestamp-matching error shrinks short-window \u03a3_rel the same way local over-confidence does.",
+      "recommended_actions": [
+        "Re-score with --sync=interpolate_gt to separate sync from a genuine calibration fault before trusting short-horizon verdicts."
+      ]
+    }
+  ]
+}
