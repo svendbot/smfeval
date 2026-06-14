@@ -24,8 +24,12 @@ import pytest
 from smfeval.cli.main import main
 
 FIXTURES = Path(__file__).parent / "fixtures" / "regression"
-RTOL = 1e-9
-ATOL = 1e-12
+# Cross-platform tolerance. Sampled scores (rotation CRPS) and bootstrap block
+# lengths vary in the last few digits across BLAS and Python builds, so an
+# exact-match tolerance is not portable. 1e-6 still catches real regressions,
+# which move values by far more than that.
+RTOL = 1e-6
+ATOL = 1e-9
 
 
 def _scenarios() -> list[Path]:
