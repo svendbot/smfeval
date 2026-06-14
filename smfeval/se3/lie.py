@@ -47,7 +47,7 @@ def homogeneous(R: np.ndarray, t: np.ndarray) -> np.ndarray:
 
 
 def pose_matrix(translation: np.ndarray, quat_xyzw: np.ndarray) -> np.ndarray:
-  # Homogeneous transform: [[R, p], [0, 1]] with R ∈ SO(3), p ∈ R^3.
+  # Homogeneous transform: [[R, p], [0, 1]] with R in SO(3), p in R^3.
   return homogeneous(Rotation.from_quat(quat_xyzw).as_matrix(), translation)
 
 

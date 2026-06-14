@@ -58,7 +58,7 @@ class Diagnosis:
     return asdict(self)
 
 
-# ANEES that exceeds the χ² upper bound by this factor is flagged CRITICAL
+# ANEES that exceeds the chi2 upper bound by this factor is flagged CRITICAL
 # rather than WARNING (an order of magnitude past the consistency interval).
 _CRITICAL_ANEES_FACTOR = 10.0
 # windowed ANEES must grow by at least this factor from the shortest to the

@@ -31,7 +31,7 @@ _INV_SQRT_PI = 1.0 / np.sqrt(np.pi)
 _ROT_CRPS_PILOT = 64
 _ROT_CRPS_MAX_SAMPLES = 512
 _ROT_CRPS_REL_TARGET = 0.05  # stop when SE < 5% of |score|
-_ROT_CRPS_ABS_FLOOR = 1e-4  # ...but never tighten below 0.006°
+_ROT_CRPS_ABS_FLOOR = 1e-4  # ...but never tighten below 0.006 deg
 
 
 def _gaussian_crps(

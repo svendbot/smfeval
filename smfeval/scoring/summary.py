@@ -167,7 +167,7 @@ def politis_white_block_length(values: np.ndarray | list[float]) -> float:
 
   # Clamp M to M_max so R[|ks|] stays within the precomputed
   # autocovariance array. Under strong autocorrelation k_star can land
-  # above M_max/2, which would otherwise make 2·k_star exceed M_max.
+  # above M_max/2, which would otherwise make 2*k_star exceed M_max.
   M = int(min(max(2 * k_star, 2), M_max))
   ks = np.arange(-M, M + 1)
   R_k = R[np.abs(ks)]

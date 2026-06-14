@@ -87,7 +87,7 @@ def propagate_step(
       new = step.particles.copy()
       new[:, :3] = scale * (step.particles[:, :3] @ R.T) + d
       rots = Rotation.from_quat(step.particles[:, 3:]).as_matrix()
-      new_rots = R @ rots  # broadcast (3,3) × (n,3,3) → (n,3,3)
+      new_rots = R @ rots  # broadcast (3,3) x (n,3,3) -> (n,3,3)
       new[:, 3:] = Rotation.from_matrix(new_rots).as_quat()
       return EnsembleStep(
         timestamp=step.timestamp,

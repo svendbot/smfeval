@@ -249,9 +249,8 @@ class AneesResult:
   lo: float
   hi: float
   verdict: str
-  # Robust companion to the (mean) ANEES. The mean is outlier-dominated; the
-  # median ≈ dof when the BULK is calibrated, so `median ≪ anees` means the
-  # over-confidence is a heavy-dynamics TAIL, not the bulk (the B2 lesson).
+  # Robust companion to the mean ANEES (outlier-dominated): median ~= dof when
+  # the bulk is calibrated, so median << anees flags tail over-confidence.
   median: float = float("nan")
 
   def to_dict(self) -> dict[str, float | int | str]:

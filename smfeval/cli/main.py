@@ -475,7 +475,7 @@ def _resolve_sync(
         )
         return None
       est_idx = np.where(keep)[0]
-      # gt_indices = -1 — the interpolated GT is not a row in gt_steps.
+      # gt_indices = -1: the interpolated GT is not a row in gt_steps.
       match_res = MatchResult(
         est_indices=est_idx,
         gt_indices=np.full(est_idx.size, -1, dtype=int),
@@ -487,7 +487,7 @@ def _resolve_sync(
       matched_est = [est_steps[i] for i in est_idx]
       matched_gt_t = interp_t[est_idx]
       matched_gt_q = interp_q[est_idx]
-      # Risk surrogate: GP predictive σ — interpolation hits the query exactly,
+      # Risk surrogate: GP predictive sigma - interpolation hits the query exactly,
       # but the predictive variance bounds how trustworthy that hit is.
       risks = np.sqrt(np.maximum(interp_cov[est_idx, 0, 0], 0.0))
       return (
@@ -586,7 +586,7 @@ class PreparedRun:
   fit: AlignmentFit
   order: TangentOrder
   risks: np.ndarray
-  gt_cov: np.ndarray | None  # GP predictive Σ_gt under interpolate_gt
+  gt_cov: np.ndarray | None  # GP predictive covariance under interpolate_gt
 
 
 def _load_estimate(args: argparse.Namespace) -> tuple[SquareHeader, list[Step]]:
@@ -824,11 +824,11 @@ def _score(args: argparse.Namespace) -> int:
       normalized=bool(est_header.weights_normalized),
     )
 
-  # A5: fold the GT observer covariance into the predictive — Σ_eff = Σ_pred +
-  # Σ_gt — so the score consumes ground-truth uncertainty, not just the
-  # filter's. Σ_gt is the GP predictive covariance (interpolate_gt); isotropic,
-  # so the tangent-order of the addition is immaterial. The gaussian-validity
-  # check stays on the raw predictive (it audits the filter's own Σ).
+  # Fold the GT observer covariance gt_cov into each predictive cov so the score
+  # consumes ground-truth uncertainty too, not just the filter's. gt_cov (the GP
+  # predictive covariance) is isotropic, so the tangent-order of the sum is
+  # immaterial. The gaussian-validity check stays on the raw predictive cov; it
+  # audits the filter's own.
   ess_c = None
   if args.ess_inflate is not None:
     c_ts, c_val = _load_ess_cfile(args.ess_inflate)
@@ -853,9 +853,9 @@ def _score(args: argparse.Namespace) -> int:
         scored_est.append(s)
         continue
       cov = s.covariance
-      if ess_c is not None:  # Σ → c·Σ  (ESS inflation)
+      if ess_c is not None:  # cov *= ess_c  (ESS inflation)
         cov = ess_c[k] * cov
-      if args.consume_gt_cov:  # + Σ_gt   (observer uncertainty)
+      if args.consume_gt_cov:  # cov += gt_cov  (observer uncertainty)
         cov = cov + gt_cov[k]
       scored_est.append(replace(s, covariance=cov))
 

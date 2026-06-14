@@ -24,13 +24,13 @@ class Report:
   scores: dict[str, Any] = field(default_factory=dict)
   calibration: dict[str, Any] = field(default_factory=dict)
   # Populated under --calibration: {"absolute": {joint,translation,rotation},
-  # "windowed": [...]} of the log-score calibration/sharpness split (A1).
+  # "windowed": [...]} of the log-score calibration/sharpness split.
   calibration_split: dict[str, Any] | None = None
-  # Populated under --calibration: list of per-window track-frame bias/variance
-  # (B1) — bias_fraction + dominant axis, read by diagnose() for systematic bias.
+  # Populated under --calibration: per-window track-frame bias/variance
+  # (bias_fraction + dominant axis), read by diagnose() for systematic bias.
   bias_variance: list[dict[str, Any]] | None = None
   recommendations: list[str] = field(default_factory=list)
-  # Structured, actionable diagnoses (A3); list of Diagnosis dataclasses.
+  # Structured, actionable diagnoses; list of Diagnosis dataclasses.
   diagnoses: list[Any] = field(default_factory=list)
 
 
