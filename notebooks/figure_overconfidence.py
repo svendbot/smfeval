@@ -240,10 +240,11 @@ def main() -> int:
   insA.plot(*p_gt, "s", color=C_GT, ms=7, mec="white", mew=0.8, zorder=4)
   insA.annotate("", xy=p_gt, xytext=p_est, arrowprops=dict(arrowstyle="-|>", color=C_ERR, lw=2.0), zorder=5)
   insA.text(
-    c[0], c[1],
-    f"  {err_m * 100:.0f} cm = {z:.0f}$\\sigma$\n  ({mult99:.0f}x outside 99%)",
-    color=C_ERR, fontsize=11, fontweight="bold", va="bottom", ha="left",
-    zorder=6,
+    0.04, 0.96,
+    f"{err_m * 100:.0f} cm = {z:.0f}$\\sigma$\n({mult99:.0f}x outside 99%)",
+    transform=insA.transAxes, color=C_ERR, fontsize=11, fontweight="bold",
+    va="top", ha="left", zorder=6,
+    bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="none", alpha=0.8),
   )
   insA.set_xlim(c[0] - halfA, c[0] + halfA)
   insA.set_ylim(c[1] - halfA, c[1] + halfA)
