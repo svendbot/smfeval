@@ -243,7 +243,7 @@ def relative_translation_crps(
     crps_axis = _gaussian_crps(de, sigma, dg)  # (M, 3)
     per_pair = crps_axis.mean(axis=1)  # mean over the 3 axes
     z2 = float((((dg - de) / sigma) ** 2).mean())
-    sigma_rel = np.sqrt((sigma**2).sum(axis=1))  # Euclidean norm of sigma, per pair
+    sigma_rel = np.sqrt((sigma**2).sum(axis=1))  # L2 norm of sigma per pair
     rpe = np.linalg.norm(dg - de, axis=1)
     results.append(
       RelativeCrpsResult(
