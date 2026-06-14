@@ -28,13 +28,13 @@ The only dependencies are NumPy and SciPy (Python ≥ 3.10).
 
 ```
 $ smfeval nees estimate.SQUARE reference.tum --gt-body-frame lidar
-median NEES 5.85e3   (calibrated: 2.37)
-covariance scale gap k = 2.47e3, ~49.7x too tight per axis
+median NEES 1.04e3   (calibrated: 2.37)
+covariance scale gap k = 441, ~21x too tight per axis
 90% coverage: 0.000  (calibrated: 0.900)
 ```
 
-(Point-LIO on Oxford Spires `christ-church-03` — see
-`exporters/point_lio/VALIDATION.md` for the full reproduction.)
+(FAST-LIO2 on Oxford Spires `christ-church-03` — see
+`exporters/fast_lio2/VALIDATION.md` for the full reproduction.)
 
 Under a calibrated belief the per-pose translation NEES is χ²₃-distributed
 (median 2.37). The scale gap **k = median NEES / 2.37** is the factor by

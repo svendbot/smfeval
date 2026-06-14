@@ -2,7 +2,7 @@
 #%REPRESENTATION gaussian_se3
 #%POSE_FRAME world
 #%BODY_FRAME imu
-#%GAUGE gravity_yaw
+#%GAUGE se3
 #%TIMESTAMP_UNIT seconds
 #%ALGORITHM point_lio_belief
 #%ALGORITHM_VERSION 0

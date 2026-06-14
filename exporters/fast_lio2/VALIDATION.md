@@ -16,8 +16,8 @@ smfeval nees traj.SQUARE gt-tum.txt \
 Output (verbatim):
 
 ```
-median NEES 1.06e7   (calibrated: 2.37)
-covariance scale gap k = 4.48e6, ~2.12e3x too tight per axis
+median NEES 1.04e3   (calibrated: 2.37)
+covariance scale gap k = 441, ~21x too tight per axis
 90% coverage: 0.000  (calibrated: 0.900)
 ```
 

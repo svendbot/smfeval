@@ -34,7 +34,7 @@ def main():
         wrote_header = False
         for _, msg, _ in bag.read_messages(topics=[topic]):
             if not wrote_header:
-                gauge = (getattr(msg, "gauge", "") or "gravity_yaw").strip()
+                gauge = (getattr(msg, "gauge", "") or "se3").strip()
                 f.write("#%FORMAT SQUARE/0.3\n")
                 f.write("#%REPRESENTATION gaussian_se3\n")
                 f.write("#%POSE_FRAME world\n")

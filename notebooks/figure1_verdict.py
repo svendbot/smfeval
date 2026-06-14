@@ -48,8 +48,8 @@ print("data ready:", list(FILES))
 # !smfeval nees est.SQUARE gt.tum --gt-body-frame lidar --body-frame-transform imu_to_lidar.json
 
 # %% [markdown]
-# Median NEES in the millions against a calibrated reference of 2.37: the
-# published covariance is several orders of magnitude too tight, and the
+# Median NEES around 10^3 against a calibrated reference of 2.37: the
+# published covariance is ~440x too tight (about 21x per axis), and the
 # 90% credible ellipsoid never contains the truth. The belief is wrong
 # even where the trajectory is accurate — this is what mean-based metrics
 # (ATE/RPE) cannot see.

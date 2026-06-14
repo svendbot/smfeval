@@ -37,6 +37,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Ellipse
 
 from smfeval.align import (
+  align_mode_for_gauge,
   apply_body_transform,
   fit_alignment,
   propagate_step,
@@ -88,13 +89,13 @@ def load_run(tmp: Path):
   gt_t = np.array([gt[j].translation for j in m.gt_indices])
   gt_q = np.array([gt[j].quat_xyzw for j in m.gt_indices])
 
-  # full SE(3) Umeyama, the alignment ATE/RPE use: it removes every rigid
-  # gauge freedom, so the residual is as small as a mean-only metric can make
-  # it. Whatever NEES survives that is the belief's fault, not misalignment.
+  # align under the file's declared gauge (se3 here): full Umeyama removes every
+  # rigid freedom, so the residual is as small as a mean-only metric can make it.
+  # Whatever NEES survives that is the belief's fault, not misalignment.
   fit = fit_alignment(
     np.array([s.translation for s in matched]),
     gt_t,
-    mode="se3",
+    mode=align_mode_for_gauge(header.gauge),
   )
   aligned = [
     propagate_step(

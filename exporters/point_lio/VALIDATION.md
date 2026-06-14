@@ -15,9 +15,9 @@ smfeval nees traj.SQUARE gt-tum.txt \
 Output (verbatim):
 
 ```
-median NEES 5.85e3   (calibrated: 2.37)
-covariance scale gap k = 2.47e3, ~49.7x too tight per axis
-90% coverage: 0.000  (calibrated: 0.900)
+median NEES 39.7   (calibrated: 2.37)
+covariance scale gap k = 16.8, ~4.09x too tight per axis
+90% coverage: 0.016  (calibrated: 0.900)
 ```
 
 The verdict reflects the filter's raw per-scan covariance.

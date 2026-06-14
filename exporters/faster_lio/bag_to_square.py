@@ -20,7 +20,7 @@ _V = "{:.17g}"
 ALGORITHM = "faster_lio_belief"
 ALGORITHM_VERSION = "0"
 BODY_FRAME = "imu"
-GAUGE = "gravity_yaw"
+GAUGE = "se3"
 
 
 def main():
