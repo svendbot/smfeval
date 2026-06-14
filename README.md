@@ -19,8 +19,9 @@ output. smfeval emits the text verdict below; the figure shows what that
 verdict means geometrically. FAST-LIO2 on Oxford Spires `christ-church-03`.
 The estimate (blue) tracks truth (black) to **3 cm** APE, which ATE/RPE call
 excellent, but the filter's reported 90% region is **millimetres** wide, so
-that 3 cm gap is **37σ**. The belief is wrong where the mean is right, and that
-per-pose gap is what smfeval scores. (Data: Oxford Spires, CC BY-NC-SA 4.0.)*
+that 3 cm gap is **37 sigma**. The belief is wrong where the mean is right, and
+that per-pose gap is what smfeval scores. (Data: Oxford Spires, CC BY-NC-SA
+4.0.)*
 
 ## Install
 
@@ -28,7 +29,7 @@ per-pose gap is what smfeval scores. (Data: Oxford Spires, CC BY-NC-SA 4.0.)*
 pip install smfeval
 ```
 
-The only dependencies are NumPy and SciPy (Python ≥ 3.10).
+The only dependencies are NumPy and SciPy (Python 3.10+).
 
 ## Thirty seconds to a verdict
 
@@ -48,13 +49,13 @@ FAST-LIO2 on Oxford Spires `christ-church-03`. See
 > If it does not yet, see
 > [Your filter doesn't write SQUARE yet?](#your-filter-doesnt-write-square-yet).
 
-Under a calibrated belief the per-pose translation NEES is χ²₃-distributed
-(median 2.37; read NEES as the error in sigmas, squared). The scale gap
-**k = median NEES / 2.37** is the factor by which the published covariance is
-too tight, and per axis that is √k. Here the filter's 90% credible ellipsoid
-never contains the truth. `smfeval score` goes further. It localizes *which*
-block is wrong (translation vs rotation, bulk vs tail) and emits
-[structured, actionable diagnoses](#the-full-report).
+Under a calibrated belief the per-pose translation NEES has a known reference
+median of 2.37 (NEES is the error measured in standard deviations, squared).
+The scale gap **k = median NEES / 2.37** is the factor by which the published
+covariance is too tight, so each axis is off by about the square root of that.
+Here the filter's 90% credible ellipsoid never contains the truth. `smfeval
+score` goes further. It localizes which block is wrong (translation vs rotation,
+bulk vs tail) and emits [structured, actionable diagnoses](#the-full-report).
 
 ## No ground truth? Run two filters and score them against each other
 
@@ -81,7 +82,7 @@ miscalibration.
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/svendbot/smfeval/blob/main/notebooks/figure1_verdict.ipynb)
 
 The notebook reproduces the headline verdict on one Oxford Spires sequence end
-to end (install, fetch data, verdict, NEES-vs-χ²₃ plot) in a few seconds.
+to end (install, fetch data, verdict, NEES-vs-reference plot) in a few seconds.
 
 ---
 
@@ -92,7 +93,7 @@ not have to adopt the SQUARE format to provide it. Two on-ramps are documented
 in `SQUARE_spec.md`.
 
 - **Wide TUM**. Standard TUM pose columns plus the 21 row-major lower-triangle
-  entries of the 6×6 tangent covariance (29 columns total).
+  entries of the 6x6 tangent covariance (29 columns total).
 - **Sidecar file**. Plain TUM poses plus `--cov cov.txt` with
   `timestamp c11 c21 c22 ... c66` rows.
 
