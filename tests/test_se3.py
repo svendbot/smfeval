@@ -13,6 +13,7 @@ from smfeval.se3 import (
   se3_log,
   so3_exp,
   so3_log,
+  so3_mean,
 )
 
 RNG = np.random.default_rng(0)
@@ -134,3 +135,45 @@ def test_se3_round_trip_property(xs):
   xi2 = se3_log(T)
   T2 = se3_exp(xi2)
   assert np.allclose(T2, T, atol=1e-9)
+
+
+def test_so3_mean_identity():
+  R = so3_exp(np.array([0.3, -0.2, 0.5]))
+  assert np.allclose(so3_mean(np.stack([R, R, R])), R, atol=1e-9)
+
+
+def test_so3_mean_left_equivariance():
+  rng = np.random.default_rng(3)
+  rots = np.stack([so3_exp(rng.normal(scale=0.5, size=3)) for _ in range(8)])
+  Q = so3_exp(np.array([0.4, -0.1, 0.7]))
+  left = so3_mean(np.einsum("ij,njk->nik", Q, rots))
+  right = Q @ so3_mean(rots)
+  assert np.allclose(left, right, atol=1e-8)
+
+
+def test_so3_mean_is_stationary():
+  rng = np.random.default_rng(4)
+  rots = np.stack([so3_exp(rng.normal(scale=0.5, size=3)) for _ in range(10)])
+  rbar = so3_mean(rots)
+  grad = np.sum([so3_log(rbar.T @ ri) for ri in rots], axis=0)
+  assert np.linalg.norm(grad) < 1e-8
+
+
+def test_ensemble_rotation_reference_is_permutation_invariant():
+  from smfeval.format import TangentOrder
+  from smfeval.scoring._predictive import rotation_samples
+  from smfeval.steps import EnsembleStep
+
+  rng = np.random.default_rng(5)
+  rots = [so3_exp(rng.normal(scale=0.3, size=3)) for _ in range(6)]
+  particles = np.array([[0.0, 0.0, 0.0, *rot_to_quat_xyzw(r)] for r in rots])
+  perm = [3, 1, 5, 0, 2, 4]
+  step = EnsembleStep(timestamp=0.0, particles=particles, weights=None)
+  step_perm = EnsembleStep(
+    timestamp=0.0, particles=particles[perm], weights=None
+  )
+  om1, _ = rotation_samples(step, 0, rng, TangentOrder.TRANS_ROT)
+  om2, _ = rotation_samples(step_perm, 0, rng, TangentOrder.TRANS_ROT)
+  norms1 = np.sort(np.linalg.norm(om1, axis=1))
+  norms2 = np.sort(np.linalg.norm(om2, axis=1))
+  assert np.allclose(norms1, norms2, atol=1e-9)

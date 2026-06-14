@@ -9,6 +9,7 @@ from smfeval.se3.lie import (
   se3_log,
   so3_exp,
   so3_log,
+  so3_mean,
   trans_slice,
 )
 from smfeval.se3.quat import quat_xyzw_to_rot, rot_to_quat_xyzw
@@ -26,5 +27,6 @@ __all__ = [
   "se3_log",
   "so3_exp",
   "so3_log",
+  "so3_mean",
   "trans_slice",
 ]

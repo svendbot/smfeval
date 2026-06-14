@@ -83,6 +83,31 @@ def so3_log(R: np.ndarray) -> np.ndarray:
   return Rotation.from_matrix(R).as_rotvec()
 
 
+def so3_mean(
+  rots: np.ndarray, max_iter: int = 20, tol: float = 1e-10
+) -> np.ndarray:
+  """Frechet (geodesic L2) mean of a stack of (n, 3, 3) rotations.
+
+  Seeded from the chordal mean (SVD projection of the average matrix), then
+  refined by iterated tangent averaging ``R <- R Exp(mean_i Log(R^T R_i))``.
+  Unweighted; the reference center of an ensemble does not depend on particle
+  order, unlike picking a single particle.
+  """
+  rots = np.asarray(rots, dtype=float)
+  if rots.ndim != 3 or rots.shape[0] == 0:
+    return np.eye(3)
+  M = rots.mean(axis=0)
+  U, _, Vt = np.linalg.svd(M)
+  d = np.sign(np.linalg.det(U @ Vt))
+  R = U @ np.diag([1.0, 1.0, d]) @ Vt
+  for _ in range(max_iter):
+    delta = np.mean([so3_log(R.T @ Ri) for Ri in rots], axis=0)
+    R = R @ so3_exp(delta)
+    if float(np.linalg.norm(delta)) < tol:
+      break
+  return R
+
+
 def _v_jacobian(w: np.ndarray) -> np.ndarray:
   theta = float(np.linalg.norm(w))
   W = hat_so3(w)

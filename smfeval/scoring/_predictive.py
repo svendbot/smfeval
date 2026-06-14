@@ -9,7 +9,7 @@ import numpy as np
 
 from smfeval.format import TangentOrder
 from smfeval.scoring._kernel import sample_gaussian_tangent
-from smfeval.se3.lie import rot_slice, so3_log, trans_slice
+from smfeval.se3.lie import rot_slice, so3_log, so3_mean, trans_slice
 from smfeval.se3.quat import quat_xyzw_to_rot
 from smfeval.steps import EnsembleStep, GaussianStep, Step
 
@@ -38,7 +38,9 @@ def rotation_samples(
     return omegas, quat_xyzw_to_rot(step.quat_xyzw)
   if isinstance(step, EnsembleStep):
     rots = np.array([quat_xyzw_to_rot(p[3:]) for p in step.particles])
-    R_mean = rots[0] if len(rots) else np.eye(3)
+    if len(rots) == 0:
+      return np.zeros((0, 3)), np.eye(3)
+    R_mean = so3_mean(rots)
     omegas = np.array([so3_log(R_mean.T @ R) for R in rots])
     return omegas, R_mean
   return np.zeros((1, 3)), quat_xyzw_to_rot(step.quat_xyzw)
