@@ -23,6 +23,13 @@ truth lands about **11x outside** even the filter's 99% region (the figure marks
 this as 37 sigma). The belief is wrong where the mean is right, and that
 per-pose gap is what smfeval scores. (Data: Oxford Spires, CC BY-NC-SA 4.0.)*
 
+## Try it now
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/svendbot/smfeval/blob/main/notebooks/figure1_verdict.ipynb)
+
+The notebook reproduces the headline verdict on one Oxford Spires sequence end
+to end (install, fetch data, verdict, NEES-vs-reference plot) in a few seconds.
+
 ## Install
 
 ```sh
@@ -76,13 +83,6 @@ Filter A is aligned to filter B directly and the difference is scored under the
 summed covariances. Common-mode error and an understated reference covariance
 both push the statistic *down*, so the verdict is a lower bound on the
 miscalibration.
-
-## Try it now
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/svendbot/smfeval/blob/main/notebooks/figure1_verdict.ipynb)
-
-The notebook reproduces the headline verdict on one Oxford Spires sequence end
-to end (install, fetch data, verdict, NEES-vs-reference plot) in a few seconds.
 
 ---
 
