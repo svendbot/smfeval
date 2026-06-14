@@ -31,7 +31,7 @@ pip install smfeval
 
 The only dependencies are NumPy and SciPy (Python 3.10+).
 
-## Thirty seconds to a verdict
+## Score a filter
 
 ```
 $ smfeval nees estimate.SQUARE reference.tum --gt-body-frame lidar
@@ -43,11 +43,11 @@ covariance scale gap k = 441, ~21x too tight per axis
 FAST-LIO2 on Oxford Spires `christ-church-03`. See
 `exporters/fast_lio2/VALIDATION.md` for the full reproduction.
 
-> **No `.SQUARE` file?** smfeval scores the *covariance*, so it needs one per
-> pose. Plain TUM poses are not enough on their own. If your filter publishes a
-> covariance, feed plain TUM plus a sidecar directly, with no format adoption.
-> If it does not yet, see
-> [Your filter doesn't write SQUARE yet?](#your-filter-doesnt-write-square-yet).
+> **No `.SQUARE` file?** smfeval needs a covariance for every pose, not just the
+> poses, but it does not need the SQUARE format. If your filter outputs
+> covariances, pass a plain TUM file plus a `--cov` sidecar. If it does not,
+> [Your filter doesn't write SQUARE yet?](#your-filter-doesnt-write-square-yet)
+> shows how to get them.
 
 Under a calibrated belief the per-pose translation NEES has a known reference
 median of 2.37 (NEES is the error measured in standard deviations, squared).
