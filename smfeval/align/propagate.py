@@ -94,6 +94,8 @@ def propagate_step(
         particles=new,
         weights=None if step.weights is None else step.weights.copy(),
       )
+    case _:
+      raise TypeError(f"unsupported step type {type(step).__name__}")
 
 
 def apply_body_transform(
@@ -163,3 +165,5 @@ def apply_body_transform(
         particles=new,
         weights=None if step.weights is None else step.weights.copy(),
       )
+    case _:
+      raise TypeError(f"unsupported step type {type(step).__name__}")

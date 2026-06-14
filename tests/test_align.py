@@ -1,6 +1,12 @@
 import numpy as np
+import pytest
 
-from smfeval.align import align_mode_for_gauge, fit_alignment, propagate_step
+from smfeval.align import (
+  align_mode_for_gauge,
+  apply_body_transform,
+  fit_alignment,
+  propagate_step,
+)
 from smfeval.format import Gauge, TangentConvention, TangentOrder
 from smfeval.se3.lie import se3_exp
 from smfeval.se3.quat import rot_to_quat_xyzw
@@ -151,3 +157,24 @@ def test_propagate_sim3_scales_translation():
   )
   out = propagate_step(step, T, scale=s)
   assert np.allclose(out.translation, [13.0, 0.0, 0.0])
+
+
+def test_fit_alignment_rejects_unknown_mode():
+  pts = RNG.normal(size=(5, 3))
+  with pytest.raises(ValueError, match="unknown align mode"):
+    fit_alignment(pts, pts, mode="bogus")  # type: ignore[arg-type]
+
+
+def test_propagate_step_rejects_non_step():
+  with pytest.raises(TypeError, match="unsupported step type"):
+    propagate_step(object(), np.eye(4))  # type: ignore[arg-type]
+
+
+def test_apply_body_transform_rejects_non_step():
+  with pytest.raises(TypeError, match="unsupported step type"):
+    apply_body_transform(
+      object(),  # type: ignore[arg-type]
+      np.eye(4),
+      tangent_convention=TangentConvention.RIGHT,
+      tangent_order=TangentOrder.TRANS_ROT,
+    )

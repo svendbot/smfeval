@@ -82,6 +82,8 @@ def translation_crps(
       return float(np.mean(axis_scores))
     case DeterministicStep():
       return float(np.abs(pred_step.translation - gt_translation).mean())
+    case _:
+      raise TypeError(f"unsupported step type {type(pred_step).__name__}")
 
 
 def _geodesic_distances(

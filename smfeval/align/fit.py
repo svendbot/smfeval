@@ -82,6 +82,8 @@ def fit_alignment(
     R, t, s = _kabsch_umeyama(est_positions, gt_positions, with_scale=True)
   elif mode == "gravity_yaw":
     R, t, s = _gravity_yaw_fit(est_positions, gt_positions)
+  else:
+    raise ValueError(f"unknown align mode {mode!r}")
 
   T = homogeneous(R, t)
   aligned = (s * (R @ est_positions.T)).T + t
