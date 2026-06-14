@@ -10,6 +10,7 @@ from smfeval.report.text import render_report
 from smfeval.report.verdict import (
   NeesVerdict,
   nees_verdict,
+  pair_verdict_dict,
   render_nees_verdict,
   render_pair_verdict,
 )
@@ -23,6 +24,7 @@ __all__ = [
   "build_report",
   "diagnose",
   "nees_verdict",
+  "pair_verdict_dict",
   "recommendations",
   "render_nees_verdict",
   "render_pair_verdict",

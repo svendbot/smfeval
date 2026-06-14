@@ -28,6 +28,7 @@ from smfeval.scoring.logscore import (
   anees_consistency,
   gaussian_log_score,
   gaussian_log_score_components,
+  student_t_logscore_sweep,
   student_t_neg_log_density,
 )
 from smfeval.scoring.pairwise import (
@@ -72,6 +73,7 @@ __all__ = [
   "ensemble_diagnostics",
   "gaussian_log_score",
   "gaussian_log_score_components",
+  "student_t_logscore_sweep",
   "student_t_neg_log_density",
   "gaussian_rotation_validity",
   "interval_score",

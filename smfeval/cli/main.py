@@ -58,18 +58,17 @@ from smfeval.scoring import (
   relative_calibration,
   relative_translation_crps,
   rotation_crps,
-  student_t_neg_log_density,
+  student_t_logscore_sweep,
   summarize,
   translation_crps,
   translation_magnitude_interval_score,
 )
-from smfeval.scoring.logscore import _gaussian_neg_log_density
 from smfeval.scoring.pairwise import (
   PROPRIETY_CAVEAT,
   PairInputError,
   pair_translation_nees,
 )
-from smfeval.se3.lie import homogeneous, pose_matrix, relative, se3_log
+from smfeval.se3.lie import homogeneous
 from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
 from smfeval.sync import (
   MatchResult,
@@ -1146,22 +1145,9 @@ def _report_student_t(
     )
     return
   nus = [float(x) for x in args.student_t.split(",") if x.strip()]
-  gauss: list[float] = []
-  tcols: dict[float, list[float]] = {nu: [] for nu in nus}
-  for s, gt_t, gt_q in zip(
-    aligned_est, matched_gt_t, matched_gt_q, strict=True
-  ):
-    if not isinstance(s, GaussianStep):
-      continue
-    xi = se3_log(
-      relative(
-        pose_matrix(s.translation, s.quat_xyzw), pose_matrix(gt_t, gt_q)
-      ),
-      order=order,
-    )
-    gauss.append(_gaussian_neg_log_density(xi, s.covariance))
-    for nu in nus:
-      tcols[nu].append(student_t_neg_log_density(xi, s.covariance, nu))
+  gauss, tcols = student_t_logscore_sweep(
+    aligned_est, matched_gt_t, matched_gt_q, nus, tangent_order=order
+  )
 
   if not gauss:
     print("\nstudent-t: no Gaussian steps after matching")

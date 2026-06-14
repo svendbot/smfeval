@@ -231,6 +231,36 @@ def student_t_neg_log_density(
   )
 
 
+def student_t_logscore_sweep(
+  steps: list,
+  gt_translations: np.ndarray,
+  gt_quats: np.ndarray,
+  nus: list[float],
+  tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
+) -> tuple[list[float], dict[float, list[float]]]:
+  """Per-step Gaussian and covariance-matched Student-t negative log densities.
+
+  Returns ``(gaussian_nll, {nu: student_t_nll})`` over the GaussianStep entries,
+  skipping non-Gaussian steps. The Gaussian column is the nu->inf limit.
+  """
+  gauss: list[float] = []
+  tcols: dict[float, list[float]] = {nu: [] for nu in nus}
+  for step, gt_t, gt_q in zip(steps, gt_translations, gt_quats, strict=True):
+    if not isinstance(step, GaussianStep):
+      continue
+    xi = se3_log(
+      relative(
+        pose_matrix(step.translation, step.quat_xyzw),
+        pose_matrix(gt_t, gt_q),
+      ),
+      order=tangent_order,
+    )
+    gauss.append(_gaussian_neg_log_density(xi, step.covariance))
+    for nu in nus:
+      tcols[nu].append(student_t_neg_log_density(xi, step.covariance, nu))
+  return gauss, tcols
+
+
 @dataclass
 class AneesResult:
   r"""Average-NEES consistency test against the two-sided χ² interval.
