@@ -27,8 +27,8 @@ Homepage = "https://github.com/svendbot/smfeval"
 dev = [
     "pytest",
     "hypothesis",
+    "jsonschema",
     "matplotlib",
-    "pandas",
     "pyyaml",
     "natsort",
     "colorama",

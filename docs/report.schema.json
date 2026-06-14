@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/svendbot/smfeval/main/docs/report.schema.json",
+  "title": "smfeval scoring report",
+  "description": "Structured report emitted by `smfeval score --json` and `--json-out`. Sub-objects carry tool-defined fields and may gain keys within a schema_version; the top-level set is fixed.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "sync",
+    "alignment",
+    "ensemble",
+    "gaussian_validity",
+    "scores",
+    "calibration",
+    "calibration_split",
+    "bias_variance",
+    "recommendations",
+    "diagnoses"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Report contract version. Bumped when the report structure changes."
+    },
+    "sync": {
+      "type": "object",
+      "description": "Timestamp-matching diagnostics (pairs matched, dropped, gaps, sync risk)."
+    },
+    "alignment": {
+      "type": "object",
+      "description": "Fitted alignment mode, transform, and degrees of freedom removed."
+    },
+    "ensemble": {
+      "type": ["object", "null"],
+      "description": "Ensemble diagnostics (ensemble_se3 input only), else null."
+    },
+    "gaussian_validity": {
+      "type": ["object", "null"],
+      "description": "Tangent-Gaussian validity diagnostic (gaussian_se3 input), else null."
+    },
+    "scores": {
+      "type": "object",
+      "description": "Proper scoring rules with confidence intervals."
+    },
+    "calibration": {
+      "type": "object",
+      "description": "PIT, interval coverage, and standardized-residual calibration."
+    },
+    "calibration_split": {
+      "type": ["object", "null"],
+      "description": "Log-score calibration/sharpness split (under --calibration), else null."
+    },
+    "bias_variance": {
+      "type": ["array", "null"],
+      "items": {"type": "object"},
+      "description": "Per-window track-frame bias/variance (under --calibration), else null."
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Plain-language interpretation lines."
+    },
+    "diagnoses": {
+      "type": "array",
+      "items": {"type": "object"},
+      "description": "Structured failure-mode diagnoses with severity and actions."
+    }
+  }
+}

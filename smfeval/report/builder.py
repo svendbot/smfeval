@@ -14,9 +14,14 @@ from smfeval.scoring.summary import ScoreSummary
 from smfeval.sync.match import MatchResult
 from smfeval.sync.mode import SyncMode
 
+# Version of the JSON report contract (docs/report.schema.json). Bump when the
+# report structure changes. Separate from the package and SQUARE format versions.
+REPORT_SCHEMA_VERSION = "1.0"
+
 
 @dataclass
 class Report:
+  schema_version: str = REPORT_SCHEMA_VERSION
   sync: dict[str, Any] = field(default_factory=dict)
   alignment: dict[str, Any] = field(default_factory=dict)
   ensemble: dict[str, Any] | None = None

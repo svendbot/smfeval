@@ -1,4 +1,5 @@
 {
+  "schema_version": "1.0",
   "sync": {
     "mode": "nearest",
     "n_matched": 6,

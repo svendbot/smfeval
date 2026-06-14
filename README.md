@@ -122,7 +122,8 @@ on a named public sequence. Contributions follow the PR template, with
 - track-frame bias/variance attribution;
 - structured failure-mode diagnoses with recommended actions.
 
-`--json-out` emits the whole report machine-readable.
+`smfeval score --json` prints the structured report to stdout, and `--json-out`
+writes it to a file. Both follow [`docs/report.schema.json`](docs/report.schema.json).
 
 Why several scores? Each proper rule touches a different part of the predictive
 distribution (bulk shape, tails, joint structure, a chosen coverage level), so
@@ -136,7 +137,7 @@ conventions.
 |---|---|
 | `smfeval nees est gt` | three-line calibration verdict (median NEES, scale gap k, coverage) |
 | `smfeval pair a b` | no-reference pairwise verdict (lower bound on miscalibration) |
-| `smfeval score est gt` | full scoring report (`--json-out` for machines) |
+| `smfeval score est gt` | full scoring report (`--json`/`--json-out` for machines) |
 | `smfeval validate file` | header/row sanity checks (`--strict` is the exporter gate) |
 
 ## Development

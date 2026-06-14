@@ -305,6 +305,12 @@ def main(argv: list[str] | None = None) -> int:
     default=None,
     help="if set, also write the structured Report as JSON to this path",
   )
+  ps.add_argument(
+    "--json",
+    action="store_true",
+    help="print the structured Report as JSON to stdout (schema in "
+    "docs/report.schema.json) instead of the text report",
+  )
 
   args = parser.parse_args(argv)
 
@@ -930,7 +936,10 @@ def _score(args: argparse.Namespace) -> int:
   rep.diagnoses = diagnose(rep)
   if args.json_out is not None:
     _write_report_json(rep, args.json_out)
-  print(render_report(rep))
+  if args.json:
+    print(json.dumps(asdict(rep), indent=2, default=_json_default))
+  else:
+    print(render_report(rep))
 
   if rpe_windows:
     _report_relative_crps(
