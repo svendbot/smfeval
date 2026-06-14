@@ -26,7 +26,8 @@ own belief against ground truth.
   `--cov` sidecar file. Conventions are declared by flags and echoed.
 - `exporters/`, the four audited belief exporters (FAST-LIO2, Faster-LIO,
   Point-LIO, I2EKF-LO). Each carries the diff, the pinned upstream commit, a
-  bag→SQUARE converter, and a validation run.
+  bag→SQUARE converter, and a validation run. All declare GAUGE se3, so the
+  verdict fits a full SE(3) alignment before scoring.
 - Colab notebook (`notebooks/figure1_verdict.ipynb`) reproducing the
   headline verdict on an Oxford Spires sequence end to end.
 
@@ -44,6 +45,12 @@ own belief against ground truth.
   (`--consume-gt-cov`).
 - Fixed catastrophic cancellation in the SE(3) V-jacobian small-angle
   branch (exp/log round-trip error 5e-9 to <5e-15).
+
+### Reports
+
+- `smfeval score --json` prints the structured report to stdout; `--json-out`
+  writes it to a file. Both follow `docs/report.schema.json` (schema_version 1.0).
+- `docs/metrics.rst` explains how to read each metric.
 
 ### Testing
 
@@ -63,6 +70,8 @@ own belief against ground truth.
 - Version 0.4.0 follows 0.3.0 directly; the distributional-ground-truth
   work formerly tagged 0.4 in planning docs is renumbered to 0.5
   (`plans/0.5-distributional-gt.md`).
+- Dropped unused dev dependencies (pandas, natsort, colorama, pygments,
+  brotli).
 
 ## 0.3.0
 
