@@ -34,9 +34,9 @@ jobs:
       - name: Sync dependencies
         run: uv sync --dev
       - name: Lint
-        run: uv run ruff check smfeval tests scripts
+        run: uvx ruff@0.15.11 check smfeval tests scripts
       - name: Format check
-        run: uv run ruff format --check smfeval tests scripts
+        run: uvx ruff@0.15.11 format --check smfeval tests scripts
       - name: Exporter layout
         run: uv run python scripts/check_exporters.py
       - name: SQUARE spec version matches FORMAT_VERSION
