@@ -69,7 +69,7 @@ def sync_risk(
   velocities = _gt_velocity(gt_ts, gt_positions)
   speeds = np.linalg.norm(velocities, axis=1)
   out = np.zeros(len(est_indices))
-  for k, (ei, gi) in enumerate(zip(est_indices, gt_indices, strict=False)):
+  for k, (ei, gi) in enumerate(zip(est_indices, gt_indices, strict=True)):
     sigma = _trans_sigma(est_steps[ei], tangent_order)
     if sigma <= 0:
       out[k] = np.inf if speeds[gi] > 0 else 0.0

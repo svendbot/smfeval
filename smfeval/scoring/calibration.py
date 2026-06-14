@@ -134,7 +134,7 @@ def calibrate(
   inside: list[bool] = []
   chi2_threshold = float(chi2.ppf(1.0 - alpha, df=3))
   for step, gt_t, gt_q in zip(
-    pred_steps, gt_translations, gt_quats, strict=False
+    pred_steps, gt_translations, gt_quats, strict=True
   ):
     t_samples, mu_t = translation_samples(step, n_samples, rng, tangent_order)
     sm = np.linalg.norm(t_samples - mu_t, axis=1)

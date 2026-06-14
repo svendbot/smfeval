@@ -546,7 +546,7 @@ def _compute_scores(
   log_trans: list[float] = []
   log_rot: list[float] = []
   for s, gt_t, gt_q in zip(
-    aligned_est, matched_gt_t, matched_gt_q, strict=False
+    aligned_est, matched_gt_t, matched_gt_q, strict=True
   ):
     crps_t.append(translation_crps(s, gt_t, order))
     crps_r.append(rotation_crps(s, gt_q, order, rng=rng))
@@ -749,7 +749,7 @@ def _nees(args: argparse.Namespace) -> int:
 
   vals: list[float] = []
   for s, gt_t, gt_q in zip(
-    pr.aligned_est, pr.matched_gt_t, pr.matched_gt_q, strict=False
+    pr.aligned_est, pr.matched_gt_t, pr.matched_gt_q, strict=True
   ):
     if not isinstance(s, GaussianStep):
       continue
@@ -839,10 +839,21 @@ def _score(args: argparse.Namespace) -> int:
   if args.ess_inflate is not None:
     c_ts, c_val = _load_ess_cfile(args.ess_inflate)
     step_ts = np.array([s.timestamp for s in aligned_est])
+    # nearest c per step; the c-file may be sparse (piecewise-constant over a
+    # range), so this is a nearest lookup, not a 1:1 match
     j = np.clip(np.searchsorted(c_ts, step_ts), 0, len(c_ts) - 1)
     jl = np.maximum(j - 1, 0)
     j = np.where(np.abs(c_ts[jl] - step_ts) < np.abs(c_ts[j] - step_ts), jl, j)
     ess_c = c_val[j]
+    n_extrap = int(
+      np.count_nonzero((step_ts < c_ts.min()) | (step_ts > c_ts.max()))
+    )
+    if n_extrap:
+      print(
+        f"note: {n_extrap} step(s) fall outside the ESS c-file range "
+        f"[{c_ts.min():.3f}, {c_ts.max():.3f}]; using the nearest edge factor",
+        file=sys.stderr,
+      )
 
   scored_est = aligned_est
   if args.consume_gt_cov and gt_cov is None:
@@ -1027,7 +1038,7 @@ def _calibration_split_dict(
   calib = {"joint": [], "translation": [], "rotation": []}
   sharp = {"joint": [], "translation": [], "rotation": []}
   for s, gt_t, gt_q in zip(
-    aligned_est, matched_gt_t, matched_gt_q, strict=False
+    aligned_est, matched_gt_t, matched_gt_q, strict=True
   ):
     if not isinstance(s, GaussianStep):
       continue
@@ -1138,7 +1149,7 @@ def _report_student_t(
   gauss: list[float] = []
   tcols: dict[float, list[float]] = {nu: [] for nu in nus}
   for s, gt_t, gt_q in zip(
-    aligned_est, matched_gt_t, matched_gt_q, strict=False
+    aligned_est, matched_gt_t, matched_gt_q, strict=True
   ):
     if not isinstance(s, GaussianStep):
       continue
