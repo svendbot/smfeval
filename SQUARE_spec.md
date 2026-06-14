@@ -45,8 +45,6 @@ When estimate and ground-truth body frames differ, the scoring tool requires `--
 ```
 
 ### Frame and Gauge
->> How can the algorithm (Fast-LIO, Point_LIO, ...) know which Gauge to use? This can only be known when the experiement is setup.
->> Is this really never documented. Relying on Kabesh seems crazy.
 
 `POSE_FRAME world` is a label, not a guarantee — two algorithms that both write `world` rarely live in the same frame. Rather than try to express absolute frames, smfeval declares the algorithm's **gauge**: which degrees of freedom were pinned by initialization vs. left free for the data to determine. This is an intrinsic property of the algorithm, knowable without reference to ground truth.
 
@@ -62,7 +60,6 @@ A stereo-inertial system writes `gravity_yaw`; monocular ORB-SLAM writes `sim3`;
 ### Row Formats
 
 **`gaussian_se3`** — one row per timestep:
->> TODO(ola): These symbols not to be clearly defined (even if it is obvious!)
 
 ```
 timestamp tx ty tz qx qy qz qw L00 L10 L11 L20 L21 L22 L30 L31 L32 L33 L40 L41 L42 L43 L44 L50 L51 L52 L53 L54 L55
@@ -78,8 +75,6 @@ timestamp particle_id [weight] tx ty tz qx qy qz qw
 
 Weight column present iff `WEIGHTED true`. Particles are contiguous within a timestep; timestamps are monotonically non-decreasing. `particle_id` is a within-timestep row index with no cross-timestep meaning.
 
->> TODO(ola): is this really necessary. If we know tha the algorithm is not probabilistic then just use existing TUM format? No need to reproduce or handle it in this library.
->> Just give a clear error message with reference to existing infrastructure.
 **`deterministic`** — identical to TUM format, so existing ground-truth files are valid input.
 
 ### Structural Rules
@@ -176,22 +171,6 @@ Recommendations
 - No cross-algorithm comparison in a single report; comparison is a separate tool that consumes multiple reports.
 - No modification of the input files; the SQUARE file is the immutable record of the algorithm's output.
 
-## Related Work
-
-No existing tool combines proper scoring rules, SE(3)-aware geometry, a standardized probabilistic trajectory format, and evo-style practitioner tooling. The ingredients live in separate literatures.
-
-**Closest methodological precedent.** Zhang and Scaramuzza (2019), *Rethinking Trajectory Evaluation for SLAM: a Probabilistic, Continuous-Time Approach* (arXiv:1906.03996), formulate trajectory evaluation probabilistically and model ground truth as a piecewise Gaussian Process in continuous time, generalizing absolute and relative error to likelihoods. Their framing places uncertainty on the ground-truth side; smfeval places it on the estimate side. The two views are complementary, and their continuous-time ground-truth interpolation is a principled alternative to nearest-neighbor synchronization that smfeval could support.
-
-**Deterministic predecessors.** Zhang and Scaramuzza (2018), *A Tutorial on Quantitative Trajectory Evaluation for Visual(-Inertial) Odometry* (IROS 2018), produced the `rpg_trajectory_evaluation` toolbox, which implements ATE and RE for deterministic trajectories. evo (Grupp, github.com/MichaelGrupp/evo) is the de facto community tool in the same space. Both are deterministic; smfeval extends their workflow to probabilistic output.
-
-**Position paper motivating this work.** Sansoni and Tosetti (2026), The SLAM Confidence Trap, argue that the SLAM community has prioritized benchmark scores over principled uncertainty estimation, producing systems that are geometrically accurate but probabilistically inconsistent, and call for a paradigm shift in which real-time uncertainty becomes a primary metric of success. smfeval is a concrete answer to that call.
-
-**Theoretical foundations.** Gneiting and Raftery (2007), *Strictly Proper Scoring Rules, Prediction, and Estimation* (JASA 102:359–378), is the canonical reference for the scoring rules used here (CRPS, energy score, log score, interval score). Extensions to manifolds relevant for SE(3) scoring are developed in Mardia et al. (2016) for general Riemannian manifolds and in Takasu et al. (2018) for the sphere. Bonnier and Oberhauser (2024) extend proper scoring rules to trajectories as first-class objects, a direction worth tracking for future versions.
-
->> I know Mardia through Directional Stats and Thomas Hamelryck. Could be good to speak with.
-
-**Adjacent SLAM work.** PALoc (arXiv:2401.17826) derives factor-graph covariances for ground-truth trajectory generation — the inverse direction of smfeval's concern. NEES (Normalized Estimation Error Squared) has long been used in the filtering community as a consistency check but is rarely reported in modern optimization-based SLAM papers and is subsumed by the calibration section of the smfeval report.
-
 ## Appendix: escape hatch — TUM poses + covariance without a SQUARE header
 
 SQUARE adoption is not a precondition for getting a verdict. A filter that
@@ -238,23 +217,6 @@ median NEES 2.31   (calibrated: 2.37)
 The `pair` verb requires SQUARE inputs (it needs both filters' declared
 conventions to sum covariances safely).
 
-## Why Multiple Scores
-
-Every proper scoring rule captures something real about the predictive distribution but none captures everything. CRPS is sensitive to distributional shape in the bulk; log score is sensitive to tails and punishes overconfidence; interval score targets a specified coverage level; energy score handles joint structure across dimensions; calibration diagnostics like PIT and coverage are orthogonal to all of the above. Like the parable of the blind monks and the elephant, each rule touches a different part of the animal — one reports a snake, another a tree trunk, another a fan — and only by combining them do you get a faithful picture of what the algorithm is actually doing. The scoring report reports all of them together, alongside the data-quality diagnostics that tell you whether to trust any of them, precisely because no single number is sufficient.
-
 ## Summary
 
 The format stores the SLAM algorithm's native probabilistic output — Gaussian mean + covariance for filters, weighted particles for ensemble methods — with headers declaring the conventions and **gauge** needed to interpret them. The gauge tells the scoring tool which DoF the algorithm pinned and which it left free, so the right alignment mode (none, SE(3), gravity-yaw, or Sim(3)) is the default, not a guess. Everything else derived — scores, $N_\text{eff}$, PIT, calibration, the alignment transform itself — is computed at scoring time. Synchronization uses nearest-neighbor matching with a tolerance, matching TUM and evo conventions for interoperability. The scoring report surfaces both the numbers and the caveats needed to trust them, including the bias introduced by alignment, and reports multiple proper scoring rules side by side because no single rule captures the full shape of a predictive distribution.
-
-## References
- - Kanti V. Mardia, John T. Kent, and Arnab K. Laha. Score matching estimators for directional
-   distributions. Preprint, 2016. URL https://arxiv.org/abs/1604.08470. arXiv:1604.08470.
-
- - Waghmare, Kartik, and Johanna Ziegel. "Proper scoring rules for estimation and forecast evaluation."
-  Annual Review of Statistics and Its Application 13 (2025).
-
- - Yuya Takasu, Keisuke Yano, and Fumiyasu Komaki. Scoring rules for statistical models on spheres.
-   Stat. Probab. Lett., 138:111–115, 2018. URL https://doi.org/10.1016/j.spl.2018.02.054.
-
- - Bonnier, Patric, and Harald Oberhauser. "Proper scoring rules, gradients, divergences, and entropies
-   for paths and time series." Bayesian Analysis 20.4 (2025): 1615-1646.

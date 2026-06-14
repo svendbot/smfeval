@@ -127,7 +127,7 @@ Why several scores? Each proper rule touches a different part of the
 predictive distribution — bulk shape, tails, joint structure, a chosen
 coverage level — so no single number suffices.
 [**docs/metrics.rst**](docs/metrics.rst) explains every metric and how to
-read it; `SQUARE_spec.md` documents the format and the theory.
+read it; `SQUARE_spec.md` documents the format and conventions.
 
 ## Commands
 
