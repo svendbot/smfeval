@@ -1,5 +1,10 @@
 # smfeval — score the belief, not just the mean
 
+[![PyPI](https://img.shields.io/pypi/v/smfeval)](https://pypi.org/project/smfeval/)
+[![Python](https://img.shields.io/pypi/pyversions/smfeval)](https://pypi.org/project/smfeval/)
+[![Tests](https://github.com/svendbot/smfeval/actions/workflows/test.yml/badge.svg)](https://github.com/svendbot/smfeval/actions/workflows/test.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
 A SLAM filter reports a pose *and* a covariance. ATE/RPE check the pose;
 smfeval checks whether the covariance is telling the truth.
 
@@ -37,10 +42,19 @@ covariance scale gap k = 441, ~21x too tight per axis
 (FAST-LIO2 on Oxford Spires `christ-church-03` — see
 `exporters/fast_lio2/VALIDATION.md` for the full reproduction.)
 
+> **No `.SQUARE` file?** smfeval scores the *covariance*, so it needs one
+> per pose — plain TUM poses are not enough on their own. If your filter
+> publishes a covariance, feed plain TUM + a sidecar directly (no format
+> adoption); if it doesn't yet, see
+> [Your filter doesn't write SQUARE yet?](#your-filter-doesnt-write-square-yet).
+
 Under a calibrated belief the per-pose translation NEES is χ²₃-distributed
-(median 2.37). The scale gap **k = median NEES / 2.37** is the factor by
-which the published covariance is too tight; per axis that is √k. Here the
-filter's 90% credible ellipsoid never contains the truth.
+(median 2.37 — read NEES as "the error in sigmas, squared"). The scale gap
+**k = median NEES / 2.37** is the factor by which the published covariance
+is too tight; per axis that is √k. Here the filter's 90% credible ellipsoid
+never contains the truth. `smfeval score` goes further — it localizes
+*which* block is wrong (translation vs rotation, bulk vs tail) and emits
+[structured, actionable diagnoses](#the-full-report).
 
 ## No ground truth? Run two filters and score them against each other
 
@@ -73,7 +87,9 @@ end to end (install → data → verdict → NEES-vs-χ²₃ plot) in a few seco
 
 ## Your filter doesn't write SQUARE yet?
 
-Two on-ramps, no format adoption required (`SQUARE_spec.md`, appendix):
+smfeval needs your filter's per-pose covariance, not just its poses — but
+you don't have to adopt the SQUARE format to provide it. Two on-ramps
+(`SQUARE_spec.md`, appendix):
 
 - **Wide TUM**: standard TUM pose columns plus the 21 row-major
   lower-triangle entries of the 6×6 tangent covariance (29 columns total).
@@ -84,7 +100,8 @@ Two on-ramps, no format adoption required (`SQUARE_spec.md`, appendix):
 smfeval nees est.tum gt.tum --cov est.cov --est-body-frame imu --gt-body-frame imu
 ```
 
-And for four popular LiDAR-inertial filters the export already exists:
+Most filters compute a covariance internally and never publish it. For
+four popular LiDAR-inertial filters the export already exists:
 [`exporters/`](exporters/) carries the audited few-line diff that makes
 **FAST-LIO2, Faster-LIO, Point-LIO, and I2EKF-LO** publish their belief,
 each with its pinned upstream commit, a bag→SQUARE converter, and a
@@ -94,18 +111,23 @@ template (`smfeval validate --strict` is the mechanical gate).
 ## The full report
 
 `smfeval score est.SQUARE gt.tum` produces the complete analysis:
-synchronization and alignment diagnostics, proper scoring rules
-(translation/rotation CRPS, energy score, log score with its exact
-calibration/sharpness split, interval score) with stationary-bootstrap
-confidence intervals, PIT/coverage calibration, windowed relative-pose
-calibration (`--rpe-window`), track-frame bias/variance attribution, and
-structured failure-mode diagnoses with recommended actions.
+
+- synchronization and alignment diagnostics;
+- proper scoring rules — translation/rotation CRPS, energy score, Gaussian
+  log score with its exact calibration/sharpness split, interval score —
+  each with a stationary-bootstrap confidence interval;
+- PIT/coverage calibration and windowed relative-pose calibration
+  (`--rpe-window`);
+- track-frame bias/variance attribution;
+- structured failure-mode diagnoses with recommended actions.
+
 `--json-out` emits the whole report machine-readable.
 
-Why several scores? Each proper scoring rule touches a different part of
-the predictive distribution — bulk shape, tails, joint structure, a chosen
-coverage level — and no single number is sufficient. `SQUARE_spec.md`
-documents the format, the taxonomy, and the theory.
+Why several scores? Each proper rule touches a different part of the
+predictive distribution — bulk shape, tails, joint structure, a chosen
+coverage level — so no single number suffices.
+[**docs/metrics.rst**](docs/metrics.rst) explains every metric and how to
+read it; `SQUARE_spec.md` documents the format and the theory.
 
 ## Commands
 
@@ -126,12 +148,25 @@ Docs live under [`docs/`](docs/index.rst) (`make docs`). The test suite
 includes property-based invariants (hypothesis) and seeded Monte Carlo
 power tests of the verdict machinery itself — see `tests/test_power.py`.
 
+## Citation
+
+If you use smfeval, please cite the software — GitHub's **Cite this
+repository** button reads [`CITATION.cff`](CITATION.cff):
+
+> Rønning, O. *smfeval: probabilistic SLAM trajectory scoring.* 2026.
+> https://github.com/svendbot/smfeval
+
+The methodology and the audit behind it are described in the accompanying
+paper, released with
+[slam_benchmark](https://github.com/svendbot/slam_benchmark) (DOI
+forthcoming) — please cite that as well once it is available.
+
 ## Provenance
 
 smfeval grew out of a systematic audit of uncertainty calibration in
 LiDAR-inertial odometry —
 [slam_benchmark](https://github.com/svendbot/slam_benchmark) is the audit
-that motivated this tool (DOI forthcoming). The trajectory data used in
+that motivated this tool. The trajectory data used in
 fixtures and the notebook derives from the
 [Oxford Spires Dataset](https://dynamic.robots.ox.ac.uk/datasets/oxford-spires/)
 (CC BY-NC-SA 4.0; see the data license notes in those directories).

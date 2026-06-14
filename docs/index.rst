@@ -38,6 +38,7 @@ max) follow the TUM RGB-D benchmark convention (Sturm et al., 2012).
    :maxdepth: 2
    :caption: Contents
 
+   metrics
    api
 
 Indices
