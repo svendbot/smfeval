@@ -18,9 +18,9 @@ posterior covariance and convert it to a SQUARE file smfeval can score:
 
 | Filter    | Upstream                              | Commit         | Status   | Validation sequence              | k (scale gap, raw Σ) |
 |-----------|---------------------------------------|----------------|----------|----------------------------------|----------------------|
-| FAST-LIO2 | github.com/hku-mars/FAST_LIO          | `7cc4175de6f8` | verified | Spires christ-church-03          | 4.48e6               |
-| Faster-LIO| github.com/gaoxiang12/faster-lio      | `ea0e0910a4cf` | verified | Spires christ-church-03          | 2.15e8               |
-| Point-LIO | github.com/hku-mars/Point-LIO         | `97b0042e397e` | verified | Spires christ-church-03          | 2.47e3               |
+| FAST-LIO2 | github.com/hku-mars/FAST_LIO          | `7cc4175de6f8` | verified | Spires christ-church-03          | 441                  |
+| Faster-LIO| github.com/gaoxiang12/faster-lio      | `ea0e0910a4cf` | verified | Spires christ-church-03          | 1.86e7               |
+| Point-LIO | github.com/hku-mars/Point-LIO         | `97b0042e397e` | verified | Spires christ-church-03          | 16.8                 |
 | I2EKF-LO  | github.com/YWL0720/I2EKF-LO           | `8d2158cda30e` | verified | Spires christ-church-03          | 1.77e10              |
 
 **verified** — audited against the filter source *and* the empirical error
