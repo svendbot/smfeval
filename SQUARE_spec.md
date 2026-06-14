@@ -1,4 +1,10 @@
-# SQUARE v0.3 — Format Specification
+# SQUARE-Format_Specification
+
+**Version:** 0.4.0
+
+This spec is versioned with the smfeval release that ships it (the
+`#%FORMAT` tag below is the separate on-the-wire format version). CI checks
+this matches the release tag.
 
 ## File Format
 

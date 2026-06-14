@@ -6,8 +6,23 @@ on:
       - "v*"           # triggers on tags like v0.1.0, v1.2.3
 
 jobs:
+  version-check:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches pyproject and SQUARE spec
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pyproject=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)
+          spec=$(sed -n 's/^\*\*Version:\*\* \(.*\)/\1/p' SQUARE_spec.md | head -1)
+          echo "tag=$tag  pyproject=$pyproject  spec=$spec"
+          [ "$tag" = "$pyproject" ] || { echo "::error::tag $tag != pyproject $pyproject"; exit 1; }
+          [ "$tag" = "$spec" ] || { echo "::error::tag $tag != SQUARE_spec.md $spec"; exit 1; }
+
   build:
     name: Build distribution
+    needs: version-check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
