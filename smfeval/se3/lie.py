@@ -75,10 +75,6 @@ def hat_so3(w: np.ndarray) -> np.ndarray:
   )
 
 
-def vee_so3(W: np.ndarray) -> np.ndarray:
-  return np.array([W[2, 1], W[0, 2], W[1, 0]])
-
-
 def so3_exp(w: np.ndarray) -> np.ndarray:
   return Rotation.from_rotvec(w).as_matrix()
 
@@ -151,10 +147,6 @@ def invert(T: np.ndarray) -> np.ndarray:
   R = T[:3, :3]
   t = T[:3, 3]
   return homogeneous(R.T, -R.T @ t)
-
-
-def compose(T1: np.ndarray, T2: np.ndarray) -> np.ndarray:
-  return T1 @ T2
 
 
 def relative(T1: np.ndarray, T2: np.ndarray) -> np.ndarray:

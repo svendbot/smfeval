@@ -5,19 +5,14 @@ from hypothesis import strategies as st
 from smfeval.format import TangentOrder
 from smfeval.se3 import (
   adjoint,
-  compose,
-  hat_so3,
   invert,
   quat_xyzw_to_rot,
   relative,
-  reorder_covariance,
-  reorder_tangent,
   rot_to_quat_xyzw,
   se3_exp,
   se3_log,
   so3_exp,
   so3_log,
-  vee_so3,
 )
 
 RNG = np.random.default_rng(0)
@@ -34,13 +29,6 @@ def _random_se3(rng):
   w = _random_rotvec(rng)
   t = rng.normal(size=3)
   return se3_exp(np.concatenate([t, w]))
-
-
-def test_hat_vee_inverse():
-  w = np.array([1.0, 2.0, 3.0])
-  assert np.allclose(vee_so3(hat_so3(w)), w)
-  W = hat_so3(w)
-  assert np.allclose(W, -W.T)
 
 
 def test_so3_exp_log_round_trip():
@@ -77,13 +65,6 @@ def test_se3_exp_small_angle_taylor():
   T = se3_exp(xi)
   assert np.allclose(T[:3, 3], xi[:3], atol=1e-15)
   assert np.allclose(T[:3, :3], np.eye(3), atol=1e-9)
-
-
-def test_invert_compose_identity():
-  for _ in range(10):
-    T = _random_se3(RNG)
-    assert np.allclose(compose(T, invert(T)), np.eye(4), atol=1e-12)
-    assert np.allclose(compose(invert(T), T), np.eye(4), atol=1e-12)
 
 
 def test_relative_identity():
@@ -135,31 +116,6 @@ def test_quat_xyzw_layout():
   assert q.shape == (4,)
   assert abs(q[3] - np.cos(np.pi / 4)) < 1e-9
   assert abs(q[2] - np.sin(np.pi / 4)) < 1e-9
-
-
-def test_reorder_tangent_involution():
-  xi = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-  swapped = reorder_tangent(xi, TangentOrder.TRANS_ROT, TangentOrder.ROT_TRANS)
-  assert np.allclose(swapped, [4, 5, 6, 1, 2, 3])
-  back = reorder_tangent(
-    swapped, TangentOrder.ROT_TRANS, TangentOrder.TRANS_ROT
-  )
-  assert np.allclose(back, xi)
-
-
-def test_reorder_covariance_block_swap():
-  cov = np.arange(36, dtype=float).reshape(6, 6)
-  cov = (cov + cov.T) / 2.0
-  swapped = reorder_covariance(
-    cov, TangentOrder.TRANS_ROT, TangentOrder.ROT_TRANS
-  )
-  # bottom-right of source should equal top-left of destination
-  assert np.allclose(swapped[:3, :3], cov[3:, 3:])
-  assert np.allclose(swapped[3:, 3:], cov[:3, :3])
-  back = reorder_covariance(
-    swapped, TangentOrder.ROT_TRANS, TangentOrder.TRANS_ROT
-  )
-  assert np.allclose(back, cov)
 
 
 @given(

@@ -27,7 +27,6 @@ SE(3) geometry
 
    smfeval.se3.lie
    smfeval.se3.quat
-   smfeval.se3.tangent
 
 Alignment
 ---------
