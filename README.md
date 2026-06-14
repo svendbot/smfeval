@@ -3,6 +3,19 @@
 A SLAM filter reports a pose *and* a covariance. ATE/RPE check the pose;
 smfeval checks whether the covariance is telling the truth.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/svendbot/smfeval/main/docs/img/overconfidence.png"
+       alt="FAST-LIO2 on Oxford Spires christ-church-03: the estimate tracks truth to 3 cm, but the filter's reported 90% region is millimetres wide, so that 3 cm gap is 37 sigma"
+       width="460">
+</p>
+
+*FAST-LIO2 on Oxford Spires `christ-church-03`. The estimate (blue) tracks
+truth (black) to **3 cm** APE — ATE/RPE call this excellent. But the filter's
+reported 90% region is **millimetres** wide, so that same 3 cm gap is **37σ**:
+the belief is wrong exactly where the mean is right. That gap, per pose, is
+what smfeval scores. (Data: Oxford Spires, CC BY-NC-SA 4.0; figure reproducible
+via `notebooks/figure_overconfidence.py`.)*
+
 ## Install
 
 ```sh
