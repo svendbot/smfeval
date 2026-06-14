@@ -25,3 +25,12 @@ The exporter publishes the raw per-scan IKFoM covariance; the verdict shows
 the well-documented overconfidence of that covariance, which is the point —
 the exporter is judged on whether it faithfully exports the filter's belief,
 not on whether that belief is calibrated.
+
+## Deriving the body-frame transform (convention trap)
+
+FAST-LIO's `extrinsic_R`, `extrinsic_T` are consumed in `IMU_Processing.hpp`
+as `Lidar_R_wrt_IMU` / `Lidar_T_wrt_IMU` — these are `T_lidar_imu` (the
+rotation maps IMU-frame vectors to LiDAR-frame). For an IMU-publishing file
+scored against LiDAR-frame GT, the `--body-frame-transform` is the
+**inverse**: `R = extrinsic_R^T`, `t = -extrinsic_R^T · extrinsic_T`. That
+inverse is what `spires_imu_to_lidar.json` stores.

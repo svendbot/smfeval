@@ -135,3 +135,18 @@ bootstrap** interval (Politis & Romano, 1994) and prints the mean **block
 length** (Politis & White, 2004) next to it as a temporal-dependence
 diagnostic — a large block length means few effectively independent
 samples, so treat the interval, not the point estimate, as the result.
+
+Trusting the numbers: sync and alignment
+----------------------------------------
+
+Two upstream steps decide whether the scores are even meaningful.
+
+- **Synchronization risk.** Nearest-neighbour timestamp matching can leave
+  slop between an estimate pose and its ground-truth partner. smfeval reports
+  a sync-risk score :math:`r = \lVert v_\text{gt}\rVert\,|\Delta t| /
+  \sigma_\text{trans}` and flags pairs above ~0.3; when many fire, cross-check
+  with ``--sync=interpolate_gt`` before trusting a calibration finding.
+- **Alignment bias.** The alignment transform is fit on the same poses it is
+  scored against, so post-alignment residuals are biased low — worst on short
+  trajectories and high-DoF gauges (``se3``, ``sim3``). ``--n_to_align`` fits
+  on a prefix and scores the remainder to remove that bias.

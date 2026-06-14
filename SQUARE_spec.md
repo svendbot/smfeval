@@ -1,4 +1,4 @@
-# SQUARE v0.3 — Format and Scoring Report Summary
+# SQUARE v0.3 — Format Specification
 
 ## File Format
 
@@ -24,8 +24,6 @@ Comment lines prefixed with `#%` declare metadata. Required fields depend on rep
 `BODY_FRAME` names the rigid body whose pose is reported (e.g. `imu`, `lidar`, `base_link`). It is a property of the *publisher*, not the dataset: FAST-LIO2's `state_ikfom` is in the IMU frame, so its SQUARE files declare `BODY_FRAME imu`; the Oxford Spires GT lives in the LiDAR frame and declares `BODY_FRAME lidar`. Names are free-form strings; matching is by exact string equality.
 
 When estimate and ground-truth body frames differ, the scoring tool requires `--body-frame-transform PATH` (JSON: `{"R": [9 floats row-major], "t": [3 floats]}`). The transform is `T_est_body__gt_body` in standard ROS `target_T_source` convention: `R` maps a vector in GT-body coords to estimate-body coords, and `t` is the GT-body origin expressed in estimate-body coords. Equivalently, it is the pose of the GT body frame as seen from the estimate body frame. Applied to the estimate by right-multiplication: `T_world_gt_body = T_world_est_body · T_off`. For `right_perturbation` Gaussian covariances, `Σ ← Ad_{T_off^{-1}} · Σ · Ad_{T_off^{-1}}^⊤`; for `left_perturbation`, `Σ` is unchanged.
-
-**Convention trap (FAST-LIO).** FAST-LIO's `extrinsic_R`, `extrinsic_T` are consumed in `IMU_Processing.hpp` as `Lidar_R_wrt_IMU` and `Lidar_T_wrt_IMU` — these are `T_lidar_imu` (the rotation maps IMU-frame vectors to LiDAR-frame). For an IMU-publishing FAST-LIO file scored against LiDAR-frame GT, the `--body-frame-transform` is the **inverse**: `R = extrinsic_R^⊤`, `t = -extrinsic_R^⊤ · extrinsic_T`.
 
 **Gaussian-specific:**
 
@@ -89,88 +87,6 @@ Weight column present iff `WEIGHTED true`. Particles are contiguous within a tim
 
 Store raw belief; derive everything else. Scoring rules, $N_\text{eff}$, unique-particle counts, PIT values, aggregate statistics — all reconstructible from the file plus ground truth. New scoring rules or diagnostics added later will work on existing files without reprocessing.
 
-## Scoring Report
-
-Produced by the scoring tool given a SQUARE file and a ground-truth file. Structured in three sections: data quality, scores, and recommendations.
-
-### Synchronization
-
-Two strategies are available via `--sync`:
-
-- **`nearest`** (default): for each estimate timestamp $t_i^\text{est}$, the GT pose at the nearest $t_j^\text{gt}$ is selected; pairs with $|t_i^\text{est} - t_j^\text{gt}| > $ `--t_max_diff` are dropped. An optional `--t_offset` is applied to estimates before matching to correct for known clock skew. Default tolerance matches evo (0.01 s). This is the same strategy APE scoring uses — timestamp pairing is interoperable with evo.
-
-- **`interpolate_gt`**: piecewise Gaussian Process on SE(3) following Zhang & Scaramuzza (2019, §IV.B). For each estimate timestamp, a local window of GT samples is taken; the middle pose is chosen as $T_\text{ref}$; the surrounding GT poses are expressed as $\xi_i = \log(T_\text{ref}^{-1} T_i) \in \mathfrak{se}(3)$; six independent squared-exponential GPs (length scale `--sync_length_scale`, default 0.1 s; window `--sync_window`, default 10 samples) are fit on the components of $\xi$ as functions of time; the predictive $\mu_{\xi^*}$ at the query is mapped back to $T^* = T_\text{ref} \cdot \mathrm{Exp}(\mu_{\xi^*})$. The kernel is shared across the six components, so the predictive covariance is a scalar $v^*$ shared across all diagonal entries, reported per-pair as "GP σ" in the report. Query times outside the GT range are skipped, not extrapolated. Use this as a cross-check when the nearest-neighbor sync risk fires — it removes timestamp slop from the residual.
-
-Sync risk (nearest mode): $r = \lVert v_\text{gt} \rVert \cdot |\Delta t| / \sigma_\text{trans}$ — when $r > 0.3$ for a significant fraction of pairs, the calibration findings could be partly explained by sync error and the recommendation section flags this with a pointer to `--sync=interpolate_gt`.
-
-### Alignment
-
-After synchronization, the estimate is brought into the ground-truth frame using the alignment mode implied by the file's `GAUGE` (overridable via `--align {none, origin, se3, gravity_yaw, sim3}`). A least-squares transform `T` is fit on the matched mean poses and propagated to the full belief:
-
-- `gaussian_se3`: mean ← `T·μ`, covariance ← `Ad_T · Σ · Ad_T^⊤`. For Sim(3), the translation block of the Adjoint carries the scale.
-- `ensemble_se3`: each particle ← `T·pᵢ`; weights are invariant under rigid/Sim(3) transforms of the support.
-- `deterministic`: pose ← `T·p`.
-
-The fitted transform and the DoF removed are reported in the data-quality section. Alignment uses the same data it scores against, so post-alignment residuals are biased low — strongest on short trajectories and high-DoF gauges. The recommendations section flags this when alignment removes a non-trivial fraction of the trajectory's effective DoF; `--n_to_align` (fit on a prefix, score on the remainder) mitigates the bias for users who care.
-
-### Report Structure
-
-```
-=== smfeval scoring report ===
-
-Synchronization
-  Pairs matched:          9,847 / 10,000
-  Dropped (gap > 10 ms):  153
-  Timestamp gap (ms):     median 0.4, p95 1.8, p99 3.2  // Intervals from HDI or CI
-  Sync risk (v·Δt / σ):   median 0.02, p95 0.18, p99 0.41
-                          ⚠ 127 pairs (1.3%) exceed risk 0.3
-
-Alignment
-  Gauge (declared):       gravity_yaw   (pitch/roll pinned by IMU)
-  Mode applied:           gravity_yaw   (4 DoF: xyz + yaw)
-  Fitted Δyaw:            1.84°
-  Fitted Δxyz:            (0.012, -0.003, 0.041) m
-  Fit residual (m):       median 0.018, p95 0.072
-                          4 DoF removed over 312 m of trajectory
-
-Ensemble diagnostics   (ensemble_se3 only)
-  Nominal N:              500
-  N_eff from weights:     median 347, p05 14 p01 12
-  Unique particles:       median 423, p05 38 p01 30
-                          ⚠ 3.2% of timesteps show degeneracy (N_eff < N/10)
-
-Scores
-  Translation CRPS:       0.0234 m
-  Rotation CRPS:          0.0089 rad
-  Energy score (SE(3)):   0.0312
-  Log score:              2.41      (Gaussian only; skipped for ensembles)
-
-Calibration
-  PIT uniformity (KS):    p = 0.04  ⚠ possible miscalibration
-  90% interval coverage:  84.2%     (nominal 90%)
-  Translation z-score:    mean 0.02, std 1.18   (slightly under-confident)
-
-Recommendations
-  - 1.3% of pairs have sync risk > 0.3; consider cross-checking
-    with --sync=interpolate_gt to confirm calibration findings.  (Requires
-  - Coverage below nominal combined with KS p < 0.05 suggests the
-    filter is mildly under-confident. Miscalibration is unlikely to
-    be explained by sync error alone.
-```
-
-### Diagnostic Categories
-
-- **Data quality**: sync pairing statistics, dropped pairs, sync risk distribution, alignment mode and fitted transform, ensemble degeneracy. These tell you whether the scores below are trustworthy and on what frame they were computed.
-- **Scores**: proper scoring rules — translation CRPS, rotation CRPS (via SO(3) geodesic kernel), joint energy score, log score (Gaussian only), interval score. Translation and rotation reported separately, matching evo's APE/RPE convention.
-- **Calibration**: PIT histogram summary, interval coverage vs. nominal, standardized residual statistics. Orthogonal to score magnitude — an algorithm can have good CRPS but poor calibration.
-- **Recommendations**: plain-language interpretation. Cross-references between diagnostics (e.g., sync risk × PIT deviation) to distinguish artifacts from real findings.
-
-### What the Report Deliberately Does Not Do
-
-- No automatic "pass/fail" verdict; thresholds are recommendations, not judgments.
-- No cross-algorithm comparison in a single report; comparison is a separate tool that consumes multiple reports.
-- No modification of the input files; the SQUARE file is the immutable record of the algorithm's output.
-
 ## Appendix: escape hatch — TUM poses + covariance without a SQUARE header
 
 SQUARE adoption is not a precondition for getting a verdict. A filter that
@@ -216,7 +132,3 @@ median NEES 2.31   (calibrated: 2.37)
 
 The `pair` verb requires SQUARE inputs (it needs both filters' declared
 conventions to sum covariances safely).
-
-## Summary
-
-The format stores the SLAM algorithm's native probabilistic output — Gaussian mean + covariance for filters, weighted particles for ensemble methods — with headers declaring the conventions and **gauge** needed to interpret them. The gauge tells the scoring tool which DoF the algorithm pinned and which it left free, so the right alignment mode (none, SE(3), gravity-yaw, or Sim(3)) is the default, not a guess. Everything else derived — scores, $N_\text{eff}$, PIT, calibration, the alignment transform itself — is computed at scoring time. Synchronization uses nearest-neighbor matching with a tolerance, matching TUM and evo conventions for interoperability. The scoring report surfaces both the numbers and the caveats needed to trust them, including the bias introduced by alignment, and reports multiple proper scoring rules side by side because no single rule captures the full shape of a predictive distribution.
