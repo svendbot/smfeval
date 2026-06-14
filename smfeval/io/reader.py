@@ -4,6 +4,7 @@ from typing import TextIO
 import numpy as np
 
 from smfeval.format import FormatError, Representation, SquareHeader
+from smfeval.io.triangular import unpack_lower_triangular
 from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
 
 
@@ -53,19 +54,8 @@ def _iter_gaussian(f: TextIO) -> Iterator[GaussianStep]:
       timestamp=vals[0],
       translation=np.array(vals[1:4]),
       quat_xyzw=np.array(vals[4:8]),
-      covariance=_expand_lower_triangular(vals[8:]),
+      covariance=unpack_lower_triangular(vals[8:]),
     )
-
-
-def _expand_lower_triangular(entries: list[float]) -> np.ndarray:
-  cov = np.zeros((6, 6))
-  k = 0
-  for i in range(6):
-    for j in range(i + 1):
-      cov[i, j] = entries[k]
-      cov[j, i] = entries[k]
-      k += 1
-  return cov
 
 
 def _iter_deterministic(f: TextIO) -> Iterator[DeterministicStep]:

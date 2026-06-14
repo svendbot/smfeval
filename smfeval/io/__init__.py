@@ -10,16 +10,18 @@ from smfeval.io.load import (
   looks_like_tum,
   sniff_tum_columns,
 )
-from smfeval.io.reader import (
-  _expand_lower_triangular as expand_lower_triangular,
-)
 from smfeval.io.reader import iter_steps
+from smfeval.io.triangular import (
+  pack_lower_triangular,
+  unpack_lower_triangular,
+)
 from smfeval.io.writer import write_step, write_steps
 
 __all__ = [
   "attach_covariances",
-  "expand_lower_triangular",
   "iter_steps",
+  "pack_lower_triangular",
+  "unpack_lower_triangular",
   "load_cov_sidecar",
   "load_estimate",
   "load_square",

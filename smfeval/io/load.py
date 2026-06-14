@@ -14,11 +14,11 @@ from smfeval.format import (
 )
 from smfeval.io.header import parse_header
 from smfeval.io.reader import (
-  _expand_lower_triangular,
   _iter_deterministic,
   _iter_gaussian,
   iter_steps,
 )
+from smfeval.io.triangular import unpack_lower_triangular
 from smfeval.steps import DeterministicStep, GaussianStep, Step
 
 # sidecar covariance rows: timestamp + 21 lower-triangle entries
@@ -151,7 +151,7 @@ def load_cov_sidecar(
     except ValueError as e:
       raise FormatError(f"non-numeric value in sidecar row: {s!r}") from e
     ts.append(vals[0])
-    covs.append(_expand_lower_triangular(vals[1:]))
+    covs.append(unpack_lower_triangular(vals[1:]))
   if not ts:
     raise FormatError(f"covariance sidecar {path} has no data rows")
   return np.asarray(ts), np.stack(covs), convention, order

@@ -13,7 +13,10 @@ from scipy.spatial.transform import Rotation
 
 from smfeval.align import fit_alignment, propagate_step
 from smfeval.format import TangentConvention, TangentOrder
-from smfeval.io.reader import _expand_lower_triangular
+from smfeval.io.triangular import (
+  pack_lower_triangular,
+  unpack_lower_triangular,
+)
 from smfeval.scoring.bias_variance import _AXES, bias_variance
 from smfeval.scoring.crps import _gaussian_crps
 from smfeval.scoring.logscore import (
@@ -36,9 +39,9 @@ from tests._strategies import vec as _vec
 
 @given(entries=_vec(21, -5.0, 5.0))
 def test_lower_triangle_pack_unpack_round_trip(entries):
-  cov = _expand_lower_triangular(list(entries))
+  cov = unpack_lower_triangular(list(entries))
   assert np.array_equal(cov, cov.T)
-  repacked = [cov[i, j] for i in range(6) for j in range(i + 1)]
+  repacked = pack_lower_triangular(cov)
   assert np.array_equal(np.array(repacked), entries)
 
 

@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from typing import TextIO
 
 from smfeval.format import Representation, SquareHeader
+from smfeval.io.triangular import pack_lower_triangular
 from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
 
 _TS_FMT = "{:.9f}"
@@ -34,11 +35,7 @@ def _write_gaussian(f: TextIO, step: GaussianStep) -> None:
   parts = [_TS_FMT.format(step.timestamp)]
   parts += [_VAL_FMT.format(x) for x in step.translation]
   parts += [_VAL_FMT.format(x) for x in step.quat_xyzw]
-  parts += [
-    _VAL_FMT.format(step.covariance[i, j])
-    for i in range(6)
-    for j in range(i + 1)
-  ]
+  parts += [_VAL_FMT.format(x) for x in pack_lower_triangular(step.covariance)]
   f.write(" ".join(parts) + "\n")
 
 
