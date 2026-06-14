@@ -57,13 +57,14 @@ def _log_normalized(
 def _n_eff_from_log_weights(log_w: np.ndarray) -> float:
   r"""Effective sample size from log weights (Kong, Liu & Wong, 1994).
 
-  :math:`N_\mathrm{eff} = (\sum w)^2 / \sum w^2`; with :math:`\sum w = 1`
-  this reduces to :math:`1 / \sum w^2 = \exp(-\mathrm{logsumexp}(2\log w))`.
+  :math:`N_\mathrm{eff} = (\sum w)^2 / \sum w^2`, computed in the log domain so
+  it is correct whether or not the weights are normalized.
   """
   if log_w.size == 0:
     return 0.0
-  lse = cast(float, logsumexp(2.0 * log_w))
-  return float(np.exp(-lse))
+  num = cast(float, logsumexp(log_w))
+  den = cast(float, logsumexp(2.0 * log_w))
+  return float(np.exp(2.0 * num - den))
 
 
 def _unique_count(particles: np.ndarray, tol: float) -> int:
