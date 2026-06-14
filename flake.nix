@@ -1,5 +1,5 @@
 {
-  description = "smfeval — Probabilistic SLAM evaluation";
+  description = "smfeval: probabilistic SLAM evaluation";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,6 +17,7 @@
           hatch
           twine
           build
+          jupytext
         ]);
       in
       {
@@ -32,7 +33,7 @@
             export UV_PYTHON=${pkgs.python312}/bin/python
             export UV_PYTHON_DOWNLOADS=never
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib pkgs.zlib ]}:$LD_LIBRARY_PATH"
-            echo "smfeval dev shell — $(python --version)"
+            echo "smfeval dev shell, $(python --version)"
           '';
         };
       });
