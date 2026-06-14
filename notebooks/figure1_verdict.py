@@ -1,12 +1,12 @@
 # %% [markdown]
-# # smfeval — score the belief, not just the mean
+# # smfeval: score the belief, not just the mean
 #
-# This notebook reproduces the headline verdict on one Oxford Spires
-# sequence (`2024-03-18-christ-church-03`): FAST-LIO2's per-scan
-# covariance vs its realised error — median NEES, the covariance scale
-# gap *k*, and 90% coverage.
+# This notebook reproduces the headline verdict on one Oxford Spires sequence
+# (`2024-03-18-christ-church-03`). It scores FAST-LIO2's per-scan covariance
+# against its realised error and reports the median NEES, the covariance scale
+# gap k, and 90% coverage.
 #
-# Runtime: a few seconds on a free Colab instance. The only smfeval
+# Runtime is a few seconds on a free Colab instance. The only smfeval
 # dependencies are numpy and scipy.
 
 # %%
@@ -39,22 +39,21 @@ for local, remote in FILES.items():
 print("data ready:", list(FILES))
 
 # %% [markdown]
-# ## The thirty-second verdict
+# ## Score the filter
 #
-# One command. The estimate declares `BODY_FRAME imu`; the Spires GT is in
-# the LiDAR frame, so the filter's own extrinsic is passed along.
+# One command. The estimate declares `BODY_FRAME imu`; the Spires GT is in the
+# LiDAR frame, so the filter's own extrinsic is passed along.
 
 # %%
 # !smfeval nees est.SQUARE gt.tum --gt-body-frame lidar --body-frame-transform imu_to_lidar.json
 
 # %% [markdown]
-# Median NEES around 10^3 against a calibrated reference of 2.37: the
-# published covariance is ~440x too tight (about 21x per axis), and the
-# 90% credible ellipsoid never contains the truth. The belief is wrong
-# even where the trajectory is accurate — this is what mean-based metrics
-# (ATE/RPE) cannot see.
+# Median NEES around 10^3 against a calibrated reference of 2.37: the published
+# covariance is about 440x too tight (around 21x per axis), and the 90% credible
+# ellipsoid never contains the truth. The belief is wrong even where the
+# trajectory is accurate, which is what mean-based metrics (ATE/RPE) cannot see.
 #
-# ## The same numbers through the library API
+# ## The same result through the library API
 
 # %%
 import json
@@ -73,52 +72,33 @@ from smfeval.scoring import gaussian_log_score_components
 from smfeval.se3.lie import homogeneous
 from smfeval.sync import match_timestamps
 
-est_header, est_steps = load_square(Path("est.SQUARE"))
-_, gt_steps = load_tum(Path("gt.tum"), pose_frame="world", body_frame="lidar")
+header, est = load_square(Path("est.SQUARE"))
+_, gt = load_tum(Path("gt.tum"), pose_frame="world", body_frame="lidar")
+order = header.tangent_order
 
-# re-express the estimate in the GT's (LiDAR) body frame
+# re-express the estimate in the GT (LiDAR) body frame
 tf = json.loads(Path("imu_to_lidar.json").read_text())
 T_off = homogeneous(np.array(tf["R"]).reshape(3, 3), np.array(tf["t"]))
-order = est_header.tangent_order
-est_steps = [
-  apply_body_transform(
-    s,
-    T_off,
-    tangent_convention=est_header.tangent_convention,
-    tangent_order=order,
-  )
-  for s in est_steps
-]
+conv = header.tangent_convention
+est = [apply_body_transform(s, T_off, tangent_convention=conv, tangent_order=order) for s in est]
 
-# match timestamps, fit the gauge-implied alignment, score
-est_ts = np.array([s.timestamp for s in est_steps])
-gt_ts = np.array([s.timestamp for s in gt_steps])
-m = match_timestamps(est_ts, gt_ts, t_max_diff=0.01)
-matched = [est_steps[i] for i in m.est_indices]
-gt_t = np.array([gt_steps[j].translation for j in m.gt_indices])
-gt_q = np.array([gt_steps[j].quat_xyzw for j in m.gt_indices])
-
+# match timestamps, align under the declared gauge, score each pose
+m = match_timestamps(
+  np.array([s.timestamp for s in est]), np.array([s.timestamp for s in gt]), t_max_diff=0.01
+)
+matched = [est[i] for i in m.est_indices]
+gt_t = np.array([gt[j].translation for j in m.gt_indices])
+gt_q = np.array([gt[j].quat_xyzw for j in m.gt_indices])
 fit = fit_alignment(
-  np.array([s.translation for s in matched]),
-  gt_t,
-  mode=align_mode_for_gauge(est_header.gauge),
+  np.array([s.translation for s in matched]), gt_t, mode=align_mode_for_gauge(header.gauge)
 )
 aligned = [
-  propagate_step(
-    s,
-    fit.transform,
-    scale=fit.scale,
-    tangent_convention=est_header.tangent_convention,
-    tangent_order=order,
-  )
+  propagate_step(s, fit.transform, scale=fit.scale, tangent_convention=conv, tangent_order=order)
   for s in matched
 ]
 
 nees = np.array(
-  [
-    gaussian_log_score_components(s, t, q, order).translation.nees
-    for s, t, q in zip(aligned, gt_t, gt_q)
-  ]
+  [gaussian_log_score_components(s, t, q, order).translation.nees for s, t, q in zip(aligned, gt_t, gt_q)]
 )
 verdict = nees_verdict(nees, dof=3)
 print(render_nees_verdict(verdict))
@@ -128,8 +108,8 @@ print(render_nees_verdict(verdict))
 #
 # Under a calibrated belief the per-pose translation NEES is
 # $\chi^2_3$-distributed. Plotting the realised distribution against that
-# reference shows the gap is not a tail effect — the entire bulk is
-# displaced by orders of magnitude.
+# reference shows the gap is not a tail effect. The entire bulk is displaced by
+# orders of magnitude.
 
 # %%
 import matplotlib.pyplot as plt
@@ -161,8 +141,7 @@ fig.tight_layout()
 # %% [markdown]
 # ## No ground truth? Score two filters against each other
 #
-# `smfeval pair a.SQUARE b.SQUARE` aligns filter A to filter B (the
-# reference is never consulted) and scores the difference under the summed
-# covariances — an elevated pairwise NEES certifies overconfidence with no
-# ground truth at all, and it is a *lower bound* on the miscalibration.
-# See the README for details.
+# `smfeval pair a.SQUARE b.SQUARE` aligns filter A to filter B (the reference is
+# never consulted) and scores the difference under the summed covariances. An
+# elevated pairwise NEES certifies overconfidence with no ground truth at all,
+# and it is a lower bound on the miscalibration. See the README for details.
