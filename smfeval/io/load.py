@@ -31,7 +31,7 @@ def looks_like_tum(path: Path) -> bool:
 
   Matches the CLI help: GT may be smfeval or TUM.
   """
-  with path.open() as f:
+  with path.open(encoding="utf-8-sig") as f:
     for line in f:
       s = line.strip()
       if not s:
@@ -46,7 +46,7 @@ def looks_like_tum(path: Path) -> bool:
 
 def sniff_tum_columns(path: Path) -> int:
   """Field count of the first data row of a header-less trajectory file."""
-  with path.open() as f:
+  with path.open(encoding="utf-8-sig") as f:
     for line in f:
       s = line.strip()
       if s and not s.startswith("#"):
@@ -58,7 +58,7 @@ def load_tum(
   path: Path, pose_frame: str, body_frame: str
 ) -> tuple[TumHeader, list[DeterministicStep]]:
   header = TumHeader(pose_frame=pose_frame, body_frame=body_frame)
-  with path.open() as f:
+  with path.open(encoding="utf-8-sig") as f:
     steps = list(_iter_deterministic(f))
   return header, steps
 
@@ -105,7 +105,7 @@ def load_tum_gaussian(
   header = _escape_hatch_header(
     pose_frame, body_frame, tangent_convention, tangent_order, gauge, "tum+cov"
   )
-  with path.open() as f:
+  with path.open(encoding="utf-8-sig") as f:
     steps = list(_iter_gaussian(f))
   return header, steps
 
@@ -128,7 +128,7 @@ def load_cov_sidecar(
   covs: list[np.ndarray] = []
   convention: TangentConvention | None = None
   order: TangentOrder | None = None
-  for raw in path.read_text().splitlines():
+  for raw in path.read_text(encoding="utf-8-sig").splitlines():
     s = raw.strip()
     if not s:
       continue
@@ -222,7 +222,7 @@ def load_tum_with_sidecar(
 
 
 def load_square(path: Path) -> tuple[SquareHeader, list[Step]]:
-  with path.open() as f:
+  with path.open(encoding="utf-8-sig") as f:
     header = parse_header(f)
     steps = list(iter_steps(f, header))
   return header, steps

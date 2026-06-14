@@ -63,16 +63,24 @@ def write_header(f: TextIO, h: SquareHeader) -> None:
   emit("ALGORITHM", h.algorithm)
   emit("ALGORITHM_VERSION", h.algorithm_version)
   if h.representation is Representation.GAUSSIAN_SE3:
-    assert h.tangent_convention and h.tangent_order and h.rotation_param
+    if not (h.tangent_convention and h.tangent_order and h.rotation_param):
+      raise ValueError(
+        "gaussian_se3 header requires tangent_convention, tangent_order, "
+        "and rotation_param"
+      )
     emit("TANGENT_CONVENTION", h.tangent_convention.value)
     emit("TANGENT_ORDER", h.tangent_order.value)
     emit("ROTATION_PARAM", h.rotation_param)
   elif h.representation is Representation.ENSEMBLE_SE3:
-    assert (
+    if not (
       h.weighted is not None
       and h.weight_format
       and h.weights_normalized is not None
-    )
+    ):
+      raise ValueError(
+        "ensemble_se3 header requires weighted, weight_format, and "
+        "weights_normalized"
+      )
     emit("WEIGHTED", "true" if h.weighted else "false")
     emit("WEIGHT_FORMAT", h.weight_format.value)
     emit("WEIGHTS_NORMALIZED", "true" if h.weights_normalized else "false")

@@ -136,6 +136,43 @@ def test_gaussian_wrong_field_count_raises():
     list(iter_steps(src, h))
 
 
+def test_row_error_reports_line_number():
+  h = _gaussian_header()
+  src = io.StringIO()
+  write_header(src, h)
+  src.write("1.0 " + " ".join(["0"] * 28) + "\n")  # valid 29-field row
+  src.write("2.0 0 0 0 0 0 0 1\n")  # bad row, second data row
+  src.seek(0)
+  parse_header(src)
+  with pytest.raises(FormatError, match=r"row 2"):
+    list(iter_steps(src, h))
+
+
+def test_ensemble_noncontiguous_timestamp_raises():
+  h = _ensemble_header(weighted=False)
+  src = io.StringIO()
+  write_header(src, h)
+  src.write("1.0 0 0 0 0 0 0 0 1\n")
+  src.write("2.0 0 0 0 0 0 0 0 1\n")
+  src.write("1.0 0 0 0 0 0 0 0 1\n")  # 1.0 recurs after 2.0
+  src.seek(0)
+  parse_header(src)
+  with pytest.raises(FormatError, match="recurs"):
+    list(iter_steps(src, h))
+
+
+def test_ensemble_bad_particle_id_raises():
+  h = _ensemble_header(weighted=False)
+  src = io.StringIO()
+  write_header(src, h)
+  src.write("1.0 0 0 0 0 0 0 0 1\n")
+  src.write("1.0 5 0 0 0 0 0 0 1\n")  # particle_id jumps to 5
+  src.seek(0)
+  parse_header(src)
+  with pytest.raises(FormatError, match="particle_id"):
+    list(iter_steps(src, h))
+
+
 def test_ensemble_weighted_round_trip():
   h = _ensemble_header(weighted=True)
   steps = [

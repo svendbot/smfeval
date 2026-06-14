@@ -54,7 +54,8 @@ def _write_ensemble(
   for pid in range(n):
     parts = [ts, str(pid)]
     if weighted:
-      assert step.weights is not None
+      if step.weights is None:
+        raise ValueError("weighted ensemble step has no weights")
       parts.append(_VAL_FMT.format(step.weights[pid]))
     parts += [_VAL_FMT.format(x) for x in step.particles[pid]]
     f.write(" ".join(parts) + "\n")
