@@ -39,6 +39,12 @@ jobs:
         run: uv run ruff format --check smfeval tests scripts
       - name: Exporter layout
         run: uv run python scripts/check_exporters.py
+      - name: SQUARE spec version matches FORMAT_VERSION
+        run: |
+          fmt=$(uv run python -c "from smfeval.format import FORMAT_VERSION; print(FORMAT_VERSION)")
+          spec=$(sed -n 's/^\*\*Version:\*\* \(.*\)/\1/p' SQUARE_spec.md | head -1)
+          echo "code=$fmt  spec=$spec"
+          [ "$fmt" = "$spec" ] || { echo "::error::SQUARE_spec.md Version ($spec) != FORMAT_VERSION ($fmt)"; exit 1; }
 
   docs:
     name: sphinx

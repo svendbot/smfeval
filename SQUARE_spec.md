@@ -1,10 +1,11 @@
 # SQUARE-Format_Specification
 
-**Version:** 0.4.0
+**Version:** SQUARE/0.3
 
-This spec is versioned with the smfeval release that ships it (the
-`#%FORMAT` tag below is the separate on-the-wire format version). CI checks
-this matches the release tag.
+The spec version is the format version (the `#%FORMAT` tag below),
+single-sourced from `smfeval.format.FORMAT_VERSION`; CI checks they match.
+It changes only when the byte format changes — independent of the smfeval
+release version.
 
 ## File Format
 
