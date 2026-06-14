@@ -173,6 +173,9 @@ def main() -> int:
   e_w = p_gt - p_est
   err_m = float(np.linalg.norm(e_w))
   z = float(np.sqrt(nees[k]))
+  # plain-language gloss of z: how far past the 99% credible radius the truth
+  # sits (the 99% radius for 3 dof is sqrt(chi2.ppf(0.99, 3)) ~= 3.37)
+  mult99 = z / float(np.sqrt(chi2.ppf(0.99, df=3)))
   cov_w = rot[k] @ cov_t[k] @ rot[k].T
   wmaj, wmin, ang = planar_ellipse(cov_w[:2, :2], 0.90)
   rmse = float(np.sqrt(np.mean(np.sum((gt_t - est_xyz) ** 2, axis=1))))
@@ -237,8 +240,10 @@ def main() -> int:
   insA.plot(*p_gt, "s", color=C_GT, ms=7, mec="white", mew=0.8, zorder=4)
   insA.annotate("", xy=p_gt, xytext=p_est, arrowprops=dict(arrowstyle="-|>", color=C_ERR, lw=2.0), zorder=5)
   insA.text(
-    c[0], c[1], f"  {err_m * 100:.0f} cm = {z:.0f}$\\sigma$", color=C_ERR,
-    fontsize=12, fontweight="bold", va="bottom", ha="left", zorder=6
+    c[0], c[1],
+    f"  {err_m * 100:.0f} cm = {z:.0f}$\\sigma$\n  ({mult99:.0f}x outside 99%)",
+    color=C_ERR, fontsize=11, fontweight="bold", va="bottom", ha="left",
+    zorder=6,
   )
   insA.set_xlim(c[0] - halfA, c[0] + halfA)
   insA.set_ylim(c[1] - halfA, c[1] + halfA)
