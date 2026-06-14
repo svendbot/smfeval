@@ -804,6 +804,95 @@ def _pair(args: argparse.Namespace) -> int:
   return 0
 
 
+def _adjust_covariance(
+  args: argparse.Namespace, aligned_est: list, gt_cov
+) -> list | None:
+  """Apply ESS inflation and GT-covariance folding to the predictive steps.
+
+  Returns the adjusted steps, or None (after printing an error) when
+  --consume-gt-cov is requested without an interpolated GT covariance. gt_cov is
+  the isotropic GP predictive covariance, so the tangent-order of the sum is
+  immaterial; the gaussian-validity check stays on the raw predictive cov.
+  """
+  ess_c = None
+  if args.ess_inflate is not None:
+    c_ts, c_val = _load_ess_cfile(args.ess_inflate)
+    step_ts = np.array([s.timestamp for s in aligned_est])
+    # nearest c per step; the c-file may be sparse (piecewise-constant over a
+    # range), so this is a nearest lookup, not a 1:1 match
+    j = np.clip(np.searchsorted(c_ts, step_ts), 0, len(c_ts) - 1)
+    jl = np.maximum(j - 1, 0)
+    j = np.where(np.abs(c_ts[jl] - step_ts) < np.abs(c_ts[j] - step_ts), jl, j)
+    ess_c = c_val[j]
+    n_extrap = int(
+      np.count_nonzero((step_ts < c_ts.min()) | (step_ts > c_ts.max()))
+    )
+    if n_extrap:
+      print(
+        f"note: {n_extrap} step(s) fall outside the ESS c-file range "
+        f"[{c_ts.min():.3f}, {c_ts.max():.3f}]; using the nearest edge factor",
+        file=sys.stderr,
+      )
+
+  if args.consume_gt_cov and gt_cov is None:
+    print(
+      "error: --consume-gt-cov requires --sync=interpolate_gt (it supplies "
+      "Σ_gt as the GP predictive covariance)",
+      file=sys.stderr,
+    )
+    return None
+
+  if ess_c is None and not args.consume_gt_cov:
+    return aligned_est
+
+  scored_est: list = []
+  for k, s in enumerate(aligned_est):
+    if not isinstance(s, GaussianStep):
+      scored_est.append(s)
+      continue
+    cov = s.covariance
+    if ess_c is not None:  # cov *= ess_c  (ESS inflation)
+      cov = ess_c[k] * cov
+    if args.consume_gt_cov:  # cov += gt_cov  (observer uncertainty)
+      cov = cov + gt_cov[k]
+    scored_est.append(replace(s, covariance=cov))
+  return scored_est
+
+
+def _emit_report(args: argparse.Namespace, rep) -> None:
+  """Write and/or print the report per --json-out / --json flags."""
+  if args.json_out is not None:
+    _write_report_json(rep, args.json_out)
+  if args.json:
+    print(json.dumps(asdict(rep), indent=2, default=_json_default))
+  else:
+    print(render_report(rep))
+
+
+def _emit_side_reports(
+  args: argparse.Namespace,
+  aligned_est: list,
+  scored_est: list,
+  matched_gt_t: np.ndarray,
+  matched_gt_q: np.ndarray,
+  order: TangentOrder,
+  est_header: SquareHeader,
+  rpe_windows: list[float] | None,
+  split: dict | None,
+) -> None:
+  """Print the optional relative-CRPS, calibration, and student-t side reports."""
+  if rpe_windows:
+    _report_relative_crps(
+      args, aligned_est, matched_gt_t, order, est_header, rpe_windows
+    )
+  if split is not None:
+    _emit_calibration_machine_lines(split)
+  if args.student_t:
+    _report_student_t(
+      args, scored_est, matched_gt_t, matched_gt_q, order, est_header
+    )
+
+
 def _score(args: argparse.Namespace) -> int:
   pr = _prepare(args)
   if pr is None:
@@ -829,51 +918,9 @@ def _score(args: argparse.Namespace) -> int:
       normalized=bool(est_header.weights_normalized),
     )
 
-  # Fold the GT observer covariance gt_cov into each predictive cov so the score
-  # consumes ground-truth uncertainty too, not just the filter's. gt_cov (the GP
-  # predictive covariance) is isotropic, so the tangent-order of the sum is
-  # immaterial. The gaussian-validity check stays on the raw predictive cov; it
-  # audits the filter's own.
-  ess_c = None
-  if args.ess_inflate is not None:
-    c_ts, c_val = _load_ess_cfile(args.ess_inflate)
-    step_ts = np.array([s.timestamp for s in aligned_est])
-    # nearest c per step; the c-file may be sparse (piecewise-constant over a
-    # range), so this is a nearest lookup, not a 1:1 match
-    j = np.clip(np.searchsorted(c_ts, step_ts), 0, len(c_ts) - 1)
-    jl = np.maximum(j - 1, 0)
-    j = np.where(np.abs(c_ts[jl] - step_ts) < np.abs(c_ts[j] - step_ts), jl, j)
-    ess_c = c_val[j]
-    n_extrap = int(
-      np.count_nonzero((step_ts < c_ts.min()) | (step_ts > c_ts.max()))
-    )
-    if n_extrap:
-      print(
-        f"note: {n_extrap} step(s) fall outside the ESS c-file range "
-        f"[{c_ts.min():.3f}, {c_ts.max():.3f}]; using the nearest edge factor",
-        file=sys.stderr,
-      )
-
-  scored_est = aligned_est
-  if args.consume_gt_cov and gt_cov is None:
-    print(
-      "error: --consume-gt-cov requires --sync=interpolate_gt (it supplies "
-      "Σ_gt as the GP predictive covariance)",
-      file=sys.stderr,
-    )
+  scored_est = _adjust_covariance(args, aligned_est, gt_cov)
+  if scored_est is None:
     return 2
-  if args.ess_inflate is not None or args.consume_gt_cov:
-    scored_est = []
-    for k, s in enumerate(aligned_est):
-      if not isinstance(s, GaussianStep):
-        scored_est.append(s)
-        continue
-      cov = s.covariance
-      if ess_c is not None:  # cov *= ess_c  (ESS inflation)
-        cov = ess_c[k] * cov
-      if args.consume_gt_cov:  # cov += gt_cov  (observer uncertainty)
-        cov = cov + gt_cov[k]
-      scored_est.append(replace(s, covariance=cov))
 
   gaussian_validity = None
   if est_header.representation is Representation.GAUSSIAN_SE3:
@@ -944,23 +991,18 @@ def _score(args: argparse.Namespace) -> int:
     ]
   rep.recommendations = recommendations(rep)
   rep.diagnoses = diagnose(rep)
-  if args.json_out is not None:
-    _write_report_json(rep, args.json_out)
-  if args.json:
-    print(json.dumps(asdict(rep), indent=2, default=_json_default))
-  else:
-    print(render_report(rep))
-
-  if rpe_windows:
-    _report_relative_crps(
-      args, aligned_est, matched_gt_t, order, est_header, rpe_windows
-    )
-  if split is not None:
-    _emit_calibration_machine_lines(split)
-  if args.student_t:
-    _report_student_t(
-      args, scored_est, matched_gt_t, matched_gt_q, order, est_header
-    )
+  _emit_report(args, rep)
+  _emit_side_reports(
+    args,
+    aligned_est,
+    scored_est,
+    matched_gt_t,
+    matched_gt_q,
+    order,
+    est_header,
+    rpe_windows,
+    split,
+  )
   return 0
 
 
