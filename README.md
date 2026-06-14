@@ -9,12 +9,13 @@ smfeval checks whether the covariance is telling the truth.
        width="460">
 </p>
 
-*FAST-LIO2 on Oxford Spires `christ-church-03`. The estimate (blue) tracks
-truth (black) to **3 cm** APE — ATE/RPE call this excellent. But the filter's
-reported 90% region is **millimetres** wide, so that same 3 cm gap is **37σ**:
-the belief is wrong exactly where the mean is right. That gap, per pose, is
-what smfeval scores. (Data: Oxford Spires, CC BY-NC-SA 4.0; figure reproducible
-via `notebooks/figure_overconfidence.py`.)*
+*Illustration (built in `notebooks/figure_overconfidence.py`), not smfeval
+output — smfeval emits the text verdict below; this is what that verdict means
+geometrically. FAST-LIO2 on Oxford Spires `christ-church-03`: the estimate
+(blue) tracks truth (black) to **3 cm** APE, which ATE/RPE call excellent, but
+the filter's reported 90% region is **millimetres** wide — so that same 3 cm
+gap is **37σ**. The belief is wrong exactly where the mean is right, and that
+per-pose gap is what smfeval scores. (Data: Oxford Spires, CC BY-NC-SA 4.0.)*
 
 ## Install
 
