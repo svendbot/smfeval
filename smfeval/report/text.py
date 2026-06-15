@@ -67,7 +67,7 @@ def _render_sync(rep: Report) -> str:
         if excess:
           frac = 100.0 * excess / n if n else 0.0
           lines.append(
-            f"                          ⚠ {excess} pairs ({frac:.1f}%) "
+            f"                          [warning] {excess} pairs ({frac:.1f}%) "
             f"exceed risk {s.get('risk_threshold', 0.3):.1f}"
           )
     case SyncMode.INTERPOLATE_GT:
@@ -124,12 +124,12 @@ def _render_gaussian_validity(rep: Report) -> str:
   ]
   if n_hard:
     lines.append(
-      f"                          ✗ {n_hard}/{n_total} steps exceed "
+      f"                          [critical] {n_hard}/{n_total} steps exceed "
       f"hard limit — predictive not a valid Gaussian on SO(3)"
     )
   elif n_soft:
     lines.append(
-      f"                          ⚠ {n_soft}/{n_total} steps exceed "
+      f"                          [warning] {n_soft}/{n_total} steps exceed "
       f"soft limit — concentrated-normal approximation degrading"
     )
   lines.append("")
@@ -153,7 +153,7 @@ def _render_ensemble(rep: Report) -> str:
   deg = e.get("degeneracy_fraction", 0.0)
   if deg > 0.0:
     lines.append(
-      f"                          ⚠ {_fmt_pct(deg)} of timesteps show "
+      f"                          [warning] {_fmt_pct(deg)} of timesteps show "
       "degeneracy (N_eff < N/10)"
     )
   lines.append("")
@@ -222,7 +222,7 @@ def _render_calibration(rep: Report) -> str:
   lines = ["Calibration"]
   ks_t = c.get("ks_p_translation", float("nan"))
   suffix = (
-    "  ⚠ possible miscalibration"
+    "  [warning] possible miscalibration"
     if not math.isnan(ks_t) and ks_t < 0.05
     else ""
   )
@@ -275,16 +275,12 @@ def _render_calibration_split(rep: Report) -> str:
   return "\n".join(lines)
 
 
-_SEVERITY_MARK = {"critical": "✗", "warning": "⚠", "info": "·"}
-
-
 def _render_diagnoses(rep: Report) -> str:
   lines = ["Diagnoses (attribution → action)"]
   for d in rep.diagnoses:
     mode = getattr(d.mode, "value", d.mode)
     sev = getattr(d.severity, "value", d.severity)
-    mark = _SEVERITY_MARK.get(sev, "·")
-    lines.append(f"  {mark} [{sev}] {mode}")
+    lines.append(f"  [{sev}] {mode}")
     lines.append(f"      {d.explanation}")
     for sig in d.signals_triggered:
       lines.append(f"      · {sig}")

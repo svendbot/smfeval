@@ -113,6 +113,71 @@ on a named public sequence. Contributions follow the PR template, with
 
 `smfeval score est.SQUARE gt.tum` produces the complete analysis.
 
+```
+=== smfeval scoring report ===
+
+Synchronization
+  Mode:                   nearest
+  Pairs matched:          309 / 310
+  Dropped:                1
+  Timestamp gap (ms):     median 0.04, p95 7.57, p99 8.55
+  Sync risk (v·Δt / σ):   median 0.0099, p95 1.6363, p99 1.7755
+                          [warning] 91 pairs (29.4%) exceed risk 0.3
+
+Alignment
+  Gauge (declared):       se3
+  Mode applied:           se3   (6 DoF)
+  Fitted Δxyz:            (-27.8424, 24.9711, 5.6239) m
+  Fit residual (m):       median 0.0094, p95 0.0262
+                          6 DoF removed over 32 m of trajectory
+
+Predictive validity (Gaussian on SO(3))
+  Max rotation σ:         0.003 rad (0.2°)
+  Tangent-Gaussian limits: soft 17°, hard 29°
+
+Scores
+  Translation CRPS:           mean 0.004 m   [95% CI 0.003, 0.006]   (n=309)
+                              median 0.003, std 0.003, min 0.001, max 0.014
+                              block length (Politis–White): 24.4
+  Rotation CRPS:              mean 0.028 rad   [95% CI 0.028, 0.029]   (n=309)
+                              median 0.028, std 0.002, min 0.024, max 0.034
+                              block length (Politis–White): 24.6
+  Energy score (SE(3)):       mean 0.029   [95% CI 0.027, 0.030]   (n=309)
+                              median 0.027, std 0.004, min 0.023, max 0.042
+                              block length (Politis–White): 23.7
+  Log score (joint):          mean 155.543   [95% CI 104.766, 222.215]   (n=309)
+                              median 140.334, std 167.298, min 35.505, max 1319.376
+                              block length (Politis–White): 19.3
+  Log score (translation):    mean -8.017   [95% CI -10.588, -5.032]   (n=309)
+                              median -10.892, std 7.064, min -13.701, max 19.477
+                              block length (Politis–White): 24.3
+  Log score (rotation):       mean 136.266   [95% CI 101.485, 174.390]   (n=309)
+                              median 136.926, std 94.369, min 43.708, max 766.136
+                              block length (Politis–White): 21.4
+  Interval score:             mean 0.057   [95% CI 0.021, 0.097]   (n=309)
+                              median 0.010, std 0.092, min 0.008, max 0.410
+                              block length (Politis–White): 24.4
+
+Calibration
+  PIT uniformity (KS):    p = 0.000  [warning] possible miscalibration
+  90% Mahalanobis coverage:  55.0%     (nominal 90.0%)
+  Translation z-score:    mean 1.63, std 1.02
+
+Diagnoses (attribution → action)
+  [warning] sync_risk
+      A competing confounder: timestamp-matching error shrinks short-window Σ_rel the same way local over-confidence does.
+      · 29.4% of pairs exceed sync risk 0.3
+      → Re-score with --sync=interpolate_gt to separate sync from a genuine calibration fault before trusting short-horizon verdicts.
+
+Recommendations
+  - 29.4% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_gt to confirm calibration findings.
+  - 6 DoF removed over 32 m of trajectory; post-alignment residuals are biased low. Consider --n_to_align to fit on a prefix and score on the remainder.
+  - Coverage below nominal combined with KS p < 0.05 — the filter is over-confident (claimed Σ too tight, truth falls outside the predicted intervals); widen process noise. Miscalibration is unlikely to be explained by sync error alone.
+```
+
+*Point-LIO on Oxford Spires `christ-church-03`, reproduced from
+`tests/fixtures/regression/real_point_lio`. The report is built from:*
+
 - synchronization and alignment diagnostics;
 - proper scoring rules (translation/rotation CRPS, energy score, Gaussian log
   score with its exact calibration/sharpness split, interval score), each with
