@@ -4,10 +4,16 @@ smfeval
 Probabilistic SLAM trajectory format and scoring tool.
 
 This package implements proper scoring rules and calibration diagnostics
-for probabilistic pose-trajectory predictions on SE(3). The scoring side
-is built on the kernel-score / energy-form characterisation of strictly
-proper rules (Gneiting & Raftery, 2007); the SE(3) machinery follows
-Solà, Deray & Atchuthan (2018) and Barfoot (2017).
+for the **translation** marginal of probabilistic pose-trajectory
+predictions on SE(3). The scoring side is built on the kernel-score /
+energy-form characterisation of strictly proper rules (Gneiting &
+Raftery, 2007); the SE(3) machinery (alignment, residuals) follows Solà,
+Deray & Atchuthan (2018) and Barfoot (2017).
+
+Orientation is not scored. A proper score on SO(3) needs a belief density
+whose normaliser is intractable for the natural rotation families, and the
+first-order tangent alternative awaits a rotation-frame audit, so rotation
+scoring is left to future work (see the accompanying paper, §II.b / §V.d).
 
 Scoring rules are evaluated *prequentially* (Dawid, 1984): at each
 matched timestep the one-step-ahead predictive belief is scored against
@@ -21,15 +27,12 @@ length selected automatically by the Politis & White (2004) flat-top
 lag-window estimator. The estimated block length is reported next to
 every score CI as a temporal-dependence diagnostic.
 
-For Gaussian beliefs the joint SE(3) log score is reported alongside
-its translation-marginal and rotation-marginal components: the 6×6
-covariance mixes translation and rotation, so a single scalar hides
-calibration pathologies that target only one block (e.g. a LiDAR
-filter well-calibrated in translation but overconfident in yaw under
-geometric degeneracy along the motion direction). The marginals are
-obtained by selecting the corresponding 3-vector / 3×3 sub-block of
-the SE(3) residual and its covariance; together with the joint they
-decompose the scalar without losing the cross-covariance information.
+For Gaussian beliefs the translation-marginal log score is reported,
+obtained by selecting the translation 3-vector / 3×3 sub-block of the
+SE(3) residual and its covariance (rotation integrated out). It splits
+exactly into a calibration term (½·NEES) and a sharpness term, so a
+filter that sharpens without earning it fails calibration while winning
+on sharpness — the over-confidence smfeval is built to surface.
 
 Per-trajectory point summaries (count / mean / median / std / min /
 max) follow the TUM RGB-D benchmark convention (Sturm et al., 2012).

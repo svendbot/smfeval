@@ -1,20 +1,20 @@
 {
-  "median_nees": 1547915.4273767064,
+  "median_nees": 1547915.4273766945,
   "calibrated_median": 2.3659738843753377,
-  "k": 654240.2845606158,
-  "per_axis_factor": 808.8512128695955,
+  "k": 654240.2845606108,
+  "per_axis_factor": 808.8512128695925,
   "coverage": 0.0,
   "nominal_coverage": 0.9,
   "dof": 3,
   "n": 309,
   "direction": "too tight",
   "anees": {
-    "anees": 2131465.471101109,
+    "anees": 2131465.471101098,
     "dof": 3,
     "n": 309,
     "lo": 2.7330668413077825,
     "hi": 3.2791921347707778,
     "verdict": "optimistic",
-    "median": 1547915.4273767064
+    "median": 1547915.4273766945
   }
 }

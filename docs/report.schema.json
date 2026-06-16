@@ -9,7 +9,6 @@
     "sync",
     "alignment",
     "ensemble",
-    "gaussian_validity",
     "scores",
     "calibration",
     "calibration_split",
@@ -35,17 +34,13 @@
       "type": ["object", "null"],
       "description": "Ensemble diagnostics (ensemble_se3 input only), else null."
     },
-    "gaussian_validity": {
-      "type": ["object", "null"],
-      "description": "Tangent-Gaussian validity diagnostic (gaussian_se3 input), else null."
-    },
     "scores": {
       "type": "object",
-      "description": "Proper scoring rules with confidence intervals."
+      "description": "Translation proper scoring rules with confidence intervals."
     },
     "calibration": {
       "type": "object",
-      "description": "PIT, interval coverage, and standardized-residual calibration."
+      "description": "Translation PIT, interval coverage, and standardized-residual calibration."
     },
     "calibration_split": {
       "type": ["object", "null"],

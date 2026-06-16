@@ -63,33 +63,30 @@ def test_components_sum_to_log_score_and_match_neg_log_density():
   step = _gauss(np.array([0.3, -0.2, 0.1]), 0.05)
   dec = gaussian_log_score_components(step, gt, gt_q)
   ref = gaussian_log_score(step, gt, gt_q)
-  for slice_ in (dec.joint, dec.translation, dec.rotation):
-    assert np.isclose(slice_.calibration + slice_.sharpness, slice_.log_score)
-    assert np.isclose(slice_.calibration, 0.5 * slice_.nees)
-  # log_score per slice equals the existing neg-log-density on the same slice.
-  assert np.isclose(dec.joint.log_score, ref.joint)
+  slice_ = dec.translation
+  assert np.isclose(slice_.calibration + slice_.sharpness, slice_.log_score)
+  assert np.isclose(slice_.calibration, 0.5 * slice_.nees)
+  # log_score equals the existing neg-log-density on the translation block.
   assert np.isclose(dec.translation.log_score, ref.translation)
-  assert np.isclose(dec.rotation.log_score, ref.rotation)
-  assert dec.joint.dof == 6
-  assert dec.translation.dof == 3 and dec.rotation.dof == 3
+  assert dec.translation.dof == 3
 
 
 def test_calibration_zero_when_truth_at_mean():
   gt = np.zeros(3)
   gt_q = np.array([0.0, 0.0, 0.0, 1.0])
   dec = gaussian_log_score_components(_gauss(gt, 0.05), gt, gt_q)
-  assert np.isclose(dec.joint.nees, 0.0, atol=1e-9)
-  assert np.isclose(dec.joint.calibration, 0.0, atol=1e-9)
+  assert np.isclose(dec.translation.nees, 0.0, atol=1e-9)
+  assert np.isclose(dec.translation.calibration, 0.0, atol=1e-9)
   # with zero error the score IS the sharpness penalty.
-  assert np.isclose(dec.joint.log_score, dec.joint.sharpness)
+  assert np.isclose(dec.translation.log_score, dec.translation.sharpness)
 
 
 def test_shrinking_cov_raises_calibration_lowers_sharpness():
   gt = np.zeros(3)
   gt_q = np.array([0.0, 0.0, 0.0, 1.0])
   off = np.array([0.4, 0.0, 0.0])
-  wide = gaussian_log_score_components(_gauss(off, 0.1), gt, gt_q).joint
-  tight = gaussian_log_score_components(_gauss(off, 0.001), gt, gt_q).joint
+  wide = gaussian_log_score_components(_gauss(off, 0.1), gt, gt_q).translation
+  tight = gaussian_log_score_components(_gauss(off, 0.001), gt, gt_q).translation
   assert tight.calibration > wide.calibration  # overconfident → NEES blows up
   assert tight.sharpness < wide.sharpness  # tighter Σ → smaller log-volume
 
@@ -99,7 +96,7 @@ def test_non_pd_covariance_is_inf():
   gt_q = np.array([0.0, 0.0, 0.0, 1.0])
   step = _gauss(np.array([0.1, 0.0, 0.0]), 0.05)
   step.covariance[0, 0] = -1.0  # break positive-definiteness
-  comp = gaussian_log_score_components(step, gt, gt_q).joint
+  comp = gaussian_log_score_components(step, gt, gt_q).translation
   assert comp.log_score == float("inf")
   assert comp.nees == float("inf")
 

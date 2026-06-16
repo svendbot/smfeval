@@ -91,37 +91,7 @@ def test_translation_overconfident_isolated():
   )
   modes = _modes(rep)
   assert FailureMode.TRANSLATION_OVERCONFIDENT in modes
-  assert FailureMode.ROTATION_OVERCONFIDENT not in modes
   assert FailureMode.OVERCONFIDENT not in modes
-
-
-def test_rotation_overconfident_isolated():
-  rep = Report(
-    calibration_split={
-      "absolute": {
-        "joint": _slice("optimistic", 5e4, dof=6),
-        "translation": _slice("consistent", 3.0),
-        "rotation": _slice("optimistic", 6e4),
-      }
-    }
-  )
-  modes = _modes(rep)
-  assert FailureMode.ROTATION_OVERCONFIDENT in modes
-  assert FailureMode.TRANSLATION_OVERCONFIDENT not in modes
-
-
-def test_joint_overconfident_when_both_channels_hot():
-  rep = Report(
-    calibration_split={
-      "absolute": {
-        "joint": _slice("optimistic", 5e4, dof=6),
-        "translation": _slice("optimistic", 6e4),
-        "rotation": _slice("optimistic", 4e4),
-      }
-    }
-  )
-  # both channels hot → falls through to the joint OVERCONFIDENT diagnosis.
-  assert FailureMode.OVERCONFIDENT in _modes(rep)
 
 
 def test_underconfident():
@@ -246,20 +216,6 @@ def test_no_accumulation_when_flat():
     }
   )
   assert FailureMode.HORIZON_ACCUMULATION not in _modes(rep)
-
-
-def test_gaussian_tangent_invalid_critical():
-  rep = Report(
-    gaussian_validity={
-      "n_total": 1000,
-      "n_exceeding_soft": 200,
-      "n_exceeding_hard": 200,
-    }
-  )
-  d = next(
-    d for d in diagnose(rep) if d.mode == FailureMode.GAUSSIAN_TANGENT_INVALID
-  )
-  assert d.severity == Severity.CRITICAL
 
 
 def test_sync_risk_fires_only_for_nearest():

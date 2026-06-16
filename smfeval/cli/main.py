@@ -54,10 +54,8 @@ from smfeval.scoring import (
   ensemble_diagnostics,
   gaussian_log_score,
   gaussian_log_score_components,
-  gaussian_rotation_validity,
   relative_calibration,
   relative_translation_crps,
-  rotation_crps,
   student_t_logscore_sweep,
   summarize,
   translation_crps,
@@ -199,12 +197,6 @@ def main(argv: list[str] | None = None) -> int:
   pn.add_argument("gt", type=Path, help="ground-truth file (SQUARE or TUM)")
   _add_common_args(pn)
   pn.add_argument(
-    "--slice",
-    choices=["translation", "joint", "rotation"],
-    default="translation",
-    help="which tangent block to score (default: translation, dof 3)",
-  )
-  pn.add_argument(
     "--alpha",
     type=float,
     default=0.05,
@@ -292,11 +284,10 @@ def main(argv: list[str] | None = None) -> int:
   ps.add_argument(
     "--calibration",
     action="store_true",
-    help="print the per-slice log-score calibration/sharpness split + ANEES "
-    "χ² consistency verdict (joint dof-6, translation/rotation dof-3). The "
-    "calibration term (½·NEES) stays graded where CRPS/coverage saturate; "
-    "the χ² interval gives an optimistic|consistent|conservative verdict. "
-    "Requires gaussian_se3 input.",
+    help="print the translation log-score calibration/sharpness split + ANEES "
+    "χ² consistency verdict (dof-3). The calibration term (½·NEES) stays "
+    "graded where CRPS/coverage saturate; the χ² interval gives an "
+    "optimistic|consistent|conservative verdict. Requires gaussian_se3 input.",
   )
   ps.add_argument(
     "--json-out",
@@ -538,24 +529,18 @@ def _compute_scores(
 ) -> dict[str, ScoreSummary]:
   rng = np.random.default_rng(seed)
   crps_t: list[float] = []
-  crps_r: list[float] = []
   es: list[float] = []
   is_t: list[float] = []
-  log_joint: list[float] = []
   log_trans: list[float] = []
-  log_rot: list[float] = []
   for s, gt_t, gt_q in zip(
     aligned_est, matched_gt_t, matched_gt_q, strict=True
   ):
     crps_t.append(translation_crps(s, gt_t, order))
-    crps_r.append(rotation_crps(s, gt_q, order, rng=rng))
-    es.append(energy_score(s, gt_t, gt_q, order, n_samples, rng))
+    es.append(energy_score(s, gt_t, order, n_samples, rng))
 
     if isinstance(s, GaussianStep):
       ls = gaussian_log_score(s, gt_t, gt_q, order)
-      log_joint.append(ls.joint)
       log_trans.append(ls.translation)
-      log_rot.append(ls.rotation)
     if not isinstance(s, DeterministicStep):
       is_t.append(
         translation_magnitude_interval_score(
@@ -566,13 +551,10 @@ def _compute_scores(
   boot_rng = np.random.default_rng(seed + 2)
   scores: dict[str, ScoreSummary] = {
     "translation_crps": summarize(crps_t, rng=boot_rng),
-    "rotation_crps": summarize(crps_r, rng=boot_rng),
     "energy_score": summarize(es, rng=boot_rng),
   }
-  if log_joint:
-    scores["log_score"] = summarize(log_joint, rng=boot_rng)
+  if log_trans:
     scores["log_score_translation"] = summarize(log_trans, rng=boot_rng)
-    scores["log_score_rotation"] = summarize(log_rot, rng=boot_rng)
   if is_t:
     scores["interval_score"] = summarize(is_t, rng=boot_rng)
   return scores
@@ -753,10 +735,9 @@ def _nees(args: argparse.Namespace) -> int:
     if not isinstance(s, GaussianStep):
       continue
     dec = gaussian_log_score_components(s, gt_t, gt_q, pr.order)
-    vals.append(getattr(dec, args.slice).nees)
+    vals.append(dec.translation.nees)
 
-  dof = 6 if args.slice == "joint" else 3
-  v = nees_verdict(np.asarray(vals), dof=dof, alpha=args.alpha)
+  v = nees_verdict(np.asarray(vals), dof=3, alpha=args.alpha)
   if args.json:
     print(json.dumps(v.to_dict(), indent=2, default=_json_default))
   else:
@@ -922,12 +903,6 @@ def _score(args: argparse.Namespace) -> int:
   if scored_est is None:
     return 2
 
-  gaussian_validity = None
-  if est_header.representation is Representation.GAUSSIAN_SE3:
-    gaussian_validity = gaussian_rotation_validity(
-      [s for s in aligned_est if isinstance(s, GaussianStep)],
-      tangent_order=order,
-    )
   scores = _compute_scores(
     scored_est,
     matched_gt_t,
@@ -976,7 +951,6 @@ def _score(args: argparse.Namespace) -> int:
     sync_risks=risks,
     sync_risk_threshold=0.3,
     ensemble=ensemble_diag,
-    gaussian_validity=gaussian_validity,
     scores=scores,
     calibration=cal,
     trajectory_length_m=traj_len,
@@ -1070,30 +1044,25 @@ def _calibration_split_dict(
   r"""Build the calibration/sharpness split dict consumed by the report + diagnose.
 
   ``-log p`` splits exactly into ``calibration = ½·NEES`` and ``sharpness =
-  ½(log|Σ| + d·log2π)``; the ANEES χ² interval gives the per-slice
-  ``optimistic|consistent|conservative`` verdict (joint dof-6, trans/rot dof-3).
-  Returns ``{"absolute": {...}, "windowed": [...]}`` or ``None`` if there are no
+  ½(log|Σ| + d·log2π)``; the ANEES χ² interval gives the translation
+  ``optimistic|consistent|conservative`` verdict (dof-3). Returns
+  ``{"absolute": {...}, "windowed": [...]}`` or ``None`` if there are no
   Gaussian steps. ``windowed`` is present only when ``--rpe-window`` is set.
   """
-  nees = {"joint": [], "translation": [], "rotation": []}
-  calib = {"joint": [], "translation": [], "rotation": []}
-  sharp = {"joint": [], "translation": [], "rotation": []}
+  nees: list[float] = []
+  calib: list[float] = []
+  sharp: list[float] = []
   for s, gt_t, gt_q in zip(
     aligned_est, matched_gt_t, matched_gt_q, strict=True
   ):
     if not isinstance(s, GaussianStep):
       continue
-    dec = gaussian_log_score_components(s, gt_t, gt_q, order)
-    for name, comp in (
-      ("joint", dec.joint),
-      ("translation", dec.translation),
-      ("rotation", dec.rotation),
-    ):
-      nees[name].append(comp.nees)
-      calib[name].append(comp.calibration)
-      sharp[name].append(comp.sharpness)
+    comp = gaussian_log_score_components(s, gt_t, gt_q, order).translation
+    nees.append(comp.nees)
+    calib.append(comp.calibration)
+    sharp.append(comp.sharpness)
 
-  if not nees["joint"]:
+  if not nees:
     return None
 
   def _median_finite(xs: list[float]) -> float:
@@ -1101,19 +1070,16 @@ def _calibration_split_dict(
     arr = arr[np.isfinite(arr)]
     return float(np.median(arr)) if arr.size else float("nan")
 
-  dof = {"joint": 6, "translation": 3, "rotation": 3}
-  absolute: dict[str, dict] = {}
-  for name in ("joint", "translation", "rotation"):
-    res = anees_consistency(
-      np.asarray(nees[name], dtype=float), dof=dof[name], alpha=args.alpha
-    )
-    d = res.to_dict()
-    d["nees_median"] = d.pop("median")
-    absolute[name] = {
+  res = anees_consistency(np.asarray(nees, dtype=float), dof=3, alpha=args.alpha)
+  d = res.to_dict()
+  d["nees_median"] = d.pop("median")
+  absolute: dict[str, dict] = {
+    "translation": {
       **d,
-      "calibration_median": _median_finite(calib[name]),
-      "sharpness_median": _median_finite(sharp[name]),
+      "calibration_median": _median_finite(calib),
+      "sharpness_median": _median_finite(sharp),
     }
+  }
 
   split: dict = {"absolute": absolute}
   if windows:

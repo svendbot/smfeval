@@ -1,23 +1,15 @@
-r"""Closed-form Gaussian log score in SE(3) tangent space.
-
-Decomposed into the joint score and its translation / rotation marginals.
+r"""Closed-form Gaussian log score on the translation marginal.
 
 The logarithmic (or *ignorance*) score :math:`-\log f(y)` was introduced
 by Good (1952) and is strictly proper (Gneiting & Raftery, 2007).
 
-For SLAM beliefs the 6×6 SE(3) covariance mixes translation and
-rotation, so a single joint scalar hides calibration pathologies that
-target only one of the two blocks — e.g. a LiDAR filter that is
-well-calibrated in translation but overconfident in yaw when the
-geometry degenerates along the motion direction. We therefore also
-report the *marginal* log scores on the 3-D translation block and the
-3-D rotation block. The marginal of a joint Gaussian is the
-Gaussian on the corresponding sub-vector with the matching
-sub-covariance, so the marginal scores are obtained by indexing the
-6-vector residual and the 6×6 covariance with
-:func:`smfeval.se3.lie.trans_slice` / :func:`smfeval.se3.lie.rot_slice`. The
-three numbers are not independent (the joint encodes their
-cross-covariance) but together they decompose the scalar.
+We score the 3-D translation block of the SE(3) belief. Orientation is
+not scored: a proper score on SO(3) needs a belief density whose
+normaliser is intractable for the natural rotation families (paper,
+§II.b / §V.d). The translation marginal of the pose Gaussian is the
+Gaussian on the translation sub-vector with the matching sub-covariance,
+obtained by indexing the residual and covariance with
+:func:`smfeval.se3.lie.trans_slice`.
 
 References:
 -----------
@@ -37,7 +29,6 @@ from smfeval.format import TangentOrder
 from smfeval.se3.lie import (
   pose_matrix,
   relative,
-  rot_slice,
   se3_log,
   trans_slice,
 )
@@ -46,11 +37,9 @@ from smfeval.steps import GaussianStep
 
 @dataclass
 class GaussianLogScore:
-  r"""Joint and block-marginal negative log densities (smaller is better)."""
+  r"""Translation-marginal negative log density (smaller is better)."""
 
-  joint: float
   translation: float
-  rotation: float
 
   def to_dict(self) -> dict[str, float]:
     return asdict(self)
@@ -77,38 +66,27 @@ def gaussian_log_score(
   gt_quat_xyzw: np.ndarray,
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
 ) -> GaussianLogScore:
-  r"""Negative log densities of the GT pose under the predictive Gaussian.
-
-  Returns the joint SE(3) score and its translation / rotation marginals.
+  r"""Translation-marginal negative log density of the GT under the belief.
 
   With residual :math:`\xi = \log_{T_\mathrm{mean}}(T_\mathrm{obs})
   \in \mathbb{R}^6`, covariance :math:`\Sigma \in \mathbb{R}^{6\times 6}`,
-  and block selectors :math:`I_t, I_r` for translation and rotation
-  (3 entries each, as configured by ``tangent_order``),
+  and translation selector :math:`I_t` (as configured by ``tangent_order``),
 
   .. math::
 
-     -\log p(\xi)       &= \tfrac12\bigl(\xi^\top \Sigma^{-1}\xi
-         + \log\det\Sigma + 6\log 2\pi\bigr), \\
-       -\log p(\xi_{I_t}) &= \tfrac12\bigl(\xi_{I_t}^\top \Sigma_{I_t I_t}^{-1}
-         \xi_{I_t} + \log\det\Sigma_{I_t I_t} + 3\log 2\pi\bigr),
+     -\log p(\xi_{I_t}) = \tfrac12\bigl(\xi_{I_t}^\top \Sigma_{I_t I_t}^{-1}
+       \xi_{I_t} + \log\det\Sigma_{I_t I_t} + 3\log 2\pi\bigr).
 
-  and analogously for :math:`I_r`. The block-marginal density is
-  simply the joint with the other block integrated out, which for a
-  Gaussian is the sub-vector under the matching sub-covariance.
+  The marginal density is the joint with the rotation block integrated
+  out, which for a Gaussian is the translation sub-vector under the
+  matching sub-covariance.
   """
   T_mean = pose_matrix(step.translation, step.quat_xyzw)
   T_obs = pose_matrix(gt_translation, gt_quat_xyzw)
   xi = se3_log(relative(T_mean, T_obs), order=tangent_order)
-  cov = step.covariance
-
   t_idx = trans_slice(tangent_order)
-  r_idx = rot_slice(tangent_order)
-
-  joint = _gaussian_neg_log_density(xi, cov)
-  trans = _gaussian_neg_log_density(xi[t_idx], cov[t_idx, t_idx])
-  rot = _gaussian_neg_log_density(xi[r_idx], cov[r_idx, r_idx])
-  return GaussianLogScore(joint=joint, translation=trans, rotation=rot)
+  trans = _gaussian_neg_log_density(xi[t_idx], step.covariance[t_idx, t_idx])
+  return GaussianLogScore(translation=trans)
 
 
 @dataclass
@@ -140,11 +118,9 @@ class ScoreComponents:
 
 @dataclass
 class DecomposedLogScore:
-  r"""Per-slice log score with calibration/sharpness split (joint + marginals)."""
+  r"""Translation log score with its calibration/sharpness split."""
 
-  joint: ScoreComponents
   translation: ScoreComponents
-  rotation: ScoreComponents
 
   def to_dict(self) -> dict[str, dict[str, float]]:
     return asdict(self)
@@ -180,22 +156,18 @@ def gaussian_log_score_components(
   gt_quat_xyzw: np.ndarray,
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
 ) -> DecomposedLogScore:
-  r"""Joint + block-marginal log scores, each split into calibration/sharpness.
+  r"""Translation log score split into calibration/sharpness.
 
   Same residual/covariance as :func:`gaussian_log_score`; this variant exposes
-  the two additive components per slice so attribution can read the calibration
-  term (graded, χ²-referenced) while the raw score remains the proper headline.
+  the two additive components so attribution can read the calibration term
+  (graded, χ²-referenced) while the raw score remains the proper headline.
   """
   T_mean = pose_matrix(step.translation, step.quat_xyzw)
   T_obs = pose_matrix(gt_translation, gt_quat_xyzw)
   xi = se3_log(relative(T_mean, T_obs), order=tangent_order)
-  cov = step.covariance
   t_idx = trans_slice(tangent_order)
-  r_idx = rot_slice(tangent_order)
   return DecomposedLogScore(
-    joint=_score_components(xi, cov),
-    translation=_score_components(xi[t_idx], cov[t_idx, t_idx]),
-    rotation=_score_components(xi[r_idx], cov[r_idx, r_idx]),
+    translation=_score_components(xi[t_idx], step.covariance[t_idx, t_idx]),
   )
 
 
@@ -255,9 +227,12 @@ def student_t_logscore_sweep(
       ),
       order=tangent_order,
     )
-    gauss.append(_gaussian_neg_log_density(xi, step.covariance))
+    t_idx = trans_slice(tangent_order)
+    xi_t = xi[t_idx]
+    cov_t = step.covariance[t_idx, t_idx]
+    gauss.append(_gaussian_neg_log_density(xi_t, cov_t))
     for nu in nus:
-      tcols[nu].append(student_t_neg_log_density(xi, step.covariance, nu))
+      tcols[nu].append(student_t_neg_log_density(xi_t, cov_t, nu))
   return gauss, tcols
 
 

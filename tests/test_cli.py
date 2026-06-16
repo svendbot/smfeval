@@ -211,9 +211,11 @@ def test_calibration_flag_skipped_for_deterministic(
   assert "calibration split: skipped" in err
 
 
-def _joint_anees(out: str) -> float:
+def _translation_anees(out: str) -> float:
   line = next(
-    ln for ln in out.splitlines() if "CALIBRATION_SPLIT slice=joint" in ln
+    ln
+    for ln in out.splitlines()
+    if "CALIBRATION_SPLIT slice=translation" in ln
   )
   return float(
     next(tok.split("=")[1] for tok in line.split() if tok.startswith("anees="))
@@ -266,10 +268,10 @@ def test_consume_gt_cov_reduces_calibration_term(
     "--calibration",
   ]
   rc = main(common)
-  base = _joint_anees(capsys.readouterr().out)
+  base = _translation_anees(capsys.readouterr().out)
   assert rc == 0
   rc = main(common + ["--consume-gt-cov"])
-  consumed = _joint_anees(capsys.readouterr().out)
+  consumed = _translation_anees(capsys.readouterr().out)
   assert rc == 0
   # Folding a PSD Σ_gt into the predictive can only inflate Σ_eff ⇒ NEES drops.
   assert consumed < base
@@ -291,10 +293,10 @@ def test_ess_inflate_scales_anees(
     "--calibration",
   ]
   rc = main(base)
-  a_base = _joint_anees(capsys.readouterr().out)
+  a_base = _translation_anees(capsys.readouterr().out)
   assert rc == 0
   rc = main(base + ["--ess-inflate", str(cfile)])
-  a_ess = _joint_anees(capsys.readouterr().out)
+  a_ess = _translation_anees(capsys.readouterr().out)
   assert rc == 0
   assert np.isclose(a_ess, a_base / 4.0, rtol=0.02)
 
@@ -383,8 +385,8 @@ def test_score_body_frame_transform_applied(
   )
   out = capsys.readouterr().out
   assert rc == 0
-  # After the transform, rotation CRPS should be ≈ 0 (well below π/2 saturation).
-  assert "Rotation CRPS" in out
+  # The body-frame transform path runs end-to-end and a report is produced.
+  assert "Translation CRPS" in out
 
 
 # --- nees verb ----------------------------------------------------------------

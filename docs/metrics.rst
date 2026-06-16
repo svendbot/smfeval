@@ -3,15 +3,18 @@ Metrics and how to read them
 
 ``smfeval`` reports several proper scoring rules and calibration
 diagnostics side by side. Each touches a different part of the predictive
-distribution (bulk shape, tails, joint structure, a chosen coverage level),
+**translation** distribution (bulk shape, tails, a chosen coverage level),
 so no single number is sufficient. This page gives a high-level
 interpretation of each output. The format and conventions are in
 ``SQUARE_spec.md``; the theory is in the paper (see :doc:`index`).
 
 Throughout, a *belief* is the filter's one-step-ahead predictive pose
 distribution (mean and covariance for a Gaussian filter, weighted particles
-for an ensemble). A score is computed at every matched timestep and
-aggregated. Smaller is better unless noted.
+for an ensemble). All proper scores act on the **translation** marginal of
+that belief; orientation is not scored, because a proper score on SO(3)
+needs a belief density whose normaliser is intractable for the natural
+rotation families (paper §II.b / §V.d). A score is computed at every
+matched timestep and aggregated. Smaller is better unless noted.
 
 Calibration verdict (NEES and ANEES)
 ------------------------------------
@@ -45,14 +48,14 @@ scored under the summed covariances, giving a pairwise NEES that is again
 and an understated reference covariance both push the statistic *down*, so
 an elevated value is a **lower bound** on the miscalibration.
 
-CRPS (translation and rotation)
--------------------------------
+CRPS (translation)
+------------------
 
 The continuous ranked probability score is a strictly proper score on a
-scalar marginal (here the translation magnitude and the rotation angle).
-It rewards a sharp belief centred on the truth. It **saturates** toward the
-raw error once the belief is badly over-confident, so on its own it
-understates gross miscalibration. Read it together with NEES.
+scalar marginal (here the per-axis translation error). It rewards a sharp
+belief centred on the truth. It **saturates** toward the raw error once the
+belief is badly over-confident, so on its own it understates gross
+miscalibration. Read it together with NEES.
 
 Relative-pose CRPS (short windows)
 ----------------------------------
@@ -67,14 +70,17 @@ Energy score
 ------------
 
 The multivariate generalization of CRPS (the kernel/energy form of
-Gneiting & Raftery, 2007). It scores the full joint predictive
-distribution, not a single marginal, so it catches mis-shaped
-cross-covariance that the per-axis scores miss.
+Gneiting & Raftery, 2007), applied to the 3-D translation vector. It
+scores the joint translation distribution, so it catches mis-shaped
+translation cross-covariance that the per-axis CRPS misses. At the
+reported covariance it reduces to the per-pose error norm that APE
+aggregates, so it reproduces existing point accuracy as a special case.
 
 Gaussian log score and its calibration/sharpness split
 ------------------------------------------------------
 
-For a Gaussian belief the negative log density splits **exactly** into
+For a Gaussian belief the negative log density of the translation residual
+(:math:`d=3`) splits **exactly** into
 
 .. math::
 
@@ -84,9 +90,8 @@ For a Gaussian belief the negative log density splits **exactly** into
 The calibration term is half the NEES (does the spread match the error?);
 the sharpness term rewards a confident belief (small covariance). A filter
 can win on sharpness while failing calibration, which is exactly the
-over-confidence smfeval is built to surface. The joint SE(3) score is
-reported alongside its translation- and rotation-marginal components,
-since the 6×6 covariance can hide a pathology in just one block.
+over-confidence smfeval is built to surface. The score acts on the
+translation block of the pose belief (rotation integrated out).
 
 Interval score
 --------------

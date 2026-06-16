@@ -26,8 +26,6 @@ def render_report(rep: Report) -> str:
   out.append(_render_alignment(rep))
   if rep.ensemble is not None:
     out.append(_render_ensemble(rep))
-  if rep.gaussian_validity is not None:
-    out.append(_render_gaussian_validity(rep))
   out.append(_render_scores(rep))
   out.append(_render_calibration(rep))
   if rep.calibration_split:
@@ -107,35 +105,6 @@ def _render_alignment(rep: Report) -> str:
   return "\n".join(lines)
 
 
-def _render_gaussian_validity(rep: Report) -> str:
-  g = rep.gaussian_validity or {}
-  max_sigma = g.get("max_sigma_r", 0.0)
-  n_total = g.get("n_total", 0) or 0
-  n_soft = g.get("n_exceeding_soft", 0) or 0
-  n_hard = g.get("n_exceeding_hard", 0) or 0
-  soft = g.get("soft_limit_rad", 0.0)
-  hard = g.get("hard_limit_rad", 0.0)
-  lines = [
-    "Predictive validity (Gaussian on SO(3))",
-    f"  Max rotation σ:         {_fmt_float(max_sigma, 3)} rad"
-    f" ({math.degrees(max_sigma):.1f}°)",
-    f"  Tangent-Gaussian limits: soft {math.degrees(soft):.0f}°,"
-    f" hard {math.degrees(hard):.0f}°",
-  ]
-  if n_hard:
-    lines.append(
-      f"                          [critical] {n_hard}/{n_total} steps exceed "
-      f"hard limit — predictive not a valid Gaussian on SO(3)"
-    )
-  elif n_soft:
-    lines.append(
-      f"                          [warning] {n_soft}/{n_total} steps exceed "
-      f"soft limit — concentrated-normal approximation degrading"
-    )
-  lines.append("")
-  return "\n".join(lines)
-
-
 def _render_ensemble(rep: Report) -> str:
   e = rep.ensemble or {}
   n_eff = e.get("n_eff_quantiles", {})
@@ -165,11 +134,8 @@ _SCORE_PRECISION = 3
 _SCORE_LABELS: list[tuple[str, str, str]] = [
   # (key, label, unit)
   ("translation_crps", "Translation CRPS", "m"),
-  ("rotation_crps", "Rotation CRPS", "rad"),
-  ("energy_score", "Energy score (SE(3))", ""),
-  ("log_score", "Log score (joint)", ""),
+  ("energy_score", "Energy score", "m"),
   ("log_score_translation", "Log score (translation)", ""),
-  ("log_score_rotation", "Log score (rotation)", ""),
   ("interval_score", "Interval score", ""),
 ]
 
@@ -253,7 +219,7 @@ def _render_calibration_split(rep: Report) -> str:
   split = rep.calibration_split or {}
   lines = ["Log-score calibration / sharpness split (ANEES χ² verdict)"]
   absolute = split.get("absolute") or {}
-  for name in ("joint", "translation", "rotation"):
+  for name in ("translation",):
     s = absolute.get(name)
     if not s:
       continue

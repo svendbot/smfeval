@@ -119,11 +119,10 @@ def test_nees_invariant_under_common_transform(est, xi_pert, cov, common):
   moved = gaussian_log_score_components(
     moved_step, T_obs2[:3, 3], rot_to_quat_xyzw(T_obs2[:3, :3])
   )
-  for slc in ("joint", "translation", "rotation"):
-    got = getattr(moved, slc)
-    want = getattr(base, slc)
-    assert np.isclose(got.nees, want.nees, rtol=1e-6, atol=1e-9)
-    assert np.isclose(got.sharpness, want.sharpness, rtol=1e-9, atol=1e-9)
+  got = moved.translation
+  want = base.translation
+  assert np.isclose(got.nees, want.nees, rtol=1e-6, atol=1e-9)
+  assert np.isclose(got.sharpness, want.sharpness, rtol=1e-9, atol=1e-9)
 
 
 # P6 — bias/variance decomposition identity ----------------------------------

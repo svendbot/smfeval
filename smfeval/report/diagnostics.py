@@ -9,16 +9,14 @@ action. It is the machine-readable form of the attribution protocol:
   slice read                         → fault isolated → action
   ----------------------------------   --------------   -------------------------
   translation calibration optimistic   accel / scale    which sensor channel
-  rotation calibration optimistic      gyro / R / grav  which sensor channel
   windowed: hot at smallest Δt         local            measurement model / sync
   windowed: ANEES grows with Δt        accumulation     tune filter vs loop close
-  gaussian tangent limit exceeded      representation   matrix-Fisher / particles
   sync risk excess                     competing cfdr   --sync=interpolate_gt
 
 ``diagnose(rep)`` reads only what is present on the :class:`Report`: the
-calibration split (populated under ``--calibration``), gaussian validity,
-sync, and ensemble sections. Prior/posterior attribution is left as a hook for
-when a prior-dump SQUARE is scored alongside (B2).
+translation calibration split (populated under ``--calibration``), sync, and
+ensemble sections. Prior/posterior attribution is left as a hook for when a
+prior-dump SQUARE is scored alongside (B2).
 """
 
 from dataclasses import asdict, dataclass, field
@@ -32,10 +30,8 @@ class FailureMode(str, Enum):
   UNDERCONFIDENT = "underconfident"
   SYSTEMATIC_BIAS = "systematic_bias"
   TRANSLATION_OVERCONFIDENT = "translation_overconfident"
-  ROTATION_OVERCONFIDENT = "rotation_overconfident"
   LOCAL_OVERCONFIDENCE = "local_overconfidence"
   HORIZON_ACCUMULATION = "horizon_accumulation"
-  GAUSSIAN_TANGENT_INVALID = "gaussian_tangent_invalid"
   SYNC_RISK = "sync_risk"
   ENSEMBLE_DEGENERACY = "ensemble_degeneracy"
 
@@ -113,83 +109,40 @@ def _regime_action(s: dict) -> str:
 
 
 def _diagnose_absolute(absolute: dict) -> list[Diagnosis]:
-  """Channel attribution from the absolute calibration slices."""
+  """Channel attribution from the translation calibration slice."""
   out: list[Diagnosis] = []
-  joint = absolute.get("joint")
   trans = absolute.get("translation")
-  rot = absolute.get("rotation")
   tv = trans["verdict"] if trans else None
-  rv = rot["verdict"] if rot else None
-  jv = joint["verdict"] if joint else None
 
-  if tv == "optimistic" and rv != "optimistic":
+  if tv == "optimistic":
     out.append(
       Diagnosis(
         mode=FailureMode.TRANSLATION_OVERCONFIDENT,
         severity=_sev_for_anees(trans["anees"], trans["hi"]),
-        signals_triggered=[_signal("translation", trans)]
-        + ([_signal("rotation", rot)] if rot else []),
+        signals_triggered=[_signal("translation", trans)],
         explanation=(
-          "Translation covariance is too tight while rotation is consistent — "
-          "the over-confidence is in the translation channel."
+          "Translation covariance is too tight — the truth falls far outside "
+          "the predicted ellipsoid (the calibration term stays graded where "
+          "CRPS/coverage saturate)."
         ),
         recommended_actions=[
           "Suspect the accelerometer noise / scale / time-offset (the "
-          "translation channel) rather than the gyro or extrinsic rotation.",
+          "translation channel).",
           "Check the windowed slice: hot only at long Δt → drift accumulation; "
           "hot at 0.1 s → local measurement-model overconfidence.",
           _regime_action(trans),
         ],
       )
     )
-  elif rv == "optimistic" and tv != "optimistic":
-    out.append(
-      Diagnosis(
-        mode=FailureMode.ROTATION_OVERCONFIDENT,
-        severity=_sev_for_anees(rot["anees"], rot["hi"]),
-        signals_triggered=[_signal("rotation", rot)]
-        + ([_signal("translation", trans)] if trans else []),
-        explanation=(
-          "Rotation covariance is too tight while translation is consistent — "
-          "the over-confidence is in the rotation channel."
-        ),
-        recommended_actions=[
-          "Suspect the gyro noise, the extrinsic rotation, or gravity "
-          "alignment (the rotation channel).",
-          "If the run is gravity-anchored, a tight-but-wrong rotation σ often "
-          "means a yaw/heading error the gauge cannot observe.",
-          _regime_action(rot),
-        ],
-      )
-    )
-  elif jv == "optimistic":
-    out.append(
-      Diagnosis(
-        mode=FailureMode.OVERCONFIDENT,
-        severity=_sev_for_anees(joint["anees"], joint["hi"]),
-        signals_triggered=[_signal("joint", joint)],
-        explanation=(
-          "Joint pose covariance is too tight — the truth falls far outside "
-          "the predicted ellipsoid (the calibration term stays graded where "
-          "CRPS/coverage saturate)."
-        ),
-        recommended_actions=[
-          "Run the prior/posterior split (B2): posterior-only excess ⇒ the "
-          "measurement model (LiDAR R / map / ESS); prior also hot ⇒ the "
-          "filter propagation (IMU Q / init).",
-          "Widen the dominant noise term once the prior/posterior split "
-          "localises it.",
-          _regime_action(joint),
-        ],
-      )
-    )
-  elif jv == "conservative":
+  elif tv == "conservative":
     out.append(
       Diagnosis(
         mode=FailureMode.UNDERCONFIDENT,
         severity=Severity.INFO,
-        signals_triggered=[_signal("joint", joint)],
-        explanation="Pose covariance is looser than the realised error needs.",
+        signals_triggered=[_signal("translation", trans)],
+        explanation=(
+          "Translation covariance is looser than the realised error needs."
+        ),
         recommended_actions=["Tighten the dominant process-noise term."],
       )
     )
@@ -316,47 +269,6 @@ def diagnose(rep: Report) -> list[Diagnosis]:
     out.extend(_diagnose_windowed(split["windowed"]))
   if rep.bias_variance:
     out.extend(_diagnose_bias_variance(rep.bias_variance))
-
-  g = rep.gaussian_validity
-  if g:
-    n_total = g.get("n_total", 0) or 0
-    n_hard = g.get("n_exceeding_hard", 0) or 0
-    n_soft = g.get("n_exceeding_soft", 0) or 0
-    if n_total and n_hard:
-      out.append(
-        Diagnosis(
-          mode=FailureMode.GAUSSIAN_TANGENT_INVALID,
-          severity=Severity.CRITICAL
-          if n_hard / n_total > 0.05
-          else Severity.WARNING,
-          signals_triggered=[
-            f"{n_hard}/{n_total} steps exceed the tangent-Gaussian hard limit"
-          ],
-          explanation=(
-            "Rotation σ is so large the concentrated-normal SO(3) "
-            "approximation breaks — the rotation score itself is invalid "
-            "there, not merely miscalibrated (outcome domain-of-validity)."
-          ),
-          recommended_actions=[
-            "Exclude divergence-regime steps before reading rotation "
-            "calibration, or switch to a matrix-Fisher / particle predictive.",
-          ],
-        )
-      )
-    elif n_total and n_soft:
-      out.append(
-        Diagnosis(
-          mode=FailureMode.GAUSSIAN_TANGENT_INVALID,
-          severity=Severity.INFO,
-          signals_triggered=[
-            f"{n_soft}/{n_total} steps approach the tangent-Gaussian soft limit"
-          ],
-          explanation="Rotation scores degrade as σ approaches the soft limit.",
-          recommended_actions=[
-            "Treat rotation calibration as approximate here."
-          ],
-        )
-      )
 
   sync = rep.sync or {}
   n_matched = sync.get("n_matched", 0) or 0

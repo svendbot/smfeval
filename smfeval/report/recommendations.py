@@ -3,10 +3,6 @@
 import math
 
 from smfeval.report.builder import Report
-from smfeval.scoring.gaussian_diag import (
-  HARD_LIMIT_REPORT_FRACTION,
-  SOFT_LIMIT_REPORT_FRACTION,
-)
 from smfeval.sync.mode import SyncMode
 
 
@@ -15,7 +11,6 @@ def recommendations(rep: Report) -> list[str]:
   sync = rep.sync
   alignment = rep.alignment
   ensemble = rep.ensemble
-  gauss = rep.gaussian_validity
   cal = rep.calibration
 
   risk_excess = sync.get("risk_excess_count", 0) or 0
@@ -40,26 +35,6 @@ def recommendations(rep: Report) -> list[str]:
       "post-alignment residuals are biased low. Consider --n_to_align "
       "to fit on a prefix and score on the remainder."
     )
-
-  if gauss:
-    n_total = gauss.get("n_total", 0) or 0
-    n_hard = gauss.get("n_exceeding_hard", 0) or 0
-    n_soft = gauss.get("n_exceeding_soft", 0) or 0
-    if n_total and n_hard / n_total > HARD_LIMIT_REPORT_FRACTION:
-      hard_deg = math.degrees(gauss.get("hard_limit_rad", 0.0))
-      out.append(
-        f"{n_hard}/{n_total} steps have rotation σ above the "
-        f"tangent-Gaussian hard limit (~{hard_deg:.0f}°); the "
-        "concentrated-normal SO(3) approximation does not apply at "
-        "that scale. Switch to matrix-Fisher or particle representation."
-      )
-    elif n_total and n_soft / n_total > SOFT_LIMIT_REPORT_FRACTION:
-      soft_deg = math.degrees(gauss.get("soft_limit_rad", 0.0))
-      out.append(
-        f"{n_soft}/{n_total} steps approach the tangent-Gaussian soft "
-        f"limit (~{soft_deg:.0f}°); rotation scores and calibration "
-        "are quantitatively unreliable for those steps."
-      )
 
   if ensemble and ensemble.get("degeneracy_fraction", 0.0) > 0.01:
     frac = 100.0 * ensemble["degeneracy_fraction"]

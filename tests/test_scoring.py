@@ -8,7 +8,6 @@ from smfeval.scoring import (
   ensemble_diagnostics,
   gaussian_log_score,
   interval_score,
-  rotation_crps,
   translation_crps,
 )
 from smfeval.scoring.interval import interval_from_samples
@@ -40,24 +39,11 @@ def test_translation_crps_decreases_with_better_predictive():
   assert g < b
 
 
-def test_rotation_crps_zero_when_concentrated_at_truth():
-  gt_q = np.array([0.0, 0.0, 0.0, 1.0])
-  step = GaussianStep(
-    timestamp=0.0,
-    translation=np.zeros(3),
-    quat_xyzw=gt_q,
-    covariance=np.eye(6) * 1e-8,
-  )
-  s = rotation_crps(step, gt_q, rng=np.random.default_rng(0))
-  assert s < 1e-3
-
-
 def test_energy_score_finite():
   step = _gauss(0.0, np.zeros(3), 0.1)
   s = energy_score(
     step,
     np.array([0.05, 0.0, 0.0]),
-    np.array([0.0, 0.0, 0.0, 1.0]),
     n_samples=64,
     rng=np.random.default_rng(0),
   )
@@ -90,38 +76,7 @@ def test_gaussian_log_score_improves_with_centered_truth():
   step_off = _gauss(0.0, gt + 1.0, 0.01)
   s_c = gaussian_log_score(step_centered, gt, gt_q)
   s_o = gaussian_log_score(step_off, gt, gt_q)
-  assert s_c.joint < s_o.joint
   assert s_c.translation < s_o.translation
-  # Rotation residual is identical for the two — only translation moved —
-  # so the rotation-marginal score should not separate them.
-  assert s_c.rotation == s_o.rotation
-
-
-def test_gaussian_log_score_rotation_marginal_isolates_yaw_miscalibration():
-  """Translation block is well-calibrated but rotation block is shrunk 100×.
-  The joint score is dragged down; the rotation marginal must spike."""
-  gt_t = np.zeros(3)
-  # Non-zero rotation residual against an over-confident rotation block:
-  # tight Σ_rr makes the marginal NLL spike at xi_r ≠ 0.
-  from smfeval.se3.lie import so3_exp
-  from smfeval.se3.quat import rot_to_quat_xyzw
-
-  R_obs = so3_exp(np.array([0.1, 0.0, 0.0]))  # ~5.7° error
-  gt_q_off = rot_to_quat_xyzw(R_obs)
-
-  cov_good = np.diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
-  cov_overconfident_rot = cov_good.copy()
-  cov_overconfident_rot[3:, 3:] *= 1e-4
-
-  step_good = GaussianStep(0.0, gt_t, np.array([0.0, 0.0, 0.0, 1.0]), cov_good)
-  step_overconfident = GaussianStep(
-    0.0, gt_t, np.array([0.0, 0.0, 0.0, 1.0]), cov_overconfident_rot
-  )
-  s_good = gaussian_log_score(step_good, gt_t, gt_q_off)
-  s_bad = gaussian_log_score(step_overconfident, gt_t, gt_q_off)
-  assert s_bad.rotation > s_good.rotation
-  # Translation cov untouched → translation marginal essentially unchanged.
-  assert abs(s_bad.translation - s_good.translation) < 1e-9
 
 
 def test_ensemble_diagnostics_uniform_weights():
@@ -216,7 +171,6 @@ def test_calibration_matches_nominal_when_data_is_drawn_from_predictive():
 
   # PIT under correct calibration is U(0,1); KS p should not be tiny.
   assert res.ks_p_translation > 0.01, f"KS_t p={res.ks_p_translation}"
-  assert res.ks_p_rotation > 0.01, f"KS_r p={res.ks_p_rotation}"
 
   # z_translation = ‖L^-1 ρ‖ / √3. Under correct calibration ρ ~ N(0, Σ_t),
   # so ‖z‖ has chi(df=3) distribution; mean ≈ 0.921, std ≈ 0.390 after /√3.

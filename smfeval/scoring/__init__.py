@@ -6,15 +6,11 @@ from smfeval.scoring.calibration import (
   CalibrationResult,
   calibrate,
 )
-from smfeval.scoring.crps import rotation_crps, translation_crps
+from smfeval.scoring.crps import translation_crps
 from smfeval.scoring.energy import energy_score
 from smfeval.scoring.ensemble_diag import (
   EnsembleDiagnostic,
   ensemble_diagnostics,
-)
-from smfeval.scoring.gaussian_diag import (
-  GaussianValidityDiagnostic,
-  gaussian_rotation_validity,
 )
 from smfeval.scoring.interval import (
   interval_score,
@@ -57,7 +53,6 @@ __all__ = [
   "DecomposedLogScore",
   "EnsembleDiagnostic",
   "GaussianLogScore",
-  "GaussianValidityDiagnostic",
   "PairInputError",
   "PairResult",
   "RelativeCalibrationResult",
@@ -75,11 +70,9 @@ __all__ = [
   "gaussian_log_score_components",
   "student_t_logscore_sweep",
   "student_t_neg_log_density",
-  "gaussian_rotation_validity",
   "interval_score",
   "pair_translation_nees",
   "politis_white_block_length",
-  "rotation_crps",
   "summarize",
   "translation_crps",
   "translation_magnitude_interval_score",

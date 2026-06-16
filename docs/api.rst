@@ -16,7 +16,6 @@ Scoring rules and calibration
    smfeval.scoring.relative
    smfeval.scoring.bias_variance
    smfeval.scoring.ensemble_diag
-   smfeval.scoring.gaussian_diag
    smfeval.scoring.summary
 
 SE(3) geometry

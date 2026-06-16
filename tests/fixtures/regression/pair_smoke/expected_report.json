@@ -3,32 +3,32 @@
   "n_scored": 310,
   "join_frac": 1.0,
   "gap_median_ms": 0.0007152557373046875,
-  "med_d_norm_m": 0.013293208163081249,
-  "log_score_mean": -8.323647488215089,
-  "k_pair_lower_bound": 3.756419801957482,
+  "med_d_norm_m": 0.013293208163081712,
+  "log_score_mean": -8.323647488214897,
+  "k_pair_lower_bound": 3.7564198019582733,
   "k_axis_lower_bound": [
-    5.642203155607009,
-    3.8170992184440435,
-    3.2970359862615197
+    5.642203155609497,
+    3.8170992184467742,
+    3.2970359862614513
   ],
   "verdict": {
-    "median_nees": 8.88759115018178,
+    "median_nees": 8.887591150183653,
     "calibrated_median": 2.3659738843753377,
-    "k": 3.756419801957482,
-    "per_axis_factor": 1.938148550023316,
+    "k": 3.7564198019582733,
+    "per_axis_factor": 1.93814855002352,
     "coverage": 0.3387096774193548,
     "nominal_coverage": 0.9,
     "dof": 3,
     "n": 310,
     "direction": "too tight",
     "anees": {
-      "anees": 10.350015091882506,
+      "anees": 10.350015091882888,
       "dof": 3,
       "n": 310,
       "lo": 2.7334876848497065,
       "hi": 3.2787317522696586,
       "verdict": "optimistic",
-      "median": 8.88759115018178
+      "median": 8.887591150183653
     }
   },
   "caveat": "propriety caveat: pairwise scores are strictly proper only under a\ntruthful reference sigma and independent errors; both violations push\nconservative, so NEES_pair lower-bounds miscalibration."

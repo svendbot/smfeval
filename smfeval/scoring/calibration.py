@@ -13,15 +13,12 @@ tests the *shape* of the predictive CDF independent of sharpness. A sharp
 but overconfident predictor scores well on CRPS yet fails calibration; a
 wide but well-shaped one is the reverse.
 
-PIT here uses two univariate scalarisations of the SE(3) residual:
-
-- translation magnitude :math:`\lVert t - \mu_t\rVert`
-- rotation angle :math:`d_\mathrm{geo}(R, R_\mu)`
-
-For each scalarisation the PIT value is
+PIT here uses the translation-magnitude scalarisation of the residual,
+:math:`\lVert t - \mu_t\rVert`. The PIT value is
 :math:`p = F_\mathrm{pred}(y_\mathrm{obs})`, computed empirically from
 predictive samples; under a well-calibrated belief :math:`p \sim U(0, 1)`
-(Dawid, 1984; Diebold, Gunther & Tay, 1998).
+(Dawid, 1984; Diebold, Gunther & Tay, 1998). Orientation is not scored
+(proper scores on SO(3) carry intractable normalisers; see the paper).
 
 References:
 -----------
@@ -49,9 +46,8 @@ import numpy as np
 from scipy.stats import chi2, kstest
 
 from smfeval.format import TangentOrder
-from smfeval.scoring._predictive import rotation_samples, translation_samples
-from smfeval.se3.lie import pose_matrix, relative, se3_log, so3_log, trans_slice
-from smfeval.se3.quat import quat_xyzw_to_rot
+from smfeval.scoring._predictive import translation_samples
+from smfeval.se3.lie import pose_matrix, relative, se3_log, trans_slice
 from smfeval.steps import EnsembleStep, GaussianStep, Step
 
 # Empirical-CDF resolution for PIT is 1/N; 256 keeps it well below KS sensitivity
@@ -62,9 +58,7 @@ _DEFAULT_N_SAMPLES = 256
 @dataclass
 class CalibrationResult:
   pit_translation: np.ndarray
-  pit_rotation: np.ndarray
   ks_p_translation: float
-  ks_p_rotation: float
   coverage: float
   nominal_coverage: float
   z_translation_mean: float
@@ -129,7 +123,6 @@ def calibrate(
 ) -> CalibrationResult:
   rng = rng if rng is not None else np.random.default_rng(0)
   pit_t: list[float] = []
-  pit_r: list[float] = []
   z_t: list[float] = []
   inside: list[bool] = []
   chi2_threshold = float(chi2.ppf(1.0 - alpha, df=3))
@@ -140,11 +133,6 @@ def calibrate(
     sm = np.linalg.norm(t_samples - mu_t, axis=1)
     om = float(np.linalg.norm(gt_t - mu_t))
     pit_t.append(_pit(sm, om))
-
-    omegas, R_mean = rotation_samples(step, n_samples, rng, tangent_order)
-    sa = np.linalg.norm(omegas, axis=1)
-    oa = float(np.linalg.norm(so3_log(R_mean.T @ quat_xyzw_to_rot(gt_q))))
-    pit_r.append(_pit(sa, oa))
 
     z = _whitened_translation_residual(step, gt_t, gt_q, tangent_order)
     if z is None:
@@ -159,17 +147,11 @@ def calibrate(
       )
 
   pit_t_arr = np.array(pit_t)
-  pit_r_arr = np.array(pit_r)
   z_t_arr = np.array([z for z in z_t if not np.isnan(z)])
 
   ks_t = (
     float(kstest(pit_t_arr, "uniform").pvalue)
     if pit_t_arr.size
-    else float("nan")
-  )
-  ks_r = (
-    float(kstest(pit_r_arr, "uniform").pvalue)
-    if pit_r_arr.size
     else float("nan")
   )
   cov = float(np.mean(inside)) if inside else float("nan")
@@ -178,9 +160,7 @@ def calibrate(
 
   return CalibrationResult(
     pit_translation=pit_t_arr,
-    pit_rotation=pit_r_arr,
     ks_p_translation=ks_t,
-    ks_p_rotation=ks_r,
     coverage=cov,
     nominal_coverage=1.0 - alpha,
     z_translation_mean=z_mean,

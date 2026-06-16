@@ -159,21 +159,17 @@ def test_so3_mean_is_stationary():
   assert np.linalg.norm(grad) < 1e-8
 
 
-def test_ensemble_rotation_reference_is_permutation_invariant():
-  from smfeval.format import TangentOrder
-  from smfeval.scoring._predictive import rotation_samples
-  from smfeval.steps import EnsembleStep
-
+def test_so3_mean_reference_is_permutation_invariant():
+  """The Fréchet-mean reference and the tangent perturbations about it are
+  invariant (up to ordering) to the order of the input rotations."""
   rng = np.random.default_rng(5)
-  rots = [so3_exp(rng.normal(scale=0.3, size=3)) for _ in range(6)]
-  particles = np.array([[0.0, 0.0, 0.0, *rot_to_quat_xyzw(r)] for r in rots])
+  rots = np.stack([so3_exp(rng.normal(scale=0.3, size=3)) for _ in range(6)])
   perm = [3, 1, 5, 0, 2, 4]
-  step = EnsembleStep(timestamp=0.0, particles=particles, weights=None)
-  step_perm = EnsembleStep(
-    timestamp=0.0, particles=particles[perm], weights=None
-  )
-  om1, _ = rotation_samples(step, 0, rng, TangentOrder.TRANS_ROT)
-  om2, _ = rotation_samples(step_perm, 0, rng, TangentOrder.TRANS_ROT)
+  rbar = so3_mean(rots)
+  rbar_perm = so3_mean(rots[perm])
+  assert np.allclose(rbar, rbar_perm, atol=1e-9)
+  om1 = np.array([so3_log(rbar.T @ r) for r in rots])
+  om2 = np.array([so3_log(rbar_perm.T @ r) for r in rots[perm]])
   norms1 = np.sort(np.linalg.norm(om1, axis=1))
   norms2 = np.sort(np.linalg.norm(om2, axis=1))
   assert np.allclose(norms1, norms2, atol=1e-9)

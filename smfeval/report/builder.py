@@ -9,14 +9,15 @@ from smfeval.align.fit import AlignmentFit
 from smfeval.format import Gauge
 from smfeval.scoring.calibration import CalibrationResult
 from smfeval.scoring.ensemble_diag import EnsembleDiagnostic
-from smfeval.scoring.gaussian_diag import GaussianValidityDiagnostic
 from smfeval.scoring.summary import ScoreSummary
 from smfeval.sync.match import MatchResult
 from smfeval.sync.mode import SyncMode
 
 # Version of the JSON report contract (docs/report.schema.json). Bump when the
 # report structure changes. Separate from the package and SQUARE format versions.
-REPORT_SCHEMA_VERSION = "1.0"
+# 2.0: scores are translation-only; rotation/joint scores and the SO(3)
+# Gaussian-validity section were removed.
+REPORT_SCHEMA_VERSION = "2.0"
 
 
 @dataclass
@@ -25,7 +26,6 @@ class Report:
   sync: dict[str, Any] = field(default_factory=dict)
   alignment: dict[str, Any] = field(default_factory=dict)
   ensemble: dict[str, Any] | None = None
-  gaussian_validity: dict[str, Any] | None = None
   scores: dict[str, Any] = field(default_factory=dict)
   calibration: dict[str, Any] = field(default_factory=dict)
   # Populated under --calibration: {"absolute": {joint,translation,rotation},
@@ -52,7 +52,6 @@ def build_report(
   sync_risks: np.ndarray | None,
   sync_risk_threshold: float,
   ensemble: EnsembleDiagnostic | None,
-  gaussian_validity: GaussianValidityDiagnostic | None,
   scores: dict[str, ScoreSummary],
   calibration: CalibrationResult | None,
   trajectory_length_m: float | None,
@@ -103,22 +102,11 @@ def build_report(
       "degeneracy_fraction": ensemble.degeneracy_fraction,
     }
 
-  if gaussian_validity is not None:
-    rep.gaussian_validity = {
-      "n_total": gaussian_validity.n_total,
-      "max_sigma_r": gaussian_validity.max_sigma_r,
-      "soft_limit_rad": gaussian_validity.soft_limit_rad,
-      "hard_limit_rad": gaussian_validity.hard_limit_rad,
-      "n_exceeding_soft": gaussian_validity.n_exceeding_soft,
-      "n_exceeding_hard": gaussian_validity.n_exceeding_hard,
-    }
-
   rep.scores = {k: v.to_dict() for k, v in scores.items()}
 
   if calibration is not None:
     rep.calibration = {
       "ks_p_translation": calibration.ks_p_translation,
-      "ks_p_rotation": calibration.ks_p_rotation,
       "coverage": calibration.coverage,
       "nominal_coverage": calibration.nominal_coverage,
       "z_translation_mean": calibration.z_translation_mean,
