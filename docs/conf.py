@@ -53,3 +53,22 @@ html_theme = "furo"
 html_title = f"smfeval {release}"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
+# Force a single light theme: these docs are math-heavy and were not designed
+# for dark mode (the toggle is hidden in custom.css; the JS pins data-theme).
+html_js_files = ["force-light.js"]
+
+# A calm light palette and a roomier reading column. Dark variables mirror the
+# light ones so a system-dark visitor still gets the readable light rendering.
+_palette = {
+    "color-brand-primary": "#15608d",
+    "color-brand-content": "#15608d",
+    "color-foreground-primary": "#1c1c1e",
+    "color-foreground-secondary": "#55555b",
+    "color-background-primary": "#ffffff",
+    "color-background-secondary": "#f6f6f4",
+    "color-admonition-background": "#f6f6f4",
+}
+html_theme_options = {
+    "light_css_variables": _palette,
+    "dark_css_variables": _palette,
+}

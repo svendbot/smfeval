@@ -39,9 +39,14 @@ max) follow the TUM RGB-D benchmark convention (Sturm et al., 2012).
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents
+   :caption: Metrics
 
    metrics
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Reference
+
    api
 
 Indices

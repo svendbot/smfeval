@@ -77,3 +77,48 @@ dl.c > dt.sig,
 dl.cpp > dt.sig {
     font-size: 1em;
 }
+
+/* ---------------------------------------------------------------------
+   Readability — looser line-height and more vertical breathing room.
+   The complaint was that the default rendering reads dense/cluttered.
+   --------------------------------------------------------------------- */
+
+/* Hide the light/dark toggle: the docs are pinned to light (force-light.js). */
+.theme-toggle-container,
+button.theme-toggle {
+    display: none !important;
+}
+
+.content,
+article {
+    line-height: 1.7;
+}
+
+article p,
+article li {
+    margin-block: 0.7em;
+}
+
+/* Comfortable, distinct section headings with room above them. */
+article h1 { margin-bottom: 0.8em; }
+article h2 { margin-top: 1.9em; }
+article h3 { margin-top: 1.5em; }
+article h2, article h3 { line-height: 1.3; }
+
+/* Give display equations air and let long ones scroll instead of overflow. */
+div.math {
+    margin: 1.2em 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* Slightly tighter, tinted inline code so it reads as code, not prose. */
+code.literal {
+    padding: 0.1em 0.3em;
+}
+
+/* Keep bullet lists from crowding their surrounding paragraphs. */
+article ul,
+article ol {
+    margin-block: 0.8em;
+}
