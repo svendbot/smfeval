@@ -213,9 +213,7 @@ def test_calibration_flag_skipped_for_deterministic(
 
 def _translation_anees(out: str) -> float:
   line = next(
-    ln
-    for ln in out.splitlines()
-    if "CALIBRATION_SPLIT slice=translation" in ln
+    ln for ln in out.splitlines() if "CALIBRATION_SPLIT slice=translation" in ln
   )
   return float(
     next(tok.split("=")[1] for tok in line.split() if tok.startswith("anees="))

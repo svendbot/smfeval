@@ -86,7 +86,9 @@ def test_shrinking_cov_raises_calibration_lowers_sharpness():
   gt_q = np.array([0.0, 0.0, 0.0, 1.0])
   off = np.array([0.4, 0.0, 0.0])
   wide = gaussian_log_score_components(_gauss(off, 0.1), gt, gt_q).translation
-  tight = gaussian_log_score_components(_gauss(off, 0.001), gt, gt_q).translation
+  tight = gaussian_log_score_components(
+    _gauss(off, 0.001), gt, gt_q
+  ).translation
   assert tight.calibration > wide.calibration  # overconfident → NEES blows up
   assert tight.sharpness < wide.sharpness  # tighter Σ → smaller log-volume
 

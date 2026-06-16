@@ -1070,7 +1070,9 @@ def _calibration_split_dict(
     arr = arr[np.isfinite(arr)]
     return float(np.median(arr)) if arr.size else float("nan")
 
-  res = anees_consistency(np.asarray(nees, dtype=float), dof=3, alpha=args.alpha)
+  res = anees_consistency(
+    np.asarray(nees, dtype=float), dof=3, alpha=args.alpha
+  )
   d = res.to_dict()
   d["nees_median"] = d.pop("median")
   absolute: dict[str, dict] = {
