@@ -17,7 +17,7 @@ own covariance,
 
    \mathrm{NEES} = e^\top \Sigma^{-1} e,
 
-i.e. how many sigma the error is, squared. Under a truthful translation
+i.e. how many sigma the error is, squared. Under a honest translation
 covariance it follows a :math:`\chi^2_3` law, whose median is **2.366**. The
 ``smfeval nees`` verb summarises the per-pose series into three lines:
 
@@ -26,7 +26,7 @@ covariance it follows a :math:`\chi^2_3` law, whose median is **2.366**. The
 - **scale gap** :math:`k = \operatorname{median}\mathrm{NEES} / 2.366` — the
   factor by which the covariance is too tight; per axis that is
   :math:`\sqrt{k}` (variance versus standard deviation).
-- **coverage** — the fraction of poses whose truth lands inside the nominal
+- **coverage** — the fraction of poses whose reference lands inside the nominal
   (e.g. 90%) credible ellipsoid. A calibrated belief hits the nominal level.
 
 The qualitative verdict comes from **ANEES**, the mean NEES, tested against a
@@ -39,7 +39,7 @@ for a tail, a covariance widening for the bulk).
 No-reference pairwise NEES
 --------------------------
 
-``smfeval pair`` scores two filters against each other with no ground truth
+``smfeval pair`` scores two filters against each other with no reference
 consulted. Filter A is aligned to filter B and their difference
 :math:`d = \hat t_A - \hat t_B` is scored under the summed covariances,
 
@@ -47,7 +47,7 @@ consulted. Filter A is aligned to filter B and their difference
 
    \mathrm{NEES}_\mathrm{pair} = d^\top (\Sigma_A + \Sigma_B)^{-1} d,
 
-again :math:`\chi^2_3` under truthful, independent beliefs. The form drops the
+again :math:`\chi^2_3` under honest, independent beliefs. The form drops the
 cross-covariance :math:`C_{AB}`; common-mode error and an understated reference
 covariance both push the statistic *down*, so an elevated value is a **lower
 bound** on the miscalibration, never an over-statement.

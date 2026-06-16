@@ -9,7 +9,7 @@ byte format changes, not with the smfeval release version.
 ## File Format
 
 A text format for probabilistic SLAM output, extending TUM. Each file stores an
-algorithm's belief at each timestep. Ground truth, scoring choices, and derived
+algorithm's belief at each timestep. Reference, scoring choices, and derived
 quantities are not stored.
 
 ### Header
@@ -67,7 +67,7 @@ Ensemble-specific:
 
 `POSE_FRAME world` is a label, not a frame guarantee. `GAUGE` declares which
 degrees of freedom the algorithm pinned at initialization and which it left
-free. It is intrinsic to the algorithm and independent of ground truth. The
+free. It is intrinsic to the algorithm and independent of reference. The
 scoring tool reads `GAUGE` to pick the default `--align` mode and applies the
 transform to means and covariances (`Σ ↦ Ad_T Σ Ad_T^⊤` for Gaussian,
 particle-wise for ensembles).
@@ -100,7 +100,7 @@ The weight column is present iff `WEIGHTED true`. Particles are contiguous
 within a timestep and timestamps are monotonically non-decreasing.
 `particle_id` is a within-timestep row index with no cross-timestep meaning.
 
-`deterministic` is identical to TUM, so existing ground-truth files are valid
+`deterministic` is identical to TUM, so existing reference files are valid
 input.
 
 ### Structural Rules
@@ -119,7 +119,7 @@ input.
 
 Store raw belief, derive everything else. Scoring rules, $N_\text{eff}$,
 unique-particle counts, PIT values, and aggregate statistics are reconstructible
-from the file plus ground truth. New scoring rules work on existing files
+from the file plus reference. New scoring rules work on existing files
 without reprocessing.
 
 ## Escape hatch (TUM poses with covariance, no header)

@@ -51,7 +51,7 @@ def recommendations(rep: Report) -> list[str]:
       if ks < 0.05 and cov < nominal - 0.05:
         out.append(
           "Coverage below nominal combined with KS p < 0.05 — the "
-          "filter is over-confident (claimed Σ too tight, truth "
+          "filter is over-confident (claimed Σ too tight, reference "
           "falls outside the predicted intervals); widen process "
           "noise. Miscalibration is unlikely to be explained by "
           "sync error alone."

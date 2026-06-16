@@ -28,7 +28,7 @@ Synchronization risk
 --------------------
 
 Nearest-neighbour timestamp matching can leave slop between an estimate pose and
-its ground-truth partner. The sync-risk score
+its reference partner. The sync-risk score
 
 .. math::
 

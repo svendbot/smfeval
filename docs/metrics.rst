@@ -26,7 +26,7 @@ How the numbers are produced
 ----------------------------
 
 Each score is computed at every matched timestep against the realised
-ground-truth position (*prequential* evaluation, Dawid 1984) and then
+reference position (*prequential* evaluation, Dawid 1984) and then
 aggregated. **Smaller is better unless noted.** Because the per-step series is
 autocorrelated, the aggregate carries a stationary-bootstrap interval rather
 than an iid one; the :doc:`diagnostics` page explains how to read it.

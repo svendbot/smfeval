@@ -25,7 +25,7 @@ Raftery 2007). For an ensemble it is the usual sample U-statistic. The reported
 value is the mean over the three axes.
 
 - **Units:** metres. **Direction:** smaller is sharper-and-accurate.
-- **How to read it:** CRPS rewards a sharp belief centred on the truth. When
+- **How to read it:** CRPS rewards a sharp belief centred on the reference. When
   the belief is badly over-confident (:math:`|\omega| \gg 1`) it **saturates**
   toward the raw error :math:`|y-\mu|` and stops responding to :math:`\sigma`,
   so on its own it understates gross miscalibration. Read it next to NEES
@@ -64,7 +64,7 @@ applied to the :math:`3`-D translation vector. For independent draws
 Gaussian log score
 ------------------
 
-The negative log density of the truth under the predictive Gaussian (the
+The negative log density of the reference under the predictive Gaussian (the
 *ignorance* score, Good 1952), on the translation residual (:math:`d = 3`):
 
 .. math::
@@ -100,7 +100,7 @@ A proper score for a single central credible interval at level :math:`1-\alpha`
 
 - **Units:** metres. **Direction:** smaller is better.
 - **How to read it:** it pays the interval width plus a penalty, scaled by
-  :math:`2/\alpha`, when the truth falls outside. It captures, at one chosen
+  :math:`2/\alpha`, when the reference falls outside. It captures, at one chosen
   coverage level, whether the belief is both tight and honest: a narrow
   interval that misses is punished, a wide interval that always contains is
   penalised on width.

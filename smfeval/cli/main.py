@@ -88,12 +88,12 @@ def _add_common_args(p: argparse.ArgumentParser) -> None:
   p.add_argument(
     "--gt-body-frame",
     default=None,
-    help="body frame of the ground-truth file (required when GT is plain TUM)",
+    help="body frame of the reference file (required when GT is plain TUM)",
   )
   p.add_argument(
     "--gt-pose-frame",
     default="world",
-    help="pose frame (outer container) of the ground-truth file when GT is "
+    help="pose frame (outer container) of the reference file when GT is "
     'plain TUM. Default "world", matching the common TUM convention. '
     "Must equal the estimate's POSE_FRAME — no in-tool transform.",
   )
@@ -185,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     action="store_true",
     help="per-row exporter checks: covariance SPD, plausible magnitude, "
     "not degenerate-zero, finite poses (the gate for contributed "
-    "exporters; no ground truth needed)",
+    "exporters; no reference needed)",
   )
 
   pn = sub.add_parser(
@@ -194,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
     "gap k, coverage",
   )
   pn.add_argument("est", type=Path, help="SQUARE-format estimate file")
-  pn.add_argument("gt", type=Path, help="ground-truth file (SQUARE or TUM)")
+  pn.add_argument("gt", type=Path, help="reference file (SQUARE or TUM)")
   _add_common_args(pn)
   pn.add_argument(
     "--alpha",
@@ -209,8 +209,8 @@ def main(argv: list[str] | None = None) -> int:
   pp = sub.add_parser(
     "pair",
     help="no-reference verdict: score two filters against each other; "
-    "an elevated pairwise NEES certifies overconfidence with no ground "
-    "truth consulted (lower bound)",
+    "an elevated pairwise NEES certifies overconfidence with no "
+    "reference consulted (lower bound)",
   )
   pp.add_argument("a", type=Path, help="SQUARE-format trajectory A (scored)")
   pp.add_argument("b", type=Path, help="SQUARE-format trajectory B (reference)")
@@ -235,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
 
   ps = sub.add_parser("score", help="produce a full scoring report")
   ps.add_argument("est", type=Path, help="SQUARE-format estimate file")
-  ps.add_argument("gt", type=Path, help="ground-truth file (SQUARE or TUM)")
+  ps.add_argument("gt", type=Path, help="reference file (SQUARE or TUM)")
   _add_common_args(ps)
   ps.add_argument("--alpha", type=float, default=0.1)
   ps.add_argument("--n_samples", type=int, default=128)
@@ -254,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
     type=str,
     default=None,
     help="comma-separated dof values (e.g. '3,5,10,30') for the Student-t "
-    "belief-transform intervention: re-score the truth under a covariance-"
+    "belief-transform intervention: re-score the reference under a covariance-"
     "matched heavy-tailed predictive and report the mean proper log-score vs "
     "ν. A finite ν* with lower score than Gaussian ⇒ the errors are heavy-"
     "tailed and a robust likelihood would help (cross-filter, no re-run). "
@@ -276,7 +276,7 @@ def main(argv: list[str] | None = None) -> int:
     action="store_true",
     help="fold the GT observer covariance into the predictive before scoring: "
     "Σ_eff = Σ_pred + Σ_gt (proof-of-concept; the score then accounts for "
-    "ground-truth uncertainty, not just the filter's). Requires "
+    "reference uncertainty, not just the filter's). Requires "
     "--sync=interpolate_gt, which supplies Σ_gt as the GP predictive "
     "covariance — a stand-in for the per-sample GT covariance datasets do not "
     "yet ship (the call-to-action).",
@@ -633,7 +633,7 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
     if looks_like_tum(args.gt):
       if args.gt_body_frame is None:
         print(
-          "error: ground-truth file is plain TUM but its body frame "
+          "error: reference file is plain TUM but its body frame "
           "is not declared. Pass --gt-body-frame <name> matching the "
           f"estimate's BODY_FRAME (estimate declares "
           f"{est_header.body_frame!r}).",
@@ -655,7 +655,7 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
   if est_header.pose_frame != gt_header.pose_frame:
     print(
       f"error: pose frames differ — estimate is {est_header.pose_frame!r}, "
-      f"ground truth is {gt_header.pose_frame!r}. The scoring tool does "
+      f"reference is {gt_header.pose_frame!r}. The scoring tool does "
       "not transform between outer reference frames; pre-align both "
       "trajectories into a common pose frame, or pass --gt-pose-frame "
       "if the GT file is plain TUM and the default 'world' is wrong.",
@@ -667,7 +667,7 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
     if args.body_frame_transform is None:
       print(
         f"error: body frames differ — estimate is {est_header.body_frame!r}, "
-        f"ground truth is {gt_header.body_frame!r}. Provide "
+        f"reference is {gt_header.body_frame!r}. Provide "
         "--body-frame-transform PATH with the SE(3) "
         "T_est_body__gt_body, or rewrite both trajectories in a common "
         "frame.",
@@ -1140,7 +1140,7 @@ def _report_student_t(
 ) -> None:
   r"""Student-t belief-transform intervention: mean proper log-score vs ν.
 
-  Re-scores the truth under a covariance-matched Student-t belief (heavier
+  Re-scores the reference under a covariance-matched Student-t belief (heavier
   tails, same mean/Σ) and reports the mean negative log density vs ν, with the
   Gaussian (ν→∞) baseline. The mean log-score is dominated by the overconfident
   tail under a Gaussian; a heavy-tailed belief bounds the tail's contribution,

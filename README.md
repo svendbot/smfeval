@@ -1,34 +1,34 @@
 # smfeval: score the belief, not just the mean
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/svendbot/smfeval/blob/main/notebooks/figure1_verdict.ipynb)
 [![PyPI](https://img.shields.io/pypi/v/smfeval)](https://pypi.org/project/smfeval/)
 [![Python](https://img.shields.io/pypi/pyversions/smfeval)](https://pypi.org/project/smfeval/)
 [![Tests](https://github.com/svendbot/smfeval/actions/workflows/test.yml/badge.svg)](https://github.com/svendbot/smfeval/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-A SLAM filter reports a pose *and* a covariance. ATE/RPE check the pose.
-smfeval checks whether the covariance is telling the truth.
+A SLAM filter reports a pose *and* a covariance. APE/RPE check the pose.
+smfeval checks whether the covariance is honest.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/svendbot/smfeval/main/docs/img/overconfidence.png"
-       alt="FAST-LIO2 on Oxford Spires christ-church-03: the estimate tracks truth to 3 cm, but the filter's reported 90% region is millimetres wide, so the truth lands about 11x outside even the filter's 99% region"
+       alt="FAST-LIO2 on Oxford Spires christ-church-03: the estimate tracks the reference to 3 cm, but the filter's reported 90% region is millimetres wide, so the reference lands about 11x outside even the filter's 99% region"
        width="460">
 </p>
 
-*Illustration built in `notebooks/figure_overconfidence.py`, not smfeval
-output. smfeval emits the text verdict below; the figure shows what that
-verdict means geometrically. FAST-LIO2 on Oxford Spires `christ-church-03`.
-The estimate (blue) tracks truth (black) to **3 cm** APE, which ATE/RPE call
-excellent, but the filter's reported 90% region is **millimetres** wide. The
-truth lands about **11x outside** even the filter's 99% region (the figure marks
+*Illustration built in `notebooks/figure_overconfidence.py`, not `smfeval`
+output. `smfeval` emits the text verdict below; the figure shows what that
+verdict means geometrically. [FAST-LIO2](https://github.com/hku-mars/fast_lio) on [Oxford Spires](https://github.com/ori-drs/oxford_spires_dataset/) `christ-church-03`. The estimate (blue) tracks the reference (black) to **3 cm** APE, which is an excellent APE,
+but the filter's reported 90% region is **millimetres** wide. The
+reference lands about **11x outside** even the filter's 90% region (the figure marks
 this as 37 sigma). The belief is wrong where the mean is right, and that
-per-pose gap is what smfeval scores. (Data: Oxford Spires, CC BY-NC-SA 4.0.)*
+per-pose gap is what `smfeval` scores. (Data: Oxford Spires, CC BY-NC-SA 4.0.)*
 
 ## Try it now
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/svendbot/smfeval/blob/main/notebooks/figure1_verdict.ipynb)
 
 The notebook reproduces the headline verdict on one Oxford Spires sequence end
-to end (install, fetch data, verdict, NEES-vs-reference plot) in a few seconds.
+to end (install, fetch data, verdict, NEES-vs-reference plot).
 
 ## Install
 
@@ -59,18 +59,18 @@ FAST-LIO2 on Oxford Spires `christ-church-03`. See
 Under a calibrated belief the per-pose translation NEES has a known reference
 median of 2.37 (NEES is the error measured in standard deviations, squared).
 The scale gap **k = median NEES / 2.37** is the factor by which the published
-covariance is too tight, so each axis is off by about the square root of that.
-Here the filter's 90% credible ellipsoid never contains the truth. `smfeval
-score` goes further. It localizes which block is wrong (translation vs rotation,
-bulk vs tail) and emits [structured, actionable diagnoses](#the-full-report).
+covariance is too tight, so each axis is off by about a factor 21.
+Here the filter's 90% credible ellipsoid never contains the reference. `smfeval
+score` goes further. It localizes the regime that is wrong (bulk vs tail) and
+emits [structured diagnoses with recommendations](#the-full-report).
 
-## No ground truth? Run two filters and score them against each other
+## No reference? Run two filters and score them against each other
 
 ```
 $ smfeval pair a.SQUARE b.SQUARE
 matched 3101 pose pairs, scored 3101  (join 1.00, median gap 0.0 ms)
 propriety caveat: pairwise scores are strictly proper only under a
-truthful reference sigma and independent errors; both violations push
+honest reference sigma and independent errors; both violations push
 conservative, so NEES_pair lower-bounds miscalibration.
 
 pairwise median NEES 56.1   (calibrated: 2.37)
@@ -131,32 +131,19 @@ Alignment
   Fit residual (m):       median 0.0094, p95 0.0262
                           6 DoF removed over 32 m of trajectory
 
-Predictive validity (Gaussian on SO(3))
-  Max rotation σ:         0.003 rad (0.2°)
-  Tangent-Gaussian limits: soft 17°, hard 29°
-
 Scores
   Translation CRPS:           mean 0.004 m   [95% CI 0.003, 0.006]   (n=309)
                               median 0.003, std 0.003, min 0.001, max 0.014
                               block length (Politis–White): 24.4
-  Rotation CRPS:              mean 0.028 rad   [95% CI 0.028, 0.029]   (n=309)
-                              median 0.028, std 0.002, min 0.024, max 0.034
+  Energy score:               mean 0.009 m   [95% CI 0.006, 0.011]   (n=309)
+                              median 0.006, std 0.006, min 0.002, max 0.028
                               block length (Politis–White): 24.6
-  Energy score (SE(3)):       mean 0.029   [95% CI 0.027, 0.030]   (n=309)
-                              median 0.027, std 0.004, min 0.023, max 0.042
-                              block length (Politis–White): 23.7
-  Log score (joint):          mean 155.543   [95% CI 104.766, 222.215]   (n=309)
-                              median 140.334, std 167.298, min 35.505, max 1319.376
-                              block length (Politis–White): 19.3
-  Log score (translation):    mean -8.017   [95% CI -10.588, -5.032]   (n=309)
+  Log score (translation):    mean -8.017   [95% CI -10.644, -5.103]   (n=309)
                               median -10.892, std 7.064, min -13.701, max 19.477
                               block length (Politis–White): 24.3
-  Log score (rotation):       mean 136.266   [95% CI 101.485, 174.390]   (n=309)
-                              median 136.926, std 94.369, min 43.708, max 766.136
-                              block length (Politis–White): 21.4
-  Interval score:             mean 0.057   [95% CI 0.021, 0.097]   (n=309)
-                              median 0.010, std 0.092, min 0.008, max 0.410
-                              block length (Politis–White): 24.4
+  Interval score:             mean 0.057   [95% CI 0.021, 0.095]   (n=309)
+                              median 0.010, std 0.092, min 0.008, max 0.402
+                              block length (Politis–White): 24.3
 
 Calibration
   PIT uniformity (KS):    p = 0.000  [warning] possible miscalibration
@@ -172,26 +159,31 @@ Diagnoses (attribution → action)
 Recommendations
   - 29.4% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_gt to confirm calibration findings.
   - 6 DoF removed over 32 m of trajectory; post-alignment residuals are biased low. Consider --n_to_align to fit on a prefix and score on the remainder.
-  - Coverage below nominal combined with KS p < 0.05 — the filter is over-confident (claimed Σ too tight, truth falls outside the predicted intervals); widen process noise. Miscalibration is unlikely to be explained by sync error alone.
+  - Coverage below nominal combined with KS p < 0.05 — the filter is over-confident (claimed Σ too tight, reference falls outside the predicted intervals); widen process noise. Miscalibration is unlikely to be explained by sync error alone.
 ```
 
 *Point-LIO on Oxford Spires `christ-church-03`, reproduced from
 `tests/fixtures/regression/real_point_lio`. The report is built from:*
 
 - synchronization and alignment diagnostics;
-- proper scoring rules (translation/rotation CRPS, energy score, Gaussian log
-  score with its exact calibration/sharpness split, interval score), each with
-  a stationary-bootstrap confidence interval;
+- translation proper scoring rules (CRPS, energy score, Gaussian log score with
+  its exact calibration/sharpness split, interval score), each with a
+  stationary-bootstrap confidence interval;
 - PIT/coverage calibration and windowed relative-pose calibration
   (`--rpe-window`);
 - track-frame bias/variance attribution;
 - structured failure-mode diagnoses with recommended actions.
 
+Orientation is scored only on translation: a proper score on SO(3) needs a
+belief density whose normaliser is intractable for the natural rotation
+families, so rotation is left to future work (see the paper and
+[**docs/metrics.rst**](docs/metrics.rst)).
+
 `smfeval score --json` prints the structured report to stdout, and `--json-out`
 writes it to a file. Both follow [`docs/report.schema.json`](docs/report.schema.json).
 
 Why several scores? Each proper rule touches a different part of the predictive
-distribution (bulk shape, tails, joint structure, a chosen coverage level), so
+translation distribution (bulk shape, tails, a chosen coverage level), so
 no single number suffices. [**docs/metrics.rst**](docs/metrics.rst) explains
 every metric and how to read it. `SQUARE_spec.md` documents the format and
 conventions.

@@ -31,5 +31,5 @@
       "median": 8.887591150183653
     }
   },
-  "caveat": "propriety caveat: pairwise scores are strictly proper only under a\ntruthful reference sigma and independent errors; both violations push\nconservative, so NEES_pair lower-bounds miscalibration."
+  "caveat": "propriety caveat: pairwise scores are strictly proper only under a\nhonest reference sigma and independent errors; both violations push\nconservative, so NEES_pair lower-bounds miscalibration."
 }

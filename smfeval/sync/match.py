@@ -47,7 +47,7 @@ def match_timestamps(
 ) -> MatchResult:
   """Nearest-neighbor matching with tolerance.
 
-  Iterates over estimate timestamps and selects the nearest ground-truth
+  Iterates over estimate timestamps and selects the nearest reference
   timestamp; pairs above `t_max_diff` are dropped. `t_offset` is added to
   estimate timestamps before matching to correct for known clock skew.
   """

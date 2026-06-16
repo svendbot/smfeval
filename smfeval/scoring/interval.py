@@ -65,7 +65,7 @@ def translation_magnitude_interval_score(
   r"""Interval score on translation magnitude :math:`\lVert t - \mu_t\rVert`.
 
   Predictive samples from the step's belief yield the equal-tailed
-  interval :math:`[l, u]`; the observation is the ground-truth
+  interval :math:`[l, u]`; the observation is the reference
   translation's distance from the predictive mean,
   :math:`y = \lVert t_\mathrm{gt} - \mu_t\rVert`.
   """

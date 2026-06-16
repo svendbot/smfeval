@@ -8,7 +8,7 @@ r"""Calibration diagnostics.
 - TODO(Ola): add HDI?
 
 Orthogonal to scoring rules: scoring rules (e.g. CRPS, log score) reward
-sharpness conditional on the truth landing in support, while calibration
+sharpness conditional on the reference landing in support, while calibration
 tests the *shape* of the predictive CDF independent of sharpness. A sharp
 but overconfident predictor scores well on CRPS yet fails calibration; a
 wide but well-shaped one is the reverse.

@@ -2,7 +2,7 @@ r"""Relative (short-window) CRPS on SE(3) translation increments.
 
 Absolute-pose CRPS is structurally insensitive to :math:`\sigma`
 calibration in the overconfident regime that every LIO filter we have
-measured operates in: for :math:`N(\mu, \sigma^2)` against truth
+measured operates in: for :math:`N(\mu, \sigma^2)` against the reference
 :math:`y`, ``CRPS`` :math:`\to |y-\mu|` once :math:`|z| = |y-\mu|/\sigma
 \gg 1`, so any change in :math:`\sigma` that keeps :math:`|z| \gg 1` is
 invisible (Gneiting & Raftery 2007, closed form). With per-scan
@@ -207,7 +207,7 @@ def relative_translation_crps(
   Args:
     steps: SE(3)-aligned estimate steps. Must be :class:`GaussianStep` —
       the relative metric needs a published position covariance.
-    gt_translations: Matched ground-truth translations, element-aligned
+    gt_translations: Matched reference translations, element-aligned
       with ``steps``.
     windows_s: Relative-pose windows :math:`\Delta t` in seconds.
     tangent_order: Tangent block order of the step covariances.

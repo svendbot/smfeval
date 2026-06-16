@@ -1,6 +1,6 @@
 r"""No-reference pairwise calibration: score two filters against each other.
 
-Align A to B directly (Umeyama on matched translations — ground truth is
+Align A to B directly (Umeyama on matched translations — reference is
 never consulted), form the per-pose tangent difference :math:`d_t`, and
 score it under :math:`N(0, \Sigma_A + \Sigma_B)`:
 
@@ -49,7 +49,7 @@ from smfeval.sync import match_timestamps
 
 PROPRIETY_CAVEAT = (
   "propriety caveat: pairwise scores are strictly proper only under a\n"
-  "truthful reference sigma and independent errors; both violations push\n"
+  "honest reference sigma and independent errors; both violations push\n"
   "conservative, so NEES_pair lower-bounds miscalibration."
 )
 
@@ -96,7 +96,7 @@ def pair_translation_nees(
   min_matched: int = 10,
   alpha: float = 0.05,
 ) -> PairResult:
-  """Score filter A against filter B with no ground truth.
+  """Score filter A against filter B with no reference.
 
   A is aligned to B (SE(3) Umeyama on matched translations), then each
   matched pose pair contributes a translation NEES under the summed

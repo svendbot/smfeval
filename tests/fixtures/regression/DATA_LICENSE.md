@@ -5,7 +5,7 @@ The trajectory excerpts in the `real_fast_lio2/`, `real_faster_lio/`,
 derived from the **Oxford Spires Dataset** (sequence
 `2024-03-18-christ-church-03`):
 
-- `gt.tum` files are truncated excerpts of the dataset's ground-truth
+- `gt.tum` files are truncated excerpts of the dataset's reference
   trajectory.
 - `est.smfeval` / `a.smfeval` / `b.smfeval` files are SLAM filter outputs
   (FAST-LIO2, Faster-LIO, Point-LIO, I2EKF-LO with belief exporters)

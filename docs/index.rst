@@ -17,7 +17,7 @@ scoring is left to future work (see the accompanying paper, §II.b / §V.d).
 
 Scoring rules are evaluated *prequentially* (Dawid, 1984): at each
 matched timestep the one-step-ahead predictive belief is scored against
-the realised ground-truth pose, and the resulting score series is
+the realised reference pose, and the resulting score series is
 aggregated with a percentile interval. Because that series is
 autocorrelated — drift accumulates, regimes (loop closure, degeneracy
 exit) persist for many frames — the iid percentile bootstrap (Efron,

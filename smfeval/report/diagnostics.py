@@ -121,7 +121,7 @@ def _diagnose_absolute(absolute: dict) -> list[Diagnosis]:
         severity=_sev_for_anees(trans["anees"], trans["hi"]),
         signals_triggered=[_signal("translation", trans)],
         explanation=(
-          "Translation covariance is too tight — the truth falls far outside "
+          "Translation covariance is too tight — the reference falls far outside "
           "the predicted ellipsoid (the calibration term stays graded where "
           "CRPS/coverage saturate)."
         ),
