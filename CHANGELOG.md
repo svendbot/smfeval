@@ -3,7 +3,10 @@
 ## 0.4.0 - 2026-06-12
 
 The release that matches the paper. Everything needed to score a filter's
-own belief against ground truth.
+own belief against ground truth. Scoring is on the **translation** marginal;
+orientation is left to future work, since a proper score on SO(3) needs a
+belief density whose normaliser is intractable for the natural rotation
+families (paper §II.b / §V.d).
 
 ### New verbs
 
@@ -36,8 +39,8 @@ own belief against ground truth.
 - Short-window relative translation CRPS and windowed NEES calibration
   (`--rpe-window`). Restores sensitivity to local σ calibration that
   absolute-pose CRPS loses in the overconfident regime.
-- Exact log-score calibration/sharpness split with two-sided ANEES χ²
-  verdicts per slice (`--calibration`).
+- Exact translation log-score calibration/sharpness split with a two-sided
+  ANEES χ² verdict (`--calibration`).
 - Track-frame bias/variance decomposition (along/cross/vertical) and
   structured failure-mode diagnoses with recommended actions.
 - Student-t belief-transform intervention (`--student-t`), per-scan ESS
@@ -49,8 +52,9 @@ own belief against ground truth.
 ### Reports
 
 - `smfeval score --json` prints the structured report to stdout; `--json-out`
-  writes it to a file. Both follow `docs/report.schema.json` (schema_version 1.0).
-- `docs/metrics.rst` explains how to read each metric.
+  writes it to a file. Both follow `docs/report.schema.json` (schema_version 2.0).
+- `docs/metrics.rst` and its sub-pages (proper scores, calibration, alignment,
+  diagnostics) explain how to read each metric, equation-first.
 
 ### Testing
 
