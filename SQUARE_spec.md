@@ -1,4 +1,4 @@
-# SQUARE-Format_Specification
+# SQUARE-Format Specification
 
 **Version:** SQUARE/0.3
 
