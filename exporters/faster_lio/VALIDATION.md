@@ -7,7 +7,7 @@
 Command:
 
 ```
-smfeval nees traj.SQUARE gt-tum.txt \
+smfeval nees traj.SQUARE ref-tum.txt \
   --ref-body-frame lidar \
   --body-frame-transform spires_imu_to_lidar.json
 ```

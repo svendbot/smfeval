@@ -18,7 +18,7 @@ is the *relative pose error* (RPE) over a short window :math:`\Delta t`:
 
    \Delta\mu_\mathrm{est} = p_\mathrm{est}(t+\Delta t) - p_\mathrm{est}(t)
    \qquad
-   \Delta\mu_\mathrm{gt}  = p_\mathrm{gt} (t+\Delta t) - p_\mathrm{gt} (t)
+   \Delta\mu_\mathrm{ref}  = p_\mathrm{ref} (t+\Delta t) - p_\mathrm{ref} (t)
 
    \Sigma_\mathrm{rel} = \Sigma_\mathrm{pos}(t) + \Sigma_\mathrm{pos}(t+\Delta t)
 
@@ -26,11 +26,11 @@ is the *relative pose error* (RPE) over a short window :math:`\Delta t`:
      = \frac1{|P|}\sum_{(i,j)\in P}
        \overline{\mathrm{CRPS}\bigl(N(\Delta\mu_\mathrm{est},
                                      \Sigma_\mathrm{rel}),
-                                    \Delta\mu_\mathrm{gt}\bigr)}
+                                    \Delta\mu_\mathrm{ref}\bigr)}
 
 (per-axis mean, mirroring :func:`translation_crps`). The increment is
 formed on the **SE(3)-aligned** estimate, so the position covariance has
-already been rotated into the GT frame by the alignment stage; RPE is
+already been rotated into the reference frame by the alignment stage; RPE is
 otherwise frame-invariant so no further alignment is needed.
 
 :math:`\Sigma_\mathrm{rel} = \Sigma_i + \Sigma_j` is the
@@ -109,7 +109,7 @@ class RelativeCalibrationResult:
   r"""Windowed translation calibration term (NEES, dof 3) at one :math:`\Delta t`.
 
   The horizon slice of the log-score calibration term. For each window-pair the
-  relative-translation residual :math:`r = \Delta p_\mathrm{gt} -
+  relative-translation residual :math:`r = \Delta p_\mathrm{ref} -
   \Delta p_\mathrm{est}` is scored under :math:`\Sigma_\mathrm{rel} =
   \Sigma_{tt}(i) + \Sigma_{tt}(j)`, giving a 3-dof NEES whose ANEES is tested
   against the two-sided χ² interval.
@@ -132,7 +132,7 @@ class RelativeCalibrationResult:
 
 def relative_calibration(
   steps: list[Step],
-  gt_translations: np.ndarray,
+  ref_translations: np.ndarray,
   *,
   windows_s: list[float],
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
@@ -156,7 +156,7 @@ def relative_calibration(
   mu = np.array([s.translation for s in steps], dtype=float)
   sl = trans_slice(tangent_order)
   cov_tt = np.array([s.covariance[sl, sl] for s in steps], dtype=float)
-  gt = np.asarray(gt_translations, dtype=float)
+  ref = np.asarray(ref_translations, dtype=float)
   tol = _default_tolerance(ts, tolerance_s)
 
   results: list[RelativeCalibrationResult] = []
@@ -164,7 +164,7 @@ def relative_calibration(
     i, j = _window_pairs(ts, w, tol)
     if i.size == 0:
       continue
-    r = (gt[j] - gt[i]) - (mu[j] - mu[i])  # relative residual (M, 3)
+    r = (ref[j] - ref[i]) - (mu[j] - mu[i])  # relative residual (M, 3)
     cov_rel = cov_tt[i] + cov_tt[j]  # iid upper bound, (M, 3, 3)
     # batched _score_components: nan/inf where Sigma_rel is not PD
     nees = np.full(i.size, np.inf)
@@ -195,7 +195,7 @@ def relative_calibration(
 
 def relative_translation_crps(
   steps: list[Step],
-  gt_translations: np.ndarray,
+  ref_translations: np.ndarray,
   *,
   windows_s: list[float],
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
@@ -207,7 +207,7 @@ def relative_translation_crps(
   Args:
     steps: SE(3)-aligned estimate steps. Must be :class:`GaussianStep` —
       the relative metric needs a published position covariance.
-    gt_translations: Matched reference translations, element-aligned
+    ref_translations: Matched reference translations, element-aligned
       with ``steps``.
     windows_s: Relative-pose windows :math:`\Delta t` in seconds.
     tangent_order: Tangent block order of the step covariances.
@@ -228,7 +228,7 @@ def relative_translation_crps(
   mu = np.array([s.translation for s in steps], dtype=float)
   sl = trans_slice(tangent_order)
   var = np.array([np.diag(s.covariance)[sl] for s in steps], dtype=float)
-  gt = np.asarray(gt_translations, dtype=float)
+  ref = np.asarray(ref_translations, dtype=float)
 
   tol = _default_tolerance(ts, tolerance_s)
 
@@ -238,7 +238,7 @@ def relative_translation_crps(
     if i.size == 0:
       continue
     de = mu[j] - mu[i]  # predicted relative translation (aligned frame)
-    dg = gt[j] - gt[i]  # realised relative translation
+    dg = ref[j] - ref[i]  # realised relative translation
     sigma = np.sqrt(var[i] + var[j])  # (M, 3) per-axis iid bound
     crps_axis = _gaussian_crps(de, sigma, dg)  # (M, 3)
     per_pair = crps_axis.mean(axis=1)  # mean over the 3 axes

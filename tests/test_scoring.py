@@ -31,11 +31,11 @@ def _gauss(
 
 
 def test_translation_crps_decreases_with_better_predictive():
-  gt = np.array([0.0, 0.0, 0.0])
-  step_good = _gauss(0.0, gt, 0.01)
-  step_bad = _gauss(0.0, gt + 1.0, 0.01)
-  g = translation_crps(step_good, gt)
-  b = translation_crps(step_bad, gt)
+  ref = np.array([0.0, 0.0, 0.0])
+  step_good = _gauss(0.0, ref, 0.01)
+  step_bad = _gauss(0.0, ref + 1.0, 0.01)
+  g = translation_crps(step_good, ref)
+  b = translation_crps(step_bad, ref)
   assert g < b
 
 
@@ -70,12 +70,12 @@ def test_interval_from_samples_brackets_central_mass():
 
 
 def test_gaussian_log_score_improves_with_centered_truth():
-  gt = np.array([0.1, 0.0, 0.0])
-  gt_q = np.array([0.0, 0.0, 0.0, 1.0])
-  step_centered = _gauss(0.0, gt, 0.01)
-  step_off = _gauss(0.0, gt + 1.0, 0.01)
-  s_c = gaussian_log_score(step_centered, gt, gt_q)
-  s_o = gaussian_log_score(step_off, gt, gt_q)
+  ref = np.array([0.1, 0.0, 0.0])
+  ref_q = np.array([0.0, 0.0, 0.0, 1.0])
+  step_centered = _gauss(0.0, ref, 0.01)
+  step_off = _gauss(0.0, ref + 1.0, 0.01)
+  s_c = gaussian_log_score(step_centered, ref, ref_q)
+  s_o = gaussian_log_score(step_off, ref, ref_q)
   assert s_c.translation < s_o.translation
 
 
@@ -119,7 +119,7 @@ def test_ensemble_unique_count():
 
 
 def _draw_calibrated_pair(mu_t, mu_q, cov, rng):
-  """Sample (gt_t, gt_q) from the predictive defined by (mu_t, mu_q, cov)
+  """Sample (ref_t, ref_q) from the predictive defined by (mu_t, mu_q, cov)
   under right-perturbation: T_obs = T_mean · Exp(ξ), ξ ~ N(0, Σ).
   """
   L = np.linalg.cholesky(cov)
@@ -128,13 +128,13 @@ def _draw_calibrated_pair(mu_t, mu_q, cov, rng):
 
   T_mean = pose_matrix(mu_t, mu_q)
   T_obs = T_mean @ se3_exp(xi, order=TangentOrder.TRANS_ROT)
-  gt_t = T_obs[:3, 3]
-  gt_q = rot_to_quat_xyzw(T_obs[:3, :3])
-  return gt_t, gt_q
+  ref_t = T_obs[:3, 3]
+  ref_q = rot_to_quat_xyzw(T_obs[:3, :3])
+  return ref_t, ref_q
 
 
 def test_calibration_matches_nominal_when_data_is_drawn_from_predictive():
-  """End-to-end check that calibrate() reports the right thing when the GT
+  """End-to-end check that calibrate() reports the right thing when the reference
   is sampled from the predictive Gaussian. Failures here indicate a bug in
   smfeval itself (sampling, scoring, or the PIT/coverage pipeline), not in
   any algorithm being scored."""
@@ -145,21 +145,21 @@ def test_calibration_matches_nominal_when_data_is_drawn_from_predictive():
   cov = np.diag([sigma_t**2] * 3 + [sigma_r**2] * 3)
 
   steps = []
-  gt_ts = []
-  gt_qs = []
+  ref_ts = []
+  ref_qs = []
   for _ in range(n):
     # Predictive mean — random pose, doesn't matter where.
     mu_t = rng.normal(size=3) * 5.0
     mu_q = rot_to_quat_xyzw(np.linalg.qr(rng.normal(size=(3, 3)))[0])
-    gt_t, gt_q = _draw_calibrated_pair(mu_t, mu_q, cov, rng)
-    gt_ts.append(gt_t)
-    gt_qs.append(gt_q)
+    ref_t, ref_q = _draw_calibrated_pair(mu_t, mu_q, cov, rng)
+    ref_ts.append(ref_t)
+    ref_qs.append(ref_q)
     steps.append(GaussianStep(0.0, mu_t, mu_q, cov.copy()))
 
   res = calibrate(
     steps,
-    np.array(gt_ts),
-    np.array(gt_qs),
+    np.array(ref_ts),
+    np.array(ref_qs),
     tangent_order=TangentOrder.TRANS_ROT,
     alpha=0.1,
     n_samples=512,
@@ -186,7 +186,7 @@ def test_calibration_matches_nominal_when_data_is_drawn_from_predictive():
 
 
 def test_calibration_coverage_is_anisotropic_via_mahalanobis():
-  """Calibrated GT drawn from an anisotropic Gaussian (σ_z 100× σ_xy) must
+  """Calibrated reference drawn from an anisotropic Gaussian (σ_z 100× σ_xy) must
   hit 90% coverage. An isotropic-ball coverage check would over-cover here
   because the ball radius is set by the wide axis, eating typical
   tight-axis residuals; the proper Mahalanobis ellipsoid handles it."""
@@ -200,20 +200,20 @@ def test_calibration_coverage_is_anisotropic_via_mahalanobis():
   )
 
   steps = []
-  gt_ts = []
-  gt_qs = []
+  ref_ts = []
+  ref_qs = []
   for _ in range(n):
     mu_t = rng.normal(size=3) * 5.0
     mu_q = rot_to_quat_xyzw(np.linalg.qr(rng.normal(size=(3, 3)))[0])
-    gt_t, gt_q = _draw_calibrated_pair(mu_t, mu_q, cov, rng)
-    gt_ts.append(gt_t)
-    gt_qs.append(gt_q)
+    ref_t, ref_q = _draw_calibrated_pair(mu_t, mu_q, cov, rng)
+    ref_ts.append(ref_t)
+    ref_qs.append(ref_q)
     steps.append(GaussianStep(0.0, mu_t, mu_q, cov.copy()))
 
   res = calibrate(
     steps,
-    np.array(gt_ts),
-    np.array(gt_qs),
+    np.array(ref_ts),
+    np.array(ref_qs),
     tangent_order=TangentOrder.TRANS_ROT,
     alpha=0.1,
     n_samples=256,
@@ -235,20 +235,20 @@ def test_calibration_collapses_when_predictive_is_overconfident():
   reported_cov = truth_cov / 1.0e6  # ~1000x tighter σ
 
   steps = []
-  gt_ts = []
-  gt_qs = []
+  ref_ts = []
+  ref_qs = []
   for _ in range(n):
     mu_t = rng.normal(size=3) * 2.0
     mu_q = rot_to_quat_xyzw(np.linalg.qr(rng.normal(size=(3, 3)))[0])
-    gt_t, gt_q = _draw_calibrated_pair(mu_t, mu_q, truth_cov, rng)
-    gt_ts.append(gt_t)
-    gt_qs.append(gt_q)
+    ref_t, ref_q = _draw_calibrated_pair(mu_t, mu_q, truth_cov, rng)
+    ref_ts.append(ref_t)
+    ref_qs.append(ref_q)
     steps.append(GaussianStep(0.0, mu_t, mu_q, reported_cov.copy()))
 
   res = calibrate(
     steps,
-    np.array(gt_ts),
-    np.array(gt_qs),
+    np.array(ref_ts),
+    np.array(ref_qs),
     tangent_order=TangentOrder.TRANS_ROT,
     alpha=0.1,
     n_samples=128,
@@ -262,17 +262,17 @@ def test_calibration_runs_end_to_end():
   n = 30
   rng = np.random.default_rng(0)
   steps = []
-  gt_t = []
-  gt_q = []
+  ref_t = []
+  ref_q = []
   for _ in range(n):
     truth = rng.normal(size=3) * 0.5
     steps.append(_gauss(0.0, truth + rng.normal(size=3) * 0.1, 0.01))
-    gt_t.append(truth)
-    gt_q.append(np.array([0.0, 0.0, 0.0, 1.0]))
+    ref_t.append(truth)
+    ref_q.append(np.array([0.0, 0.0, 0.0, 1.0]))
   res = calibrate(
     steps,
-    np.array(gt_t),
-    np.array(gt_q),
+    np.array(ref_t),
+    np.array(ref_q),
     tangent_order=TangentOrder.TRANS_ROT,
     n_samples=64,
     rng=np.random.default_rng(0),

@@ -11,12 +11,13 @@ Conventions are pinned by the patch:
   ROTATION_PARAM     axis_angle
 
 BODY_FRAME=imu: Point-LIO publishes the IMU-frame pose (`child_frame_id =
-"body"`, same as FAST-LIO2). Scoring against Spires LiDAR-frame GT needs
+"body"`, same as FAST-LIO2). Scoring against Spires LiDAR-frame reference needs
 smfeval's --body-frame-transform — see evaluate.py.
 
 Usage: pose_cov_to_unc.py <bag> <out.SQUARE> [topic=/Odometry]
 """
 import sys
+
 import rosbag
 
 _TS = "{:.9f}"

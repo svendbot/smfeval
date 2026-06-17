@@ -6,7 +6,7 @@ with the state.cov top-left 6x6 permuted from native (rot[0..2], pos[3..5])
 into REP-103 (pos, rot) order.
 
 BODY_FRAME=lidar: I2EKF-LO is a LiDAR-only filter; state.pos_end is the
-LiDAR-in-world pose used by GT, so no body-frame transform is needed for
+LiDAR-in-world pose used by reference, so no body-frame transform is needed for
 Spires (unlike IKFoM filters which publish IMU-frame poses).
 
 Caveat: I2EKF-LO has no IMU propagation step. The covariance evolution is
@@ -16,6 +16,7 @@ not directly comparable to IKFoM-based filters.
 Usage: pose_cov_to_unc.py <bag> <out.SQUARE> [topic=/Odometry]
 """
 import sys
+
 import rosbag
 
 _TS = "{:.9f}"

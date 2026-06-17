@@ -59,7 +59,7 @@ def _deterministic_header() -> SquareHeader:
     body_frame="imu",
     gauge=Gauge.FIXED,
     timestamp_unit="seconds",
-    algorithm="gt",
+    algorithm="ref",
     algorithm_version="1.0",
   )
 

@@ -32,13 +32,13 @@ def _pack_lower(cov: np.ndarray) -> list[float]:
 
 
 def _make_case(n: int = 100, scale: float = 1.0):
-  """Calibrated (scale=1) gaussian trajectory: rows + gt rows."""
+  """Calibrated (scale=1) gaussian trajectory: rows + ref rows."""
   ts = np.linspace(0.0, 10.0, n)
-  gt = np.column_stack([ts * 0.5, np.zeros(n), np.zeros(n)])
+  ref = np.column_stack([ts * 0.5, np.zeros(n), np.zeros(n)])
   sigma = 0.1
-  est = gt + _RNG.normal(scale=scale * sigma, size=gt.shape)
+  est = ref + _RNG.normal(scale=scale * sigma, size=ref.shape)
   cov = np.diag([sigma**2] * 3 + [1e-4] * 3)
-  return ts, est, gt, cov
+  return ts, est, ref, cov
 
 
 def _write_wide_tum(path, ts, pos, cov):
@@ -167,16 +167,16 @@ def test_sidecar_bad_field_count_rejected(tmp_path):
 
 
 def test_cli_nees_on_wide_tum(tmp_path, capsys):
-  ts, est, gt, cov = _make_case(150)
+  ts, est, ref, cov = _make_case(150)
   est_f = tmp_path / "est.txt"
-  gt_f = tmp_path / "gt.tum"
+  ref_f = tmp_path / "ref.tum"
   _write_wide_tum(est_f, ts, est, cov)
-  _write_tum(gt_f, ts, gt)
+  _write_tum(ref_f, ts, ref)
   rc = main(
     [
       "nees",
       str(est_f),
-      str(gt_f),
+      str(ref_f),
       "--est-body-frame",
       "imu",
       "--ref-body-frame",
@@ -193,18 +193,18 @@ def test_cli_nees_on_wide_tum(tmp_path, capsys):
 
 
 def test_cli_nees_on_tum_with_sidecar(tmp_path, capsys):
-  ts, est, gt, cov = _make_case(150)
+  ts, est, ref, cov = _make_case(150)
   est_f = tmp_path / "est.tum"
   cov_f = tmp_path / "est.cov"
-  gt_f = tmp_path / "gt.tum"
+  ref_f = tmp_path / "ref.tum"
   _write_tum(est_f, ts, est)
   _write_sidecar(cov_f, ts, cov)
-  _write_tum(gt_f, ts, gt)
+  _write_tum(ref_f, ts, ref)
   rc = main(
     [
       "nees",
       str(est_f),
-      str(gt_f),
+      str(ref_f),
       "--cov",
       str(cov_f),
       "--est-body-frame",
@@ -222,12 +222,12 @@ def test_cli_nees_on_tum_with_sidecar(tmp_path, capsys):
 
 
 def test_cli_bare_tum_estimate_requires_body_frame(tmp_path, capsys):
-  ts, est, gt, cov = _make_case(20)
+  ts, est, ref, cov = _make_case(20)
   est_f = tmp_path / "est.txt"
-  gt_f = tmp_path / "gt.tum"
+  ref_f = tmp_path / "ref.tum"
   _write_wide_tum(est_f, ts, est, cov)
-  _write_tum(gt_f, ts, gt)
-  rc = main(["nees", str(est_f), str(gt_f), "--ref-body-frame", "imu"])
+  _write_tum(ref_f, ts, ref)
+  rc = main(["nees", str(est_f), str(ref_f), "--ref-body-frame", "imu"])
   err = capsys.readouterr().err
   assert rc == 2
   assert "--est-body-frame" in err
@@ -236,13 +236,13 @@ def test_cli_bare_tum_estimate_requires_body_frame(tmp_path, capsys):
 def test_cli_rejects_unknown_column_count(tmp_path, capsys):
   est_f = tmp_path / "est.txt"
   est_f.write_text("0.0 1.0 2.0 3.0\n")
-  gt_f = tmp_path / "gt.tum"
-  gt_f.write_text("0.0 1.0 2.0 3.0 0 0 0 1\n")
+  ref_f = tmp_path / "ref.tum"
+  ref_f.write_text("0.0 1.0 2.0 3.0 0 0 0 1\n")
   rc = main(
     [
       "nees",
       str(est_f),
-      str(gt_f),
+      str(ref_f),
       "--est-body-frame",
       "imu",
       "--ref-body-frame",

@@ -34,14 +34,14 @@ def test_two_pose_window_matches_hand_computation():
     _step(0.0, [0.0, 0.0, 0.0], var0),
     _step(0.1, [1.0, 0.5, -0.2], var1),
   ]
-  gt = np.array([[0.01, -0.02, 0.0], [1.02, 0.49, -0.21]])
-  res = relative_translation_crps(steps, gt, windows_s=[0.1])
+  ref = np.array([[0.01, -0.02, 0.0], [1.02, 0.49, -0.21]])
+  res = relative_translation_crps(steps, ref, windows_s=[0.1])
   assert len(res) == 1
   r = res[0]
   assert r.n_pairs == 1
 
   de = steps[1].translation - steps[0].translation
-  dg = gt[1] - gt[0]
+  dg = ref[1] - ref[0]
   sigma = np.sqrt(var0 + var1)
   expected_crps = float(_gaussian_crps(de, sigma, dg).mean())
   assert np.isclose(r.crps.mean, expected_crps, rtol=1e-12)
@@ -65,9 +65,9 @@ def test_window_with_no_pairs_is_skipped():
     _step(0.0, np.zeros(3), np.ones(3)),
     _step(0.1, np.ones(3), np.ones(3)),
   ]
-  gt = np.zeros((2, 3))
+  ref = np.zeros((2, 3))
   # 10 s window over a 0.1 s track: no pairs, no result for that window.
-  res = relative_translation_crps(steps, gt, windows_s=[10.0, 0.1])
+  res = relative_translation_crps(steps, ref, windows_s=[10.0, 0.1])
   assert [r.window_s for r in res] == [0.1]
 
 
@@ -76,8 +76,8 @@ def test_nonuniform_timestamps_respect_tolerance():
   # default tolerance (half the median dt = 0.05 s).
   ts = [0.0, 0.1, 0.2, 0.3, 0.55, 0.65]
   steps = [_step(t, [t * 10.0, 0.0, 0.0], np.ones(3) * 1e-4) for t in ts]
-  gt = np.array([[t * 10.0, 0.0, 0.0] for t in ts])
-  res = relative_translation_crps(steps, gt, windows_s=[0.1])
+  ref = np.array([[t * 10.0, 0.0, 0.0] for t in ts])
+  res = relative_translation_crps(steps, ref, windows_s=[0.1])
   assert len(res) == 1
   # pairs: (0,1) (1,2) (2,3) and (4,5); 0.3->0.55 misses the window.
   assert res[0].n_pairs == 4
@@ -88,7 +88,7 @@ def test_perfect_increments_have_zero_z2_and_rmse():
   ts = np.arange(20) * 0.1
   pos = np.cumsum(rng.normal(size=(20, 3)), axis=0)
   steps = [_step(t, p, np.ones(3) * 1e-2) for t, p in zip(ts, pos, strict=True)]
-  # GT differs by a constant offset: increments match exactly.
+  # reference differs by a constant offset: increments match exactly.
   res = relative_translation_crps(steps, pos + 5.0, windows_s=[0.1])
   assert len(res) == 1
   # not exactly 0: the +5.0 offset perturbs the float increments by ~1 ulp

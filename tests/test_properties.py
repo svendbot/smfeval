@@ -104,8 +104,8 @@ def test_nees_invariant_under_common_transform(est, xi_pert, cov, common):
   )
   T_mean = homogeneous(Rotation.from_quat(est_q).as_matrix(), est_t)
   T_obs = T_mean @ se3_exp(xi_pert)
-  gt_t, gt_q = T_obs[:3, 3], rot_to_quat_xyzw(T_obs[:3, :3])
-  base = gaussian_log_score_components(step, gt_t, gt_q)
+  ref_t, ref_q = T_obs[:3, 3], rot_to_quat_xyzw(T_obs[:3, :3])
+  base = gaussian_log_score_components(step, ref_t, ref_q)
 
   ct, cq = common
   T = homogeneous(Rotation.from_quat(cq).as_matrix(), ct)
@@ -130,27 +130,27 @@ def test_nees_invariant_under_common_transform(est, xi_pert, cov, common):
 
 @st.composite
 def trajectory_pair(draw):
-  """(timestamps, gt, est) with guaranteed horizontal GT motion per step."""
+  """(timestamps, ref, est) with guaranteed horizontal reference motion per step."""
   n = draw(st.integers(min_value=6, max_value=30))
   dt = 0.1
   ts = np.arange(n) * dt
   inc_x = np.array(draw(st.lists(_floats(0.05, 0.5), min_size=n, max_size=n)))
   inc_yz = draw(_vec(2 * n, -0.2, 0.2)).reshape(n, 2)
-  gt = np.cumsum(np.column_stack([inc_x, inc_yz]), axis=0)
+  ref = np.cumsum(np.column_stack([inc_x, inc_yz]), axis=0)
   err = draw(_vec(3 * n, -1.0, 1.0)).reshape(n, 3)
-  return ts, gt, gt + err
+  return ts, ref, ref + err
 
 
 @given(traj=trajectory_pair(), k=st.integers(min_value=1, max_value=3))
 def test_bias_variance_decomposition_identity(traj, k):
-  ts, gt, est = traj
+  ts, ref, est = traj
   steps = [
     DeterministicStep(
       timestamp=t, translation=p, quat_xyzw=np.array([0, 0, 0, 1.0])
     )
     for t, p in zip(ts, est, strict=True)
   ]
-  results = bias_variance(steps, gt, windows_s=[k * 0.1])
+  results = bias_variance(steps, ref, windows_s=[k * 0.1])
   for r in results:
     bias_sq = float(np.sum(np.square(r.bias)))
     var = float(np.sum(np.square(r.std)))
@@ -203,8 +203,8 @@ def test_fit_alignment_recovers_known_se3(pts, T_parts):
   assume(np.linalg.svd(centered, compute_uv=False)[-1] > 1e-2)
   t0, q0 = T_parts
   R0 = Rotation.from_quat(q0).as_matrix()
-  gt = (R0 @ pts.T).T + t0
-  fit = fit_alignment(pts, gt, mode="se3")
+  ref = (R0 @ pts.T).T + t0
+  fit = fit_alignment(pts, ref, mode="se3")
   assert np.max(fit.residuals) < 1e-6
   assert np.allclose(fit.transform, homogeneous(R0, t0), atol=1e-6)
 
@@ -233,7 +233,7 @@ def test_summarize_bounds(vals):
   c=_floats(0.25, 16.0),
 )
 def test_relative_mean_z2_scales_inverse_with_covariance(traj, cov, c):
-  ts, gt, est = traj
+  ts, ref, est = traj
   q = np.array([0.0, 0.0, 0.0, 1.0])
   steps = [
     GaussianStep(timestamp=t, translation=p, quat_xyzw=q, covariance=cov)
@@ -244,8 +244,8 @@ def test_relative_mean_z2_scales_inverse_with_covariance(traj, cov, c):
     for t, p in zip(ts, est, strict=True)
   ]
   rng = np.random.default_rng(0)
-  base = relative_translation_crps(steps, gt, windows_s=[0.1], rng=rng)
-  got = relative_translation_crps(scaled, gt, windows_s=[0.1], rng=rng)
+  base = relative_translation_crps(steps, ref, windows_s=[0.1], rng=rng)
+  got = relative_translation_crps(scaled, ref, windows_s=[0.1], rng=rng)
   assert len(base) == len(got) == 1
   assert np.isclose(got[0].mean_z2, base[0].mean_z2 / c, rtol=1e-9)
 

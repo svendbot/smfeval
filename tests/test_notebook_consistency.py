@@ -34,7 +34,7 @@ _DATA = Path(__file__).parent.parent / "notebooks" / "data"
 def notebook_files(tmp_path: Path) -> Path:
   for local, remote in {
     "est.SQUARE": "christ-church-03_fast_lio2.SQUARE.gz",
-    "gt.tum": "christ-church-03_gt.tum.gz",
+    "ref.tum": "christ-church-03_ref.tum.gz",
   }.items():
     with (
       gzip.open(_DATA / remote, "rb") as src,
@@ -48,7 +48,7 @@ def notebook_files(tmp_path: Path) -> Path:
 def _library_verdict(d: Path) -> str:
   """The notebook's library-API cell, verbatim logic."""
   est_header, est_steps = load_square(d / "est.SQUARE")
-  _, gt_steps = load_tum(d / "gt.tum", pose_frame="world", body_frame="lidar")
+  _, ref_steps = load_tum(d / "ref.tum", pose_frame="world", body_frame="lidar")
 
   tf = json.loads((d / "imu_to_lidar.json").read_text())
   T_off = homogeneous(np.array(tf["R"]).reshape(3, 3), np.array(tf["t"]))
@@ -64,15 +64,15 @@ def _library_verdict(d: Path) -> str:
   ]
 
   est_ts = np.array([s.timestamp for s in est_steps])
-  gt_ts = np.array([s.timestamp for s in gt_steps])
-  m = match_timestamps(est_ts, gt_ts, t_max_diff=0.01)
+  ref_ts = np.array([s.timestamp for s in ref_steps])
+  m = match_timestamps(est_ts, ref_ts, t_max_diff=0.01)
   matched = [est_steps[i] for i in m.est_indices]
-  gt_t = np.array([gt_steps[j].translation for j in m.gt_indices])
-  gt_q = np.array([gt_steps[j].quat_xyzw for j in m.gt_indices])
+  ref_t = np.array([ref_steps[j].translation for j in m.ref_indices])
+  ref_q = np.array([ref_steps[j].quat_xyzw for j in m.ref_indices])
 
   fit = fit_alignment(
     np.array([s.translation for s in matched]),
-    gt_t,
+    ref_t,
     mode=align_mode_for_gauge(est_header.gauge),
   )
   aligned = [
@@ -88,7 +88,7 @@ def _library_verdict(d: Path) -> str:
   nees = np.array(
     [
       gaussian_log_score_components(s, t, q, order).translation.nees
-      for s, t, q in zip(aligned, gt_t, gt_q, strict=True)
+      for s, t, q in zip(aligned, ref_t, ref_q, strict=True)
     ]
   )
   return render_nees_verdict(nees_verdict(nees, dof=3))
@@ -101,7 +101,7 @@ def test_notebook_library_path_matches_cli(
     [
       "nees",
       str(notebook_files / "est.SQUARE"),
-      str(notebook_files / "gt.tum"),
+      str(notebook_files / "ref.tum"),
       "--ref-body-frame",
       "lidar",
       "--body-frame-transform",

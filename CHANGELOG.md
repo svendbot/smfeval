@@ -3,19 +3,19 @@
 ## 0.4.0 - 2026-06-12
 
 The release that matches the paper. Everything needed to score a filter's
-own belief against ground truth. Scoring is on the **translation** marginal;
+own belief against reference. Scoring is on the **translation** marginal;
 orientation is left to future work, since a proper score on SO(3) needs a
 belief density whose normaliser is intractable for the natural rotation
 families (paper §II.b / §V.d).
 
 ### New verbs
 
-- `smfeval nees est gt`. Three-line calibration verdict (median NEES
+- `smfeval nees est ref`. Three-line calibration verdict (median NEES
   against the χ² reference 2.37 for dof 3, the covariance scale gap
   `k = median NEES / 2.37` with √k per axis, and a nominal-coverage check).
 - `smfeval pair a b`. No-reference calibration. Scores two filters against
   each other (A→B Umeyama, difference under summed covariances, χ²₃). An
-  elevated pairwise NEES certifies overconfidence with no ground truth
+  elevated pairwise NEES certifies overconfidence with no reference
   consulted, and the statistic lower-bounds the miscalibration (propriety
   caveat printed with every verdict). Ported from the slam_benchmark audit
   and verified exact against it.
@@ -44,7 +44,7 @@ families (paper §II.b / §V.d).
 - Track-frame bias/variance decomposition (along/cross/vertical) and
   structured failure-mode diagnoses with recommended actions.
 - Student-t belief-transform intervention (`--student-t`), per-scan ESS
-  covariance inflation (`--ess-inflate`), GT-covariance folding
+  covariance inflation (`--ess-inflate`), reference-covariance folding
   (`--consume-ref-cov`).
 - Fixed catastrophic cancellation in the SE(3) V-jacobian small-angle
   branch (exp/log round-trip error 5e-9 to <5e-15).
@@ -71,9 +71,9 @@ families (paper §II.b / §V.d).
 
 - Package renamed `src` to `smfeval` (a PyPI wheel must not install a
   top-level `src`).
-- Version 0.4.0 follows 0.3.0 directly; the distributional-ground-truth
+- Version 0.4.0 follows 0.3.0 directly; the distributional-reference
   work formerly tagged 0.4 in planning docs is renumbered to 0.5
-  (`plans/0.5-distributional-gt.md`).
+  (`plans/0.5-distributional-ref.md`).
 - Dropped unused dev dependencies (pandas, natsort, colorama, pygments,
   brotli).
 

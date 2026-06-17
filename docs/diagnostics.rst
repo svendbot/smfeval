@@ -32,7 +32,7 @@ its reference partner. The sync-risk score
 
 .. math::
 
-   r = \frac{\lVert v_\mathrm{gt} \rVert \, |\Delta t|}{\sigma_\mathrm{trans}}
+   r = \frac{\lVert v_\mathrm{ref} \rVert \, |\Delta t|}{\sigma_\mathrm{trans}}
 
 measures the position error that slop induces, relative to the belief's own
 translation sigma; pairs above :math:`\sim 0.3` are flagged. Matching error

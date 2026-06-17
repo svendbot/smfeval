@@ -8,9 +8,9 @@ unlike absolute-pose residuals the bias is not killed by the SE(3) alignment.
 
 For window Δt and pair (i, i+Δt) the increment error is
 
-    e = (p_est(i+Δt) − p_est(i)) − (p_gt(i+Δt) − p_gt(i))
+    e = (p_est(i+Δt) − p_est(i)) − (p_ref(i+Δt) − p_ref(i))
 
-in the per-pair track frame (along = horizontally-projected GT heading, vertical
+in the per-pair track frame (along = horizontally-projected reference heading, vertical
 = world up, cross = up × along). Over the pairs,
 
     MSE = ‖bias‖² + tr(cov),   bias = mean_t e,
@@ -45,12 +45,12 @@ class BiasVarianceResult:
 
 
 def _track_frame_errors(
-  est_inc: np.ndarray, gt_inc: np.ndarray, min_horiz_m: float
+  est_inc: np.ndarray, ref_inc: np.ndarray, min_horiz_m: float
 ) -> np.ndarray:
   """Project world-frame increment errors into the per-pair track frame."""
-  e = est_inc - gt_inc
+  e = est_inc - ref_inc
   up = np.array([0.0, 0.0, 1.0])
-  horiz = gt_inc.copy()
+  horiz = ref_inc.copy()
   horiz[:, 2] = 0.0
   hmag = np.linalg.norm(horiz, axis=1)
   keep = hmag > min_horiz_m
@@ -70,7 +70,7 @@ def _track_frame_errors(
 
 def bias_variance(
   steps: list,
-  gt_translations: np.ndarray,
+  ref_translations: np.ndarray,
   *,
   windows_s: list[float],
   tolerance_s: float | None = None,
@@ -79,7 +79,7 @@ def bias_variance(
   """Windowed track-frame bias/variance per Δt (skips windows with no pairs)."""
   ts = np.array([s.timestamp for s in steps], dtype=float)
   mu = np.array([s.translation for s in steps], dtype=float)
-  gt = np.asarray(gt_translations, dtype=float)
+  ref = np.asarray(ref_translations, dtype=float)
   tol = _default_tolerance(ts, tolerance_s)
 
   out: list[BiasVarianceResult] = []
@@ -87,7 +87,7 @@ def bias_variance(
     i, j = _window_pairs(ts, w, tol)
     if i.size == 0:
       continue
-    ef = _track_frame_errors(mu[j] - mu[i], gt[j] - gt[i], min_horiz_m)
+    ef = _track_frame_errors(mu[j] - mu[i], ref[j] - ref[i], min_horiz_m)
     if ef.shape[0] == 0:
       continue
     bias = ef.mean(axis=0)

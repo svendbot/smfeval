@@ -27,8 +27,8 @@ def test_se3_recovers_known_transform():
   T_true = se3_exp(np.array([1.0, -0.5, 0.2, 0.1, 0.2, 0.3]))
   R_true = T_true[:3, :3]
   t_true = T_true[:3, 3]
-  gt = (R_true @ pts.T).T + t_true
-  fit = fit_alignment(pts, gt, mode="se3")
+  ref = (R_true @ pts.T).T + t_true
+  fit = fit_alignment(pts, ref, mode="se3")
   assert np.allclose(fit.transform, T_true, atol=1e-9)
   assert fit.scale == 1.0
   assert fit.dof_removed == 6
@@ -41,8 +41,8 @@ def test_sim3_recovers_scale():
   R_true = T_true[:3, :3]
   t_true = T_true[:3, 3]
   s_true = 2.5
-  gt = s_true * (R_true @ pts.T).T + t_true
-  fit = fit_alignment(pts, gt, mode="sim3")
+  ref = s_true * (R_true @ pts.T).T + t_true
+  fit = fit_alignment(pts, ref, mode="sim3")
   assert abs(fit.scale - s_true) < 1e-6
   assert np.allclose(fit.fitted_rotation, R_true, atol=1e-6)
   assert fit.dof_removed == 7
@@ -54,21 +54,21 @@ def test_gravity_yaw_recovers_yaw_only():
   c, s = np.cos(yaw), np.sin(yaw)
   R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
   d = np.array([0.3, -0.2, 1.1])
-  gt = (R @ pts.T).T + d
-  fit = fit_alignment(pts, gt, mode="gravity_yaw")
+  ref = (R @ pts.T).T + d
+  fit = fit_alignment(pts, ref, mode="gravity_yaw")
   assert np.allclose(fit.fitted_rotation, R, atol=1e-9)
   assert np.allclose(fit.fitted_translation, d, atol=1e-9)
   assert fit.dof_removed == 4
 
 
-def test_gravity_yaw_ignores_pitch_roll_in_gt():
-  """If gt has stray pitch/roll, gravity_yaw can't represent it; xy still fits."""
+def test_gravity_yaw_ignores_pitch_roll_in_ref():
+  """If ref has stray pitch/roll, gravity_yaw can't represent it; xy still fits."""
   pts = RNG.normal(size=(50, 3))
   yaw = 0.4
   c, s = np.cos(yaw), np.sin(yaw)
   R_yaw = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
-  gt = (R_yaw @ pts.T).T + np.array([0.0, 0.0, 0.0])
-  fit = fit_alignment(pts, gt, mode="gravity_yaw")
+  ref = (R_yaw @ pts.T).T + np.array([0.0, 0.0, 0.0])
+  fit = fit_alignment(pts, ref, mode="gravity_yaw")
   assert np.median(fit.residuals) < 1e-6
 
 

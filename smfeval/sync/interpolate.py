@@ -1,7 +1,7 @@
-"""Continuous-time GT interpolation via piecewise Gaussian Process on SE(3).
+"""Continuous-time reference interpolation via piecewise Gaussian Process on SE(3).
 
 Implements the construction of Zhang & Scaramuzza (2019), §IV.B
-(arXiv:1906.03996): for each query timestamp, take a local window of GT
+(arXiv:1906.03996): for each query timestamp, take a local window of reference
 samples bracketing the query, choose the middle sample as ``T_ref``, express
 the surrounding poses as ``ξ_i = log(T_ref⁻¹ · T_i) ∈ se(3)``, and fit
 independent squared-exponential GPs on each of the six components of ``ξ``
@@ -13,11 +13,11 @@ across all six components (the kernel does not depend on the data), giving
 The piecewise / windowed scheme follows the paper's practical choice
 (§IV.B): "we select the segments so that the adjacent segments overlap and
 use the same hyperparameters for all segments". Defaults pick a window of
-10 GT samples around each query and use a squared-exponential kernel with
+10 reference samples around each query and use a squared-exponential kernel with
 length scale 0.1 s and unit signal variance — small enough to track local
-curvature, large enough to smooth GT noise.
+curvature, large enough to smooth reference noise.
 
-Query times outside the GT range are flagged in the returned ``keep`` mask
+Query times outside the reference range are flagged in the returned ``keep`` mask
 rather than extrapolated; the cross-check use case in smfeval has no
 business extrapolating into regions where the GP is reverting to its prior.
 """
@@ -32,11 +32,11 @@ from smfeval.se3.lie import invert, pose_matrix, se3_exp, se3_log
 _IDENTITY_QUAT_XYZW = np.array([0.0, 0.0, 0.0, 1.0])
 
 
-def interpolate_gt_at(
+def interpolate_ref_at(
   query_times: np.ndarray,
-  gt_times: np.ndarray,
-  gt_translations: np.ndarray,
-  gt_quats: np.ndarray,
+  ref_times: np.ndarray,
+  ref_translations: np.ndarray,
+  ref_quats: np.ndarray,
   window: int = 10,
   length_scale_s: float = 0.1,
   signal_variance: float = 1.0,
@@ -47,14 +47,14 @@ def interpolate_gt_at(
   Parameters
   ----------
   query_times : (Q,) array of timestamps at which to interpolate.
-  gt_times : (N,) GT sample times, must be sorted.
-  gt_translations : (N, 3) GT translations.
-  gt_quats : (N, 4) GT quaternions in xyzw.
-  window : number of nearest GT samples to use per query (paper recommends
+  ref_times : (N,) reference sample times, must be sorted.
+  ref_translations : (N, 3) reference translations.
+  ref_quats : (N, 4) reference quaternions in xyzw.
+  window : number of nearest reference samples to use per query (paper recommends
       ~50% overlap between segments, equivalent to a symmetric local window).
   length_scale_s : SE-kernel length scale in seconds.
   signal_variance : SE-kernel signal variance.
-  noise_variance : observation noise on the GT samples; small but non-zero
+  noise_variance : observation noise on the reference samples; small but non-zero
       for numerical stability of K_zz inversion.
 
   Returns:
@@ -64,28 +64,28 @@ def interpolate_gt_at(
   covariances : (Q, 6, 6) tangent-space predictive covariance in
       ``translation_rotation`` order. Same scalar variance on all six diagonal
       entries (kernel is shared across components, per the paper).
-  keep : (Q,) bool — False where the query fell outside the GT time span
-      ``[gt_times[0], gt_times[-1]]``.
+  keep : (Q,) bool — False where the query fell outside the reference time span
+      ``[ref_times[0], ref_times[-1]]``.
   """
   query_times = np.asarray(query_times, dtype=float)
-  gt_times = np.asarray(gt_times, dtype=float)
-  gt_translations = np.asarray(gt_translations, dtype=float)
-  gt_quats = np.asarray(gt_quats, dtype=float)
+  ref_times = np.asarray(ref_times, dtype=float)
+  ref_translations = np.asarray(ref_translations, dtype=float)
+  ref_quats = np.asarray(ref_quats, dtype=float)
   n_q = len(query_times)
-  n_gt = len(gt_times)
+  n_ref = len(ref_times)
 
-  if n_gt < 2:
-    raise ValueError("need at least 2 GT samples to interpolate")
-  window = min(window, n_gt)
+  if n_ref < 2:
+    raise ValueError("need at least 2 reference samples to interpolate")
+  window = min(window, n_ref)
 
   out_t = np.zeros((n_q, 3))
   out_q = np.tile(_IDENTITY_QUAT_XYZW, (n_q, 1))
   out_cov = np.zeros((n_q, 6, 6))
   keep = np.zeros(n_q, dtype=bool)
-  in_range = (query_times >= gt_times[0]) & (query_times <= gt_times[-1])
+  in_range = (query_times >= ref_times[0]) & (query_times <= ref_times[-1])
 
   T_all = np.stack(
-    [pose_matrix(gt_translations[k], gt_quats[k]) for k in range(n_gt)]
+    [pose_matrix(ref_translations[k], ref_quats[k]) for k in range(n_ref)]
   )
 
   i = 0
@@ -95,11 +95,11 @@ def interpolate_gt_at(
       continue
     qt = query_times[i]
 
-    center = int(np.searchsorted(gt_times, qt))
+    center = int(np.searchsorted(ref_times, qt))
     lo = max(0, center - window // 2)
-    hi = min(n_gt, lo + window)
+    hi = min(n_ref, lo + window)
     lo = max(0, hi - window)
-    t_win = gt_times[lo:hi]
+    t_win = ref_times[lo:hi]
 
     ref_local = (hi - lo) // 2
     T_ref = T_all[lo + ref_local]

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Decompose rotation residual into alignment-absorbed vs per-pair drift.
 
-Given a SQUARE estimate file and a TUM ground-truth, prints the geodesic
+Given a SQUARE estimate file and a TUM reference, prints the geodesic
 rotation residual (median, p95) at three stages:
   1. raw — no alignment applied
   2. gravity_yaw — yaw rotation fitted via 2D Procrustes on (x, y)
@@ -15,7 +15,7 @@ initial-frame mismatch (absorbed by both modes), and ~1.2 rad rotation CRPS
 is real drift on rough terrain that nothing global can absorb.
 
 Usage:
-  python scripts/diagnose_rotation_alignment.py <est.SQUARE> <gt.tum>
+  python scripts/diagnose_rotation_alignment.py <est.SQUARE> <ref.tum>
 """
 
 import sys
@@ -35,22 +35,22 @@ def _angle(R1: np.ndarray, R2: np.ndarray) -> float:
   return float(np.linalg.norm(Rotation.from_matrix(R1.T @ R2).as_rotvec()))
 
 
-def main(est_path: Path, gt_path: Path) -> None:
+def main(est_path: Path, ref_path: Path) -> None:
   with est_path.open() as f:
     eh = parse_header(f)
     est_steps = list(iter_steps(f, eh))
-  with gt_path.open() as f:
-    gt_steps = list(_iter_deterministic(f))
+  with ref_path.open() as f:
+    ref_steps = list(_iter_deterministic(f))
 
   est_ts = np.array([s.timestamp for s in est_steps])
-  gt_ts = np.array([s.timestamp for s in gt_steps])
-  gt_t = np.array([s.translation for s in gt_steps])
-  gt_q = np.array([s.quat_xyzw for s in gt_steps])
+  ref_ts = np.array([s.timestamp for s in ref_steps])
+  ref_t = np.array([s.translation for s in ref_steps])
+  ref_q = np.array([s.quat_xyzw for s in ref_steps])
 
-  m = match_timestamps(est_ts, gt_ts, 0.01, 0.0)
+  m = match_timestamps(est_ts, ref_ts, 0.01, 0.0)
   matched = [est_steps[i] for i in m.est_indices]
-  mt = gt_t[m.gt_indices]
-  mq = gt_q[m.gt_indices]
+  mt = ref_t[m.ref_indices]
+  mq = ref_q[m.ref_indices]
   et = np.array([s.translation for s in matched])
 
   raw = [

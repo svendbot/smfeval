@@ -13,14 +13,14 @@ from smfeval.se3.lie import trans_slice
 from smfeval.steps import EnsembleStep, GaussianStep
 
 
-def _gt_velocity(gt_ts: np.ndarray, gt_pos: np.ndarray) -> np.ndarray:
-  n = len(gt_ts)
-  v = np.zeros_like(gt_pos)
+def _ref_velocity(ref_ts: np.ndarray, ref_pos: np.ndarray) -> np.ndarray:
+  n = len(ref_ts)
+  v = np.zeros_like(ref_pos)
   if n < 2:
     return v
-  v[1:-1] = (gt_pos[2:] - gt_pos[:-2]) / (gt_ts[2:] - gt_ts[:-2])[:, None]
-  v[0] = (gt_pos[1] - gt_pos[0]) / (gt_ts[1] - gt_ts[0])
-  v[-1] = (gt_pos[-1] - gt_pos[-2]) / (gt_ts[-1] - gt_ts[-2])
+  v[1:-1] = (ref_pos[2:] - ref_pos[:-2]) / (ref_ts[2:] - ref_ts[:-2])[:, None]
+  v[0] = (ref_pos[1] - ref_pos[0]) / (ref_ts[1] - ref_ts[0])
+  v[-1] = (ref_pos[-1] - ref_pos[-2]) / (ref_ts[-1] - ref_ts[-2])
   return v
 
 
@@ -57,23 +57,23 @@ def _trans_sigma(step, order: TangentOrder | None) -> float:
 
 def sync_risk(
   est_steps: list,
-  gt_ts: np.ndarray,
-  gt_positions: np.ndarray,
+  ref_ts: np.ndarray,
+  ref_positions: np.ndarray,
   est_indices: np.ndarray,
-  gt_indices: np.ndarray,
+  ref_indices: np.ndarray,
   est_ts: np.ndarray,
   t_offset: float = 0.0,
   tangent_order: TangentOrder | None = None,
 ) -> np.ndarray:
-  r"""Per-pair sync risk :math:`\lVert v_\mathrm{gt}\rVert \cdot |\Delta t| / \sigma_\mathrm{trans}`."""
-  velocities = _gt_velocity(gt_ts, gt_positions)
+  r"""Per-pair sync risk :math:`\lVert v_\mathrm{ref}\rVert \cdot |\Delta t| / \sigma_\mathrm{trans}`."""
+  velocities = _ref_velocity(ref_ts, ref_positions)
   speeds = np.linalg.norm(velocities, axis=1)
   out = np.zeros(len(est_indices))
-  for k, (ei, gi) in enumerate(zip(est_indices, gt_indices, strict=True)):
+  for k, (ei, gi) in enumerate(zip(est_indices, ref_indices, strict=True)):
     sigma = _trans_sigma(est_steps[ei], tangent_order)
     if sigma <= 0:
       out[k] = np.inf if speeds[gi] > 0 else 0.0
       continue
-    dt = abs((est_ts[ei] + t_offset) - gt_ts[gi])
+    dt = abs((est_ts[ei] + t_offset) - ref_ts[gi])
     out[k] = float(speeds[gi] * dt / sigma)
   return out

@@ -32,7 +32,7 @@ from smfeval.steps import EnsembleStep, GaussianStep, Step
 
 def energy_score(
   pred_step: Step,
-  gt_translation: np.ndarray,
+  ref_translation: np.ndarray,
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
   n_samples: int = 128,
   rng: np.random.Generator | None = None,
@@ -57,12 +57,12 @@ def energy_score(
     samples = sample_gaussian_tangent(
       pred_step.translation, cov_t, n_samples, rng
     )
-    return energy_score_estimator(samples, gt_translation)
+    return energy_score_estimator(samples, ref_translation)
 
   if isinstance(pred_step, EnsembleStep):
     n = pred_step.particles.shape[0]
     if n == 0:
       return float("nan")
-    return energy_score_estimator(pred_step.particles[:, :3], gt_translation)
+    return energy_score_estimator(pred_step.particles[:, :3], ref_translation)
 
-  return float(np.linalg.norm(pred_step.translation - gt_translation))
+  return float(np.linalg.norm(pred_step.translation - ref_translation))

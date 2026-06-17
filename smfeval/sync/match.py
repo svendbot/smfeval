@@ -6,7 +6,7 @@ import numpy as np
 @dataclass
 class MatchResult:
   est_indices: np.ndarray
-  gt_indices: np.ndarray
+  ref_indices: np.ndarray
   n_total: int
   n_matched: int
   n_dropped: int
@@ -41,7 +41,7 @@ def _matching_time_indices(
 
 def match_timestamps(
   est_ts: np.ndarray,
-  gt_ts: np.ndarray,
+  ref_ts: np.ndarray,
   t_max_diff: float = 0.01,
   t_offset: float = 0.0,
 ) -> MatchResult:
@@ -52,22 +52,22 @@ def match_timestamps(
   estimate timestamps before matching to correct for known clock skew.
   """
   est_ts = np.asarray(est_ts, dtype=float)
-  gt_ts = np.asarray(gt_ts, dtype=float)
+  ref_ts = np.asarray(ref_ts, dtype=float)
 
-  m_est, m_gt = _matching_time_indices(
-    est_ts + t_offset, gt_ts, t_max_diff, 0.0
+  m_est, m_ref = _matching_time_indices(
+    est_ts + t_offset, ref_ts, t_max_diff, 0.0
   )
   est_idx = np.array(m_est, dtype=int)
-  gt_idx = np.array(m_gt, dtype=int)
+  ref_idx = np.array(m_ref, dtype=int)
 
   if est_idx.size:
-    gaps = np.abs((est_ts[est_idx] + t_offset) - gt_ts[gt_idx])
+    gaps = np.abs((est_ts[est_idx] + t_offset) - ref_ts[ref_idx])
   else:
     gaps = np.zeros(0)
 
   return MatchResult(
     est_indices=est_idx,
-    gt_indices=gt_idx,
+    ref_indices=ref_idx,
     n_total=len(est_ts),
     n_matched=int(est_idx.size),
     n_dropped=int(len(est_ts) - est_idx.size),

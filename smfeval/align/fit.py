@@ -64,30 +64,30 @@ def align_mode_for_gauge(gauge: Gauge) -> AlignMode:
 
 
 def fit_alignment(
-  est_positions: np.ndarray, gt_positions: np.ndarray, mode: AlignMode
+  est_positions: np.ndarray, ref_positions: np.ndarray, mode: AlignMode
 ) -> AlignmentFit:
-  """Fit T (and scale) so that scale·R·est + t ≈ gt for matched mean positions."""
-  if est_positions.shape != gt_positions.shape:
+  """Fit T (and scale) so that scale·R·est + t ≈ ref for matched mean positions."""
+  if est_positions.shape != ref_positions.shape:
     raise ValueError("position arrays must have identical shape")
   if est_positions.ndim != 2 or est_positions.shape[1] != 3:
     raise ValueError("expected (N, 3) position arrays")
 
   if mode == "none":
-    residuals = np.linalg.norm(est_positions - gt_positions, axis=1)
+    residuals = np.linalg.norm(est_positions - ref_positions, axis=1)
     return AlignmentFit("none", np.eye(4), 1.0, 0, residuals)
 
   if mode == "se3":
-    R, t, s = _kabsch_umeyama(est_positions, gt_positions, with_scale=False)
+    R, t, s = _kabsch_umeyama(est_positions, ref_positions, with_scale=False)
   elif mode == "sim3":
-    R, t, s = _kabsch_umeyama(est_positions, gt_positions, with_scale=True)
+    R, t, s = _kabsch_umeyama(est_positions, ref_positions, with_scale=True)
   elif mode == "gravity_yaw":
-    R, t, s = _gravity_yaw_fit(est_positions, gt_positions)
+    R, t, s = _gravity_yaw_fit(est_positions, ref_positions)
   else:
     raise ValueError(f"unknown align mode {mode!r}")
 
   T = homogeneous(R, t)
   aligned = (s * (R @ est_positions.T)).T + t
-  residuals = np.linalg.norm(aligned - gt_positions, axis=1)
+  residuals = np.linalg.norm(aligned - ref_positions, axis=1)
   return AlignmentFit(mode, T, float(s), _DOF[mode], residuals)
 
 

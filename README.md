@@ -98,7 +98,7 @@ in `SQUARE_spec.md`.
   `timestamp c11 c21 c22 ... c66` rows.
 
 ```sh
-smfeval nees est.tum gt.tum --cov est.cov --est-body-frame imu --ref-body-frame imu
+smfeval nees est.tum ref.tum --cov est.cov --est-body-frame imu --ref-body-frame imu
 ```
 
 Most filters compute a covariance internally and never publish it. For four
@@ -111,7 +111,7 @@ on a named public sequence. Contributions follow the PR template, with
 
 ## The full report
 
-`smfeval score est.SQUARE gt.tum` produces the complete analysis.
+`smfeval score est.SQUARE ref.tum` produces the complete analysis.
 
 ```
 === smfeval scoring report ===
@@ -174,9 +174,9 @@ Recommendations
 - track-frame bias/variance attribution;
 - structured failure-mode diagnoses with recommended actions.
 
-Orientation is scored only on translation: a proper score on SO(3) needs a
+Only translation is scored, not orientation: a proper score on SO(3) needs a
 belief density whose normaliser is intractable for the natural rotation
-families, so rotation is left to future work (see the paper and
+families, so rotation is left to future work (see
 [**docs/metrics.rst**](docs/metrics.rst)).
 
 `smfeval score --json` prints the structured report to stdout, and `--json-out`
@@ -192,9 +192,9 @@ conventions.
 
 | Verb | What it does |
 |---|---|
-| `smfeval nees est gt` | three-line calibration verdict (median NEES, scale gap k, coverage) |
+| `smfeval nees est ref` | three-line calibration verdict (median NEES, scale gap k, coverage) |
 | `smfeval pair a b` | no-reference pairwise verdict (lower bound on miscalibration) |
-| `smfeval score est gt` | full scoring report (`--json`/`--json-out` for machines) |
+| `smfeval score est ref` | full scoring report (`--json`/`--json-out` for machines) |
 | `smfeval validate file` | header/row sanity checks (`--strict` is the exporter gate) |
 
 ## Development
@@ -215,9 +215,8 @@ button reads [`CITATION.cff`](CITATION.cff).
 > Rønning, O. *smfeval: probabilistic SLAM trajectory scoring.* 2026.
 > https://github.com/svendbot/smfeval
 
-The methodology and the audit behind it are described in the accompanying paper,
-released with [slam_benchmark](https://github.com/svendbot/slam_benchmark) (DOI
-forthcoming). Please cite that as well once it is available.
+A paper describing the methodology and the audit behind it is in preparation,
+to be released with [slam_benchmark](https://github.com/svendbot/slam_benchmark).
 
 ## Provenance
 

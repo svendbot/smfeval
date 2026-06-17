@@ -20,7 +20,7 @@ integrated out).
 Orientation is **not** scored. A proper score on :math:`SO(3)` needs a belief
 density whose normaliser is intractable for the natural rotation families, and
 the first-order tangent approximation has not been audited, so rotation scoring
-is left to future work (paper, §II.b / §V.d).
+is left to future work.
 
 How the numbers are produced
 ----------------------------
@@ -44,5 +44,4 @@ confounders.
    alignment
    diagnostics
 
-The format and conventions are in ``SQUARE_spec.md``; the theory is in the
-paper (see :doc:`index`).
+The format and conventions are in ``SQUARE_spec.md``.

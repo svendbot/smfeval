@@ -66,7 +66,7 @@ class CalibrationResult:
 
 
 def _whitened_translation_residual(
-  step: Step, gt_t: np.ndarray, gt_q: np.ndarray, order: TangentOrder
+  step: Step, ref_t: np.ndarray, ref_q: np.ndarray, order: TangentOrder
 ) -> np.ndarray | None:
   r"""Cholesky-whitened translation residual.
 
@@ -86,7 +86,7 @@ def _whitened_translation_residual(
   match step:
     case GaussianStep():
       T_mean = pose_matrix(step.translation, step.quat_xyzw)
-      T_obs = pose_matrix(gt_t, gt_q)
+      T_obs = pose_matrix(ref_t, ref_q)
       xi = se3_log(relative(T_mean, T_obs), order=order)
       ti = trans_slice(order)
       rho = xi[ti]
@@ -94,7 +94,7 @@ def _whitened_translation_residual(
     case EnsembleStep() if step.particles.shape[0] >= 4:
       positions = step.particles[:, :3]
       mu = positions.mean(axis=0)
-      rho = gt_t - mu
+      rho = ref_t - mu
       cov_t = np.cov(positions, rowvar=False)
     case _:
       return None
@@ -114,8 +114,8 @@ def _pit(samples: np.ndarray, observation: float) -> float:
 
 def calibrate(
   pred_steps: list[Step],
-  gt_translations: np.ndarray,
-  gt_quats: np.ndarray,
+  ref_translations: np.ndarray,
+  ref_quats: np.ndarray,
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
   alpha: float = 0.1,
   n_samples: int = _DEFAULT_N_SAMPLES,
@@ -126,15 +126,15 @@ def calibrate(
   z_t: list[float] = []
   inside: list[bool] = []
   chi2_threshold = float(chi2.ppf(1.0 - alpha, df=3))
-  for step, gt_t, gt_q in zip(
-    pred_steps, gt_translations, gt_quats, strict=True
+  for step, ref_t, ref_q in zip(
+    pred_steps, ref_translations, ref_quats, strict=True
   ):
     t_samples, mu_t = translation_samples(step, n_samples, rng, tangent_order)
     sm = np.linalg.norm(t_samples - mu_t, axis=1)
-    om = float(np.linalg.norm(gt_t - mu_t))
+    om = float(np.linalg.norm(ref_t - mu_t))
     pit_t.append(_pit(sm, om))
 
-    z = _whitened_translation_residual(step, gt_t, gt_q, tangent_order)
+    z = _whitened_translation_residual(step, ref_t, ref_q, tangent_order)
     if z is None:
       z_t.append(float("nan"))
     else:

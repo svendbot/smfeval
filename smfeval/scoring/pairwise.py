@@ -11,7 +11,7 @@ score it under :math:`N(0, \Sigma_A + \Sigma_B)`:
      \sim \chi^2_3 \quad \text{(translation slice, median 2.366)}.
 
 An elevated pairwise NEES certifies overconfidence with no reference
-consulted — the structural advantage over GT-only evaluation.
+consulted — the structural advantage over reference-only evaluation.
 
 Propriety caveat (applies to every number this module emits): the
 pairwise score is strictly proper only if the reference filter's stated
@@ -138,7 +138,7 @@ def pair_translation_nees(
     "check timestamps or loosen --t_max_diff",
   )
   a = [steps_a[i] for i in m.est_indices]
-  b = [steps_b[j] for j in m.gt_indices]
+  b = [steps_b[j] for j in m.ref_indices]
 
   fit = fit_alignment(
     np.array([s.translation for s in a]),

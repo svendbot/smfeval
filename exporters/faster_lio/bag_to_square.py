@@ -6,12 +6,13 @@ nav_msgs/Odometry.pose.covariance with the IKFoM 6x6 pose block in
 (pos, rot) tangent order before publish.
 
 BODY_FRAME=imu: Faster-LIO publishes the IMU-frame pose (`child_frame_id =
-tf_imu_frame_`, same as FAST-LIO2). Scoring against Spires LiDAR-frame GT
+tf_imu_frame_`, same as FAST-LIO2). Scoring against Spires LiDAR-frame reference
 needs smfeval's --body-frame-transform — see evaluate.py.
 
 Usage: pose_cov_to_unc.py <bag> <out.SQUARE> [topic=/Odometry]
 """
 import sys
+
 import rosbag
 
 _TS = "{:.9f}"

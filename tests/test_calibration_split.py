@@ -58,11 +58,11 @@ def _gauss(t: np.ndarray, cov_diag: float | np.ndarray) -> GaussianStep:
 
 
 def test_components_sum_to_log_score_and_match_neg_log_density():
-  gt = np.zeros(3)
-  gt_q = np.array([0.0, 0.0, 0.0, 1.0])
+  ref = np.zeros(3)
+  ref_q = np.array([0.0, 0.0, 0.0, 1.0])
   step = _gauss(np.array([0.3, -0.2, 0.1]), 0.05)
-  dec = gaussian_log_score_components(step, gt, gt_q)
-  ref = gaussian_log_score(step, gt, gt_q)
+  dec = gaussian_log_score_components(step, ref, ref_q)
+  ref = gaussian_log_score(step, ref, ref_q)
   slice_ = dec.translation
   assert np.isclose(slice_.calibration + slice_.sharpness, slice_.log_score)
   assert np.isclose(slice_.calibration, 0.5 * slice_.nees)
@@ -72,9 +72,9 @@ def test_components_sum_to_log_score_and_match_neg_log_density():
 
 
 def test_calibration_zero_when_truth_at_mean():
-  gt = np.zeros(3)
-  gt_q = np.array([0.0, 0.0, 0.0, 1.0])
-  dec = gaussian_log_score_components(_gauss(gt, 0.05), gt, gt_q)
+  ref = np.zeros(3)
+  ref_q = np.array([0.0, 0.0, 0.0, 1.0])
+  dec = gaussian_log_score_components(_gauss(ref, 0.05), ref, ref_q)
   assert np.isclose(dec.translation.nees, 0.0, atol=1e-9)
   assert np.isclose(dec.translation.calibration, 0.0, atol=1e-9)
   # with zero error the score IS the sharpness penalty.
@@ -82,23 +82,23 @@ def test_calibration_zero_when_truth_at_mean():
 
 
 def test_shrinking_cov_raises_calibration_lowers_sharpness():
-  gt = np.zeros(3)
-  gt_q = np.array([0.0, 0.0, 0.0, 1.0])
+  ref = np.zeros(3)
+  ref_q = np.array([0.0, 0.0, 0.0, 1.0])
   off = np.array([0.4, 0.0, 0.0])
-  wide = gaussian_log_score_components(_gauss(off, 0.1), gt, gt_q).translation
+  wide = gaussian_log_score_components(_gauss(off, 0.1), ref, ref_q).translation
   tight = gaussian_log_score_components(
-    _gauss(off, 0.001), gt, gt_q
+    _gauss(off, 0.001), ref, ref_q
   ).translation
   assert tight.calibration > wide.calibration  # overconfident → NEES blows up
   assert tight.sharpness < wide.sharpness  # tighter Σ → smaller log-volume
 
 
 def test_non_pd_covariance_is_inf():
-  gt = np.zeros(3)
-  gt_q = np.array([0.0, 0.0, 0.0, 1.0])
+  ref = np.zeros(3)
+  ref_q = np.array([0.0, 0.0, 0.0, 1.0])
   step = _gauss(np.array([0.1, 0.0, 0.0]), 0.05)
   step.covariance[0, 0] = -1.0  # break positive-definiteness
-  comp = gaussian_log_score_components(step, gt, gt_q).translation
+  comp = gaussian_log_score_components(step, ref, ref_q).translation
   assert comp.log_score == float("inf")
   assert comp.nees == float("inf")
 
@@ -151,10 +151,10 @@ def _relative_track(scale: float) -> tuple[list[GaussianStep], np.ndarray]:
   rng = np.random.default_rng(3)
   n = 400
   ts = np.linspace(0.0, 40.0, n)
-  gt = np.column_stack([ts * 0.5, np.zeros(n), np.zeros(n)])
+  ref = np.column_stack([ts * 0.5, np.zeros(n), np.zeros(n)])
   # Σ_rel over a 1-step window = Σ_i+Σ_j = 0.02·I → σ_rel = sqrt(0.02) per axis.
   sigma_rel = np.sqrt(0.02)
-  est = gt + rng.normal(scale=scale * sigma_rel / np.sqrt(2.0), size=gt.shape)
+  est = ref + rng.normal(scale=scale * sigma_rel / np.sqrt(2.0), size=ref.shape)
   steps = [
     GaussianStep(
       timestamp=t,
@@ -164,12 +164,12 @@ def _relative_track(scale: float) -> tuple[list[GaussianStep], np.ndarray]:
     )
     for t, p in zip(ts, est, strict=False)
   ]
-  return steps, gt
+  return steps, ref
 
 
 def test_relative_calibration_consistent_at_unit_scale():
-  steps, gt = _relative_track(scale=1.0)
-  res = relative_calibration(steps, gt, windows_s=[0.1], alpha=0.01)
+  steps, ref = _relative_track(scale=1.0)
+  res = relative_calibration(steps, ref, windows_s=[0.1], alpha=0.01)
   assert len(res) == 1
   r = res[0]
   assert r.anees.dof == 3
@@ -178,8 +178,8 @@ def test_relative_calibration_consistent_at_unit_scale():
 
 
 def test_relative_calibration_optimistic_when_overconfident():
-  steps, gt = _relative_track(scale=3.0)
-  res = relative_calibration(steps, gt, windows_s=[0.1], alpha=0.01)
+  steps, ref = _relative_track(scale=3.0)
+  res = relative_calibration(steps, ref, windows_s=[0.1], alpha=0.01)
   assert res[0].anees.verdict == "optimistic"
   assert res[0].anees.anees > res[0].anees.hi
 

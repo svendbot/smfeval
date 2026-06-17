@@ -33,15 +33,15 @@ Common to all representations:
 `BODY_FRAME` names the rigid body whose pose is reported (`imu`, `lidar`,
 `base_link`). It is a property of the publisher, not the dataset. FAST-LIO2's
 `state_ikfom` is in the IMU frame and declares `BODY_FRAME imu`; Oxford Spires
-GT is in the LiDAR frame and declares `BODY_FRAME lidar`. Names are free-form
+reference is in the LiDAR frame and declares `BODY_FRAME lidar`. Names are free-form
 strings matched by exact equality.
 
-When estimate and GT body frames differ, the scoring tool requires
+When estimate and reference body frames differ, the scoring tool requires
 `--body-frame-transform PATH`, a JSON object `{"R": [9 floats row-major], "t":
-[3 floats]}`. `T_off` is the pose of the GT body frame in the estimate body
-frame (ROS `target_T_source` convention). `R` maps a GT-body vector to
-estimate-body coordinates and `t` is the GT-body origin in estimate-body
-coordinates. It is applied by right-multiplication, `T_world_gt_body =
+[3 floats]}`. `T_off` is the pose of the reference body frame in the estimate body
+frame (ROS `target_T_source` convention). `R` maps a reference-body vector to
+estimate-body coordinates and `t` is the reference-body origin in estimate-body
+coordinates. It is applied by right-multiplication, `T_world_ref_body =
 T_world_est_body · T_off`. For `right_perturbation` covariances,
 `Σ ← Ad_{T_off^{-1}} · Σ · Ad_{T_off^{-1}}^⊤`; for `left_perturbation`, `Σ` is
 unchanged.
@@ -154,7 +154,7 @@ Missing header metadata comes from flags: `--est-body-frame` (required),
 `--gauge` (default `se3`). The assumed values are echoed on stderr.
 
 ```
-$ smfeval nees est.tum gt.tum --cov est.cov --est-body-frame imu --ref-body-frame imu
+$ smfeval nees est.tum ref.tum --cov est.cov --est-body-frame imu --ref-body-frame imu
 note: bare-TUM estimate read as gaussian_se3 (body_frame='imu', ...)
 median NEES 2.31   (calibrated: 2.37)
 ...

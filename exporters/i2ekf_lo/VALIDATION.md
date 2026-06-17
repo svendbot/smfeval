@@ -5,10 +5,10 @@
 - **Status:** verified (audited against source and empirical error scatter, Sec. V.d standard)
 
 Command (I2EKF-LO already estimates in the LiDAR body frame, so no
-body-frame transform is needed against the Spires GT):
+body-frame transform is needed against the Spires reference):
 
 ```
-smfeval nees traj.SQUARE gt-tum.txt --ref-body-frame lidar
+smfeval nees traj.SQUARE ref-tum.txt --ref-body-frame lidar
 ```
 
 Output (verbatim):

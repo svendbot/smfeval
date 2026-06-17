@@ -62,11 +62,11 @@ def _gaussian_neg_log_density(xi: np.ndarray, cov: np.ndarray) -> float:
 
 def gaussian_log_score(
   step: GaussianStep,
-  gt_translation: np.ndarray,
-  gt_quat_xyzw: np.ndarray,
+  ref_translation: np.ndarray,
+  ref_quat_xyzw: np.ndarray,
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
 ) -> GaussianLogScore:
-  r"""Translation-marginal negative log density of the GT under the belief.
+  r"""Translation-marginal negative log density of the reference under the belief.
 
   With residual :math:`\xi = \log_{T_\mathrm{mean}}(T_\mathrm{obs})
   \in \mathbb{R}^6`, covariance :math:`\Sigma \in \mathbb{R}^{6\times 6}`,
@@ -82,7 +82,7 @@ def gaussian_log_score(
   matching sub-covariance.
   """
   T_mean = pose_matrix(step.translation, step.quat_xyzw)
-  T_obs = pose_matrix(gt_translation, gt_quat_xyzw)
+  T_obs = pose_matrix(ref_translation, ref_quat_xyzw)
   xi = se3_log(relative(T_mean, T_obs), order=tangent_order)
   t_idx = trans_slice(tangent_order)
   trans = _gaussian_neg_log_density(xi[t_idx], step.covariance[t_idx, t_idx])
@@ -152,8 +152,8 @@ def _score_components(xi: np.ndarray, cov: np.ndarray) -> ScoreComponents:
 
 def gaussian_log_score_components(
   step: GaussianStep,
-  gt_translation: np.ndarray,
-  gt_quat_xyzw: np.ndarray,
+  ref_translation: np.ndarray,
+  ref_quat_xyzw: np.ndarray,
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
 ) -> DecomposedLogScore:
   r"""Translation log score split into calibration/sharpness.
@@ -163,7 +163,7 @@ def gaussian_log_score_components(
   (graded, χ²-referenced) while the raw score remains the proper headline.
   """
   T_mean = pose_matrix(step.translation, step.quat_xyzw)
-  T_obs = pose_matrix(gt_translation, gt_quat_xyzw)
+  T_obs = pose_matrix(ref_translation, ref_quat_xyzw)
   xi = se3_log(relative(T_mean, T_obs), order=tangent_order)
   t_idx = trans_slice(tangent_order)
   return DecomposedLogScore(
@@ -205,8 +205,8 @@ def student_t_neg_log_density(
 
 def student_t_logscore_sweep(
   steps: list,
-  gt_translations: np.ndarray,
-  gt_quats: np.ndarray,
+  ref_translations: np.ndarray,
+  ref_quats: np.ndarray,
   nus: list[float],
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
 ) -> tuple[list[float], dict[float, list[float]]]:
@@ -217,13 +217,13 @@ def student_t_logscore_sweep(
   """
   gauss: list[float] = []
   tcols: dict[float, list[float]] = {nu: [] for nu in nus}
-  for step, gt_t, gt_q in zip(steps, gt_translations, gt_quats, strict=True):
+  for step, ref_t, ref_q in zip(steps, ref_translations, ref_quats, strict=True):
     if not isinstance(step, GaussianStep):
       continue
     xi = se3_log(
       relative(
         pose_matrix(step.translation, step.quat_xyzw),
-        pose_matrix(gt_t, gt_q),
+        pose_matrix(ref_t, ref_q),
       ),
       order=tangent_order,
     )

@@ -3,7 +3,7 @@
 
 Selection: one run per audited filter on Spires christ-church-03 (all four
 filters have runs on this sequence), rows ROW_LO..ROW_HI of traj.SQUARE
-(skipping the stationary start), with the GT TUM truncated to the matching
+(skipping the stationary start), with the reference TUM truncated to the matching
 timestamp span. Mechanical gates: gaussian_se3 representation, all rows
 finite, translation covariance SPD throughout, >= 30 s of span.
 
@@ -30,16 +30,16 @@ from smfeval.se3.lie import homogeneous, invert
 
 BENCH = Path.home() / "smf" / "slam_benchmark"
 EVAL = BENCH / "evaluation"
-GT_TUM = (
+REF_TUM = (
   BENCH
   / "datasets/data/oxford_spires/sequences/2024-03-18-christ-church-03"
-  / "processed/trajectory/gt-tum.txt"
+  / "processed/trajectory/ref-tum.txt"
 )
 OUT = Path(__file__).resolve().parent.parent / "tests/fixtures/regression"
 
 SEQ = "spires_2024-03-18-christ-church-03_1710755015_2024-03-18-09-43-36_0"
 ROW_LO, ROW_HI = 50, 360
-GT_MARGIN_S = 0.5
+REF_MARGIN_S = 0.5
 
 # filter -> (algo dir prefix, regression cmd, needs imu->lidar transform)
 FILTERS = {
@@ -87,13 +87,13 @@ def check_steps(steps: list, name: str) -> None:
     np.linalg.cholesky(s.covariance[:3, :3])  # raises if not SPD
 
 
-def cut_gt(t0: float, t1: float) -> list[str]:
+def cut_ref(t0: float, t1: float) -> list[str]:
   rows = []
-  for line in GT_TUM.read_text().splitlines():
+  for line in REF_TUM.read_text().splitlines():
     if not line.strip() or line.startswith("#"):
       continue
     t = float(line.split()[0])
-    if t0 - GT_MARGIN_S <= t <= t1 + GT_MARGIN_S:
+    if t0 - REF_MARGIN_S <= t <= t1 + REF_MARGIN_S:
       rows.append(line)
   return rows
 
@@ -119,7 +119,7 @@ def provenance(scen: Path, runs: list[Path]) -> None:
     "Sequence: 2024-03-18-christ-church-03",
     *[f"Run: {r.name}" for r in runs],
     f"Rows: traj.SQUARE data rows [{ROW_LO}, {ROW_HI}) "
-    f"(stationary start skipped); GT span +-{GT_MARGIN_S} s",
+    f"(stationary start skipped); reference span +-{REF_MARGIN_S} s",
     "Cut: scripts/make_regression_fixtures.py, 2026-06-12",
     "License: see ../DATA_LICENSE.md (CC BY-NC-SA 4.0, Oxford Spires)",
   ]
@@ -130,8 +130,8 @@ def main() -> None:
   for name, (algo, cmd, needs_tf) in FILTERS.items():
     run = newest_run(algo)
     cut, scen = write_fixture(f"real_{name}", run)
-    gt_rows = cut_gt(cut[0].timestamp, cut[-1].timestamp)
-    (scen / "gt.tum").write_text("\n".join(gt_rows) + "\n")
+    ref_rows = cut_ref(cut[0].timestamp, cut[-1].timestamp)
+    (scen / "ref.tum").write_text("\n".join(ref_rows) + "\n")
     args: dict = {"cmd": cmd, "ref_body_frame": "lidar", "seed": 0, "extra": []}
     if cmd == "score":
       args["n_samples"] = 32
@@ -141,10 +141,10 @@ def main() -> None:
     (scen / "args.json").write_text(json.dumps(args, indent=2) + "\n")
     provenance(scen, [run])
     print(
-      f"real_{name}: {len(cut)} est rows, {len(gt_rows)} gt rows ({run.name})"
+      f"real_{name}: {len(cut)} est rows, {len(ref_rows)} ref rows ({run.name})"
     )
 
-  # pair fixture: two filters, same sequence and span, no GT involved.
+  # pair fixture: two filters, same sequence and span, no reference involved.
   run_a = newest_run("fast_lio2_belief")
   run_b = newest_run("point_lio_belief")
   cut_a, scen = write_fixture("pair_smoke", run_a, "a.smfeval")

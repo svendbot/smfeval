@@ -4,11 +4,11 @@
 - **Run:** `fast_lio2_belief_spires_2024-03-18-christ-church-03_1710755015_2024-03-18-09-43-36_0_20260608_175631` (slam_benchmark)
 - **Status:** verified (audited against source and empirical error scatter, Sec. V.d standard)
 
-Command (the estimate declares `BODY_FRAME imu`; Spires GT is in the LiDAR
+Command (the estimate declares `BODY_FRAME imu`; Spires reference is in the LiDAR
 frame, so the extrinsic from the filter's own config is passed):
 
 ```
-smfeval nees traj.SQUARE gt-tum.txt \
+smfeval nees traj.SQUARE ref-tum.txt \
   --ref-body-frame lidar \
   --body-frame-transform spires_imu_to_lidar.json
 ```
@@ -31,6 +31,6 @@ not on whether that belief is calibrated.
 FAST-LIO's `extrinsic_R`, `extrinsic_T` are consumed in `IMU_Processing.hpp`
 as `Lidar_R_wrt_IMU` / `Lidar_T_wrt_IMU` — these are `T_lidar_imu` (the
 rotation maps IMU-frame vectors to LiDAR-frame). For an IMU-publishing file
-scored against LiDAR-frame GT, the `--body-frame-transform` is the
+scored against LiDAR-frame reference, the `--body-frame-transform` is the
 **inverse**: `R = extrinsic_R^T`, `t = -extrinsic_R^T · extrinsic_T`. That
 inverse is what `spires_imu_to_lidar.json` stores.

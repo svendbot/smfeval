@@ -1,7 +1,7 @@
 """Golden-report regression tests.
 
 Each scenario under ``tests/fixtures/regression/<name>/`` holds:
-- ``gt.tum`` (or ``gt.smfeval``) — ground-truth trajectory (score/nees)
+- ``ref.tum`` (or ``ref.smfeval``) — reference trajectory (score/nees)
 - ``est.smfeval``               — estimate trajectory (score/nees)
 - ``a.smfeval`` / ``b.smfeval`` — the two trajectories (pair)
 - ``args.json``                 — CLI args spec (see _build_argv); the
@@ -54,9 +54,9 @@ def _build_argv(scenario: Path, json_out: Path) -> tuple[list[str], bool]:
     argv += ["--json"]
     return argv, True
 
-  gt = scenario / ("gt.tum" if (scenario / "gt.tum").exists() else "gt.smfeval")
+  ref = scenario / ("ref.tum" if (scenario / "ref.tum").exists() else "ref.smfeval")
   est = scenario / "est.smfeval"
-  argv = [cmd, str(est), str(gt)]
+  argv = [cmd, str(est), str(ref)]
   if cmd == "score":
     argv += ["--seed", str(spec.get("seed", 0))]
     if "n_samples" in spec:

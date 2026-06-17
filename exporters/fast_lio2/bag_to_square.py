@@ -9,13 +9,14 @@ The 6x6 covariance is stored row-major in msg.covariance; SQUARE wants the
 21 lower-triangular entries in row-major order.
 
 BODY_FRAME defaults to ``imu`` for FAST-LIO2: the state pose is published in
-the IMU frame (see use-ikfom.hpp). Scoring against a GT in a different body
-frame (e.g. Spires GT is in the LiDAR frame) requires smfeval's
+the IMU frame (see use-ikfom.hpp). Scoring against a reference in a different body
+frame (e.g. Spires reference is in the LiDAR frame) requires smfeval's
 --body-frame-transform extrinsic.
 
 Usage: pose_cov_to_unc.py <bag> <out.SQUARE> [topic=/Belief]
 """
 import sys
+
 import rosbag
 
 _TS = "{:.9f}"

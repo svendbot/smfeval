@@ -51,7 +51,7 @@ def _gaussian_crps(
 
 def translation_crps(
   pred_step: Step,
-  gt_translation: np.ndarray,
+  ref_translation: np.ndarray,
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
 ) -> float:
   r"""Mean per-axis CRPS over the three translation components.
@@ -66,16 +66,16 @@ def translation_crps(
       sl = trans_slice(tangent_order)
       sigma = np.sqrt(np.diag(pred_step.covariance)[sl])
       return float(
-        _gaussian_crps(pred_step.translation, sigma, gt_translation).mean()
+        _gaussian_crps(pred_step.translation, sigma, ref_translation).mean()
       )
     case EnsembleStep():
       samples = pred_step.particles[:, :3]
       axis_scores = [
-        crps_estimator(samples[:, i], float(gt_translation[i]))
+        crps_estimator(samples[:, i], float(ref_translation[i]))
         for i in range(3)
       ]
       return float(np.mean(axis_scores))
     case DeterministicStep():
-      return float(np.abs(pred_step.translation - gt_translation).mean())
+      return float(np.abs(pred_step.translation - ref_translation).mean())
     case _:
       raise TypeError(f"unsupported step type {type(pred_step).__name__}")

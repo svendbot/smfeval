@@ -23,7 +23,7 @@ BASE = (
 )
 FILES = {
   "est.SQUARE": "christ-church-03_fast_lio2.SQUARE.gz",
-  "gt.tum": "christ-church-03_gt.tum.gz",
+  "ref.tum": "christ-church-03_ref.tum.gz",
   "imu_to_lidar.json": "imu_to_lidar.json",
 }
 
@@ -41,11 +41,11 @@ print("data ready:", list(FILES))
 # %% [markdown]
 # ## Score the filter
 #
-# One command. The estimate declares `BODY_FRAME imu`; the Spires GT is in the
+# One command. The estimate declares `BODY_FRAME imu`; the Spires reference is in the
 # LiDAR frame, so the filter's own extrinsic is passed along.
 
 # %%
-# !smfeval nees est.SQUARE gt.tum --ref-body-frame lidar --body-frame-transform imu_to_lidar.json
+# !smfeval nees est.SQUARE ref.tum --ref-body-frame lidar --body-frame-transform imu_to_lidar.json
 
 # %% [markdown]
 # Median NEES around 10^3 against a calibrated reference of 2.37: the published
@@ -73,10 +73,10 @@ from smfeval.se3.lie import homogeneous
 from smfeval.sync import match_timestamps
 
 header, est = load_square(Path("est.SQUARE"))
-_, gt = load_tum(Path("gt.tum"), pose_frame="world", body_frame="lidar")
+_, ref = load_tum(Path("ref.tum"), pose_frame="world", body_frame="lidar")
 order = header.tangent_order
 
-# re-express the estimate in the GT (LiDAR) body frame
+# re-express the estimate in the reference (LiDAR) body frame
 tf = json.loads(Path("imu_to_lidar.json").read_text())
 T_off = homogeneous(np.array(tf["R"]).reshape(3, 3), np.array(tf["t"]))
 conv = header.tangent_convention
@@ -84,13 +84,13 @@ est = [apply_body_transform(s, T_off, tangent_convention=conv, tangent_order=ord
 
 # match timestamps, align under the declared gauge, score each pose
 m = match_timestamps(
-  np.array([s.timestamp for s in est]), np.array([s.timestamp for s in gt]), t_max_diff=0.01
+  np.array([s.timestamp for s in est]), np.array([s.timestamp for s in ref]), t_max_diff=0.01
 )
 matched = [est[i] for i in m.est_indices]
-gt_t = np.array([gt[j].translation for j in m.gt_indices])
-gt_q = np.array([gt[j].quat_xyzw for j in m.gt_indices])
+ref_t = np.array([ref[j].translation for j in m.ref_indices])
+ref_q = np.array([ref[j].quat_xyzw for j in m.ref_indices])
 fit = fit_alignment(
-  np.array([s.translation for s in matched]), gt_t, mode=align_mode_for_gauge(header.gauge)
+  np.array([s.translation for s in matched]), ref_t, mode=align_mode_for_gauge(header.gauge)
 )
 aligned = [
   propagate_step(s, fit.transform, scale=fit.scale, tangent_convention=conv, tangent_order=order)
@@ -98,7 +98,7 @@ aligned = [
 ]
 
 nees = np.array(
-  [gaussian_log_score_components(s, t, q, order).translation.nees for s, t, q in zip(aligned, gt_t, gt_q)]
+  [gaussian_log_score_components(s, t, q, order).translation.nees for s, t, q in zip(aligned, ref_t, ref_q, strict=True)]
 )
 verdict = nees_verdict(nees, dof=3)
 print(render_nees_verdict(verdict))
@@ -139,9 +139,9 @@ ax.legend()
 fig.tight_layout()
 
 # %% [markdown]
-# ## No ground truth? Score two filters against each other
+# ## No reference? Score two filters against each other
 #
 # `smfeval pair a.SQUARE b.SQUARE` aligns filter A to filter B (the reference is
 # never consulted) and scores the difference under the summed covariances. An
-# elevated pairwise NEES certifies overconfidence with no ground truth at all,
+# elevated pairwise NEES certifies overconfidence with no reference at all,
 # and it is a lower bound on the miscalibration. See the README for details.

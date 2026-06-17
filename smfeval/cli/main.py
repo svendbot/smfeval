@@ -71,7 +71,7 @@ from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
 from smfeval.sync import (
   MatchResult,
   SyncMode,
-  interpolate_gt_at,
+  interpolate_ref_at,
   match_timestamps,
   sync_risk,
 )
@@ -417,12 +417,12 @@ def _load_ess_cfile(path: Path) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _load_body_frame_transform(path: Path) -> np.ndarray:
-  """Read an SE(3) ``T_est_body__gt_body`` from a JSON file with ``R``, ``t``.
+  """Read an SE(3) ``T_est_body__ref_body`` from a JSON file with ``R``, ``t``.
 
   Matches the Spires ``cam-lidar-imu.yaml`` convention: ``R`` is the 3×3
   rotation row-major, ``t`` is the 3-vector. The semantics are that of a ROS
   transform ``target_T_source`` where ``target`` is the estimate's body frame
-  and ``source`` is the GT's body frame.
+  and ``source`` is the reference's body frame.
   """
   data = json.loads(path.read_text())
   R = np.array(data["R"], dtype=float).reshape(3, 3)
@@ -433,7 +433,7 @@ def _load_body_frame_transform(path: Path) -> np.ndarray:
 def _resolve_sync(
   args: argparse.Namespace,
   est_steps: list,
-  gt_steps: list,
+  ref_steps: list,
   tangent_order: TangentOrder | None,
 ) -> (
   tuple[
@@ -441,87 +441,87 @@ def _resolve_sync(
   ]
   | None
 ):
-  """Pair estimate and GT poses by --sync mode.
+  """Pair estimate and reference poses by --sync mode.
 
-  Sixth element is the matched GT covariance (Q, 6, 6) under interpolate_ref
+  Sixth element is the matched reference covariance (Q, 6, 6) under interpolate_ref
   (the GP predictive Σ_ref), else None.
 
   Prints to stderr and returns None on error (empty match / no overlap).
   """
   est_ts = np.array([s.timestamp for s in est_steps])
-  gt_ts = np.array([s.timestamp for s in gt_steps])
-  gt_positions = np.array([s.translation for s in gt_steps])
-  gt_quats = np.array([s.quat_xyzw for s in gt_steps])
+  ref_ts = np.array([s.timestamp for s in ref_steps])
+  ref_positions = np.array([s.translation for s in ref_steps])
+  ref_quats = np.array([s.quat_xyzw for s in ref_steps])
 
   match args.sync:
     case SyncMode.INTERPOLATE_REF:
       query_t = est_ts + args.t_offset
-      interp_t, interp_q, interp_cov, keep = interpolate_gt_at(
+      interp_t, interp_q, interp_cov, keep = interpolate_ref_at(
         query_t,
-        gt_ts,
-        gt_positions,
-        gt_quats,
+        ref_ts,
+        ref_positions,
+        ref_quats,
         window=args.sync_window,
         length_scale_s=args.sync_length_scale,
       )
       if not keep.any():
         print(
-          "error: no estimate timestamps fall within the GT range",
+          "error: no estimate timestamps fall within the reference range",
           file=sys.stderr,
         )
         return None
       est_idx = np.where(keep)[0]
-      # gt_indices = -1: the interpolated GT is not a row in gt_steps.
+      # ref_indices = -1: the interpolated reference is not a row in ref_steps.
       match_res = MatchResult(
         est_indices=est_idx,
-        gt_indices=np.full(est_idx.size, -1, dtype=int),
+        ref_indices=np.full(est_idx.size, -1, dtype=int),
         n_total=len(est_ts),
         n_matched=int(est_idx.size),
         n_dropped=int(len(est_ts) - est_idx.size),
         gap_seconds=np.zeros(est_idx.size),
       )
       matched_est = [est_steps[i] for i in est_idx]
-      matched_gt_t = interp_t[est_idx]
-      matched_gt_q = interp_q[est_idx]
+      matched_ref_t = interp_t[est_idx]
+      matched_ref_q = interp_q[est_idx]
       # Risk surrogate: GP predictive sigma - interpolation hits the query exactly,
       # but the predictive variance bounds how trustworthy that hit is.
       risks = np.sqrt(np.maximum(interp_cov[est_idx, 0, 0], 0.0))
       return (
         match_res,
         matched_est,
-        matched_gt_t,
-        matched_gt_q,
+        matched_ref_t,
+        matched_ref_q,
         risks,
         interp_cov[est_idx],
       )
 
     case SyncMode.NEAREST:
       match_res = match_timestamps(
-        est_ts, gt_ts, args.t_max_diff, args.t_offset
+        est_ts, ref_ts, args.t_max_diff, args.t_offset
       )
       if match_res.n_matched == 0:
         print("error: no matched pairs", file=sys.stderr)
         return None
       matched_est = [est_steps[i] for i in match_res.est_indices]
-      matched_gt_t = gt_positions[match_res.gt_indices]
-      matched_gt_q = gt_quats[match_res.gt_indices]
+      matched_ref_t = ref_positions[match_res.ref_indices]
+      matched_ref_q = ref_quats[match_res.ref_indices]
       risks = sync_risk(
         est_steps,
-        gt_ts,
-        gt_positions,
+        ref_ts,
+        ref_positions,
         match_res.est_indices,
-        match_res.gt_indices,
+        match_res.ref_indices,
         est_ts=est_ts,
         t_offset=args.t_offset,
         tangent_order=tangent_order,
       )
-      return match_res, matched_est, matched_gt_t, matched_gt_q, risks, None
+      return match_res, matched_est, matched_ref_t, matched_ref_q, risks, None
 
 
 def _compute_scores(
   aligned_est: list,
-  matched_gt_t: np.ndarray,
-  matched_gt_q: np.ndarray,
+  matched_ref_t: np.ndarray,
+  matched_ref_q: np.ndarray,
   order: TangentOrder,
   n_samples: int,
   alpha: float,
@@ -532,19 +532,19 @@ def _compute_scores(
   es: list[float] = []
   is_t: list[float] = []
   log_trans: list[float] = []
-  for s, gt_t, gt_q in zip(
-    aligned_est, matched_gt_t, matched_gt_q, strict=True
+  for s, ref_t, ref_q in zip(
+    aligned_est, matched_ref_t, matched_ref_q, strict=True
   ):
-    crps_t.append(translation_crps(s, gt_t, order))
-    es.append(energy_score(s, gt_t, order, n_samples, rng))
+    crps_t.append(translation_crps(s, ref_t, order))
+    es.append(energy_score(s, ref_t, order, n_samples, rng))
 
     if isinstance(s, GaussianStep):
-      ls = gaussian_log_score(s, gt_t, gt_q, order)
+      ls = gaussian_log_score(s, ref_t, ref_q, order)
       log_trans.append(ls.translation)
     if not isinstance(s, DeterministicStep):
       is_t.append(
         translation_magnitude_interval_score(
-          s, gt_t, alpha, n_samples, rng, order
+          s, ref_t, alpha, n_samples, rng, order
         )
       )
 
@@ -562,18 +562,18 @@ def _compute_scores(
 
 @dataclass
 class PreparedRun:
-  """Estimate/GT pair after loading, frame checks, sync, and alignment."""
+  """Estimate/reference pair after loading, frame checks, sync, and alignment."""
 
   est_header: SquareHeader
   matched_est: list[Step]
   aligned_est: list[Step]
-  matched_gt_t: np.ndarray
-  matched_gt_q: np.ndarray
+  matched_ref_t: np.ndarray
+  matched_ref_q: np.ndarray
   match: MatchResult
   fit: AlignmentFit
   order: TangentOrder
   risks: np.ndarray
-  gt_cov: np.ndarray | None  # GP predictive covariance under interpolate_ref
+  ref_cov: np.ndarray | None  # GP predictive covariance under interpolate_ref
 
 
 def _load_estimate(args: argparse.Namespace) -> tuple[SquareHeader, list[Step]]:
@@ -624,7 +624,7 @@ def _rebody(
 
 
 def _prepare(args: argparse.Namespace) -> PreparedRun | None:
-  """Load est+gt, check frames, sync, and align (shared by score/nees).
+  """Load est+ref, check frames, sync, and align (shared by score/nees).
 
   Prints to stderr and returns None on any input error.
   """
@@ -640,22 +640,22 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
           file=sys.stderr,
         )
         return None
-      gt_tum, gt_steps = load_tum(
+      ref_tum, ref_steps = load_tum(
         args.ref,
         pose_frame=args.ref_pose_frame,
         body_frame=args.ref_body_frame,
       )
-      gt_header: SquareHeader = gt_tum.to_square()
+      ref_header: SquareHeader = ref_tum.to_square()
     else:
-      gt_header, gt_steps = load_square(args.ref)
+      ref_header, ref_steps = load_square(args.ref)
   except (FormatError, OSError) as e:
     print(f"error: {e}", file=sys.stderr)
     return None
 
-  if est_header.pose_frame != gt_header.pose_frame:
+  if est_header.pose_frame != ref_header.pose_frame:
     print(
       f"error: pose frames differ — estimate is {est_header.pose_frame!r}, "
-      f"reference is {gt_header.pose_frame!r}. The scoring tool does "
+      f"reference is {ref_header.pose_frame!r}. The scoring tool does "
       "not transform between outer reference frames; pre-align both "
       "trajectories into a common pose frame, or pass --ref-pose-frame "
       "if the reference file is plain TUM and the default 'world' is wrong.",
@@ -663,31 +663,31 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
     )
     return None
 
-  if est_header.body_frame != gt_header.body_frame:
+  if est_header.body_frame != ref_header.body_frame:
     if args.body_frame_transform is None:
       print(
         f"error: body frames differ — estimate is {est_header.body_frame!r}, "
-        f"reference is {gt_header.body_frame!r}. Provide "
+        f"reference is {ref_header.body_frame!r}. Provide "
         "--body-frame-transform PATH with the SE(3) "
-        "T_est_body__gt_body, or rewrite both trajectories in a common "
+        "T_est_body__ref_body, or rewrite both trajectories in a common "
         "frame.",
         file=sys.stderr,
       )
       return None
     est_header, est_steps = _rebody(
-      est_header, est_steps, gt_header.body_frame, args.body_frame_transform
+      est_header, est_steps, ref_header.body_frame, args.body_frame_transform
     )
 
-  resolved = _resolve_sync(args, est_steps, gt_steps, est_header.tangent_order)
+  resolved = _resolve_sync(args, est_steps, ref_steps, est_header.tangent_order)
   if resolved is None:
     return None
-  match, matched_est, matched_gt_t, matched_gt_q, risks, gt_cov = resolved
+  match, matched_est, matched_ref_t, matched_ref_q, risks, ref_cov = resolved
 
   align_mode = args.align or align_mode_for_gauge(est_header.gauge)
   n_align = args.n_to_align if args.n_to_align else len(matched_est)
   n_align = min(n_align, len(matched_est))
   fit_t = np.array([s.translation for s in matched_est[:n_align]])
-  fit = fit_alignment(fit_t, matched_gt_t[:n_align], mode=align_mode)
+  fit = fit_alignment(fit_t, matched_ref_t[:n_align], mode=align_mode)
 
   aligned_est: list[Step] = [
     propagate_step(
@@ -704,13 +704,13 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
     est_header=est_header,
     matched_est=matched_est,
     aligned_est=aligned_est,
-    matched_gt_t=matched_gt_t,
-    matched_gt_q=matched_gt_q,
+    matched_ref_t=matched_ref_t,
+    matched_ref_q=matched_ref_q,
     match=match,
     fit=fit,
     order=est_header.tangent_order or TangentOrder.TRANS_ROT,
     risks=risks,
-    gt_cov=gt_cov,
+    ref_cov=ref_cov,
   )
 
 
@@ -729,12 +729,12 @@ def _nees(args: argparse.Namespace) -> int:
     return 2
 
   vals: list[float] = []
-  for s, gt_t, gt_q in zip(
-    pr.aligned_est, pr.matched_gt_t, pr.matched_gt_q, strict=True
+  for s, ref_t, ref_q in zip(
+    pr.aligned_est, pr.matched_ref_t, pr.matched_ref_q, strict=True
   ):
     if not isinstance(s, GaussianStep):
       continue
-    dec = gaussian_log_score_components(s, gt_t, gt_q, pr.order)
+    dec = gaussian_log_score_components(s, ref_t, ref_q, pr.order)
     vals.append(dec.translation.nees)
 
   v = nees_verdict(np.asarray(vals), dof=3, alpha=args.alpha)
@@ -786,12 +786,12 @@ def _pair(args: argparse.Namespace) -> int:
 
 
 def _adjust_covariance(
-  args: argparse.Namespace, aligned_est: list, gt_cov
+  args: argparse.Namespace, aligned_est: list, ref_cov
 ) -> list | None:
-  """Apply ESS inflation and GT-covariance folding to the predictive steps.
+  """Apply ESS inflation and reference-covariance folding to the predictive steps.
 
   Returns the adjusted steps, or None (after printing an error) when
-  --consume-ref-cov is requested without an interpolated GT covariance. gt_cov is
+  --consume-ref-cov is requested without an interpolated reference covariance. ref_cov is
   the isotropic GP predictive covariance, so the tangent-order of the sum is
   immaterial; the gaussian-validity check stays on the raw predictive cov.
   """
@@ -815,7 +815,7 @@ def _adjust_covariance(
         file=sys.stderr,
       )
 
-  if args.consume_ref_cov and gt_cov is None:
+  if args.consume_ref_cov and ref_cov is None:
     print(
       "error: --consume-ref-cov requires --sync=interpolate_ref (it supplies "
       "Σ_ref as the GP predictive covariance)",
@@ -834,8 +834,8 @@ def _adjust_covariance(
     cov = s.covariance
     if ess_c is not None:  # cov *= ess_c  (ESS inflation)
       cov = ess_c[k] * cov
-    if args.consume_ref_cov:  # cov += gt_cov  (observer uncertainty)
-      cov = cov + gt_cov[k]
+    if args.consume_ref_cov:  # cov += ref_cov  (observer uncertainty)
+      cov = cov + ref_cov[k]
     scored_est.append(replace(s, covariance=cov))
   return scored_est
 
@@ -854,8 +854,8 @@ def _emit_side_reports(
   args: argparse.Namespace,
   aligned_est: list,
   scored_est: list,
-  matched_gt_t: np.ndarray,
-  matched_gt_q: np.ndarray,
+  matched_ref_t: np.ndarray,
+  matched_ref_q: np.ndarray,
   order: TangentOrder,
   est_header: SquareHeader,
   rpe_windows: list[float] | None,
@@ -864,13 +864,13 @@ def _emit_side_reports(
   """Print the optional relative-CRPS, calibration, and student-t side reports."""
   if rpe_windows:
     _report_relative_crps(
-      args, aligned_est, matched_gt_t, order, est_header, rpe_windows
+      args, aligned_est, matched_ref_t, order, est_header, rpe_windows
     )
   if split is not None:
     _emit_calibration_machine_lines(split)
   if args.student_t:
     _report_student_t(
-      args, scored_est, matched_gt_t, matched_gt_q, order, est_header
+      args, scored_est, matched_ref_t, matched_ref_q, order, est_header
     )
 
 
@@ -881,9 +881,9 @@ def _score(args: argparse.Namespace) -> int:
   est_header = pr.est_header
   matched_est = pr.matched_est
   aligned_est = pr.aligned_est
-  matched_gt_t = pr.matched_gt_t
-  matched_gt_q = pr.matched_gt_q
-  match, fit, risks, gt_cov = pr.match, pr.fit, pr.risks, pr.gt_cov
+  matched_ref_t = pr.matched_ref_t
+  matched_ref_q = pr.matched_ref_q
+  match, fit, risks, ref_cov = pr.match, pr.fit, pr.risks, pr.ref_cov
   order = pr.order
   rpe_windows = (
     [float(x) for x in args.rpe_window.split(",") if x.strip()]
@@ -899,14 +899,14 @@ def _score(args: argparse.Namespace) -> int:
       normalized=bool(est_header.weights_normalized),
     )
 
-  scored_est = _adjust_covariance(args, aligned_est, gt_cov)
+  scored_est = _adjust_covariance(args, aligned_est, ref_cov)
   if scored_est is None:
     return 2
 
   scores = _compute_scores(
     scored_est,
-    matched_gt_t,
-    matched_gt_q,
+    matched_ref_t,
+    matched_ref_q,
     order=order,
     n_samples=args.n_samples,
     alpha=args.alpha,
@@ -917,8 +917,8 @@ def _score(args: argparse.Namespace) -> int:
   if est_header.representation is not Representation.DETERMINISTIC:
     cal = calibrate(
       scored_est,
-      matched_gt_t,
-      matched_gt_q,
+      matched_ref_t,
+      matched_ref_q,
       tangent_order=order,
       alpha=args.alpha,
       n_samples=args.n_samples,
@@ -926,8 +926,8 @@ def _score(args: argparse.Namespace) -> int:
     )
 
   traj_len = (
-    float(np.sum(np.linalg.norm(np.diff(matched_gt_t, axis=0), axis=1)))
-    if len(matched_gt_t) > 1
+    float(np.sum(np.linalg.norm(np.diff(matched_ref_t, axis=0), axis=1)))
+    if len(matched_ref_t) > 1
     else 0.0
   )
 
@@ -935,7 +935,7 @@ def _score(args: argparse.Namespace) -> int:
   if args.calibration:
     if est_header.representation is Representation.GAUSSIAN_SE3:
       split = _calibration_split_dict(
-        args, scored_est, matched_gt_t, matched_gt_q, order, rpe_windows
+        args, scored_est, matched_ref_t, matched_ref_q, order, rpe_windows
       )
     else:
       print(
@@ -957,11 +957,11 @@ def _score(args: argparse.Namespace) -> int:
     sync_mode=args.sync,
   )
   rep.calibration_split = split
-  if args.calibration and len(matched_gt_t) > 2:
+  if args.calibration and len(matched_ref_t) > 2:
     bv_windows = rpe_windows or [0.1, 1.0, 10.0]
     rep.bias_variance = [
       r.to_dict()
-      for r in bias_variance(aligned_est, matched_gt_t, windows_s=bv_windows)
+      for r in bias_variance(aligned_est, matched_ref_t, windows_s=bv_windows)
     ]
   rep.recommendations = recommendations(rep)
   rep.diagnoses = diagnose(rep)
@@ -970,8 +970,8 @@ def _score(args: argparse.Namespace) -> int:
     args,
     aligned_est,
     scored_est,
-    matched_gt_t,
-    matched_gt_q,
+    matched_ref_t,
+    matched_ref_q,
     order,
     est_header,
     rpe_windows,
@@ -983,7 +983,7 @@ def _score(args: argparse.Namespace) -> int:
 def _report_relative_crps(
   args: argparse.Namespace,
   aligned_est: list,
-  matched_gt_t: np.ndarray,
+  matched_ref_t: np.ndarray,
   order: TangentOrder,
   est_header: SquareHeader,
   windows: list[float],
@@ -1004,7 +1004,7 @@ def _report_relative_crps(
     return
   results = relative_translation_crps(
     aligned_est,
-    matched_gt_t,
+    matched_ref_t,
     windows_s=windows,
     tangent_order=order,
     rng=np.random.default_rng(args.seed + 3),
@@ -1036,8 +1036,8 @@ def _report_relative_crps(
 def _calibration_split_dict(
   args: argparse.Namespace,
   aligned_est: list,
-  matched_gt_t: np.ndarray,
-  matched_gt_q: np.ndarray,
+  matched_ref_t: np.ndarray,
+  matched_ref_q: np.ndarray,
   order: TangentOrder,
   windows: list[float] | None,
 ) -> dict | None:
@@ -1052,12 +1052,12 @@ def _calibration_split_dict(
   nees: list[float] = []
   calib: list[float] = []
   sharp: list[float] = []
-  for s, gt_t, gt_q in zip(
-    aligned_est, matched_gt_t, matched_gt_q, strict=True
+  for s, ref_t, ref_q in zip(
+    aligned_est, matched_ref_t, matched_ref_q, strict=True
   ):
     if not isinstance(s, GaussianStep):
       continue
-    comp = gaussian_log_score_components(s, gt_t, gt_q, order).translation
+    comp = gaussian_log_score_components(s, ref_t, ref_q, order).translation
     nees.append(comp.nees)
     calib.append(comp.calibration)
     sharp.append(comp.sharpness)
@@ -1087,7 +1087,7 @@ def _calibration_split_dict(
   if windows:
     rows = relative_calibration(
       aligned_est,
-      matched_gt_t,
+      matched_ref_t,
       windows_s=windows,
       tangent_order=order,
       alpha=args.alpha,
@@ -1133,8 +1133,8 @@ def _emit_calibration_machine_lines(split: dict) -> None:
 def _report_student_t(
   args: argparse.Namespace,
   aligned_est: list,
-  matched_gt_t: np.ndarray,
-  matched_gt_q: np.ndarray,
+  matched_ref_t: np.ndarray,
+  matched_ref_q: np.ndarray,
   order: TangentOrder,
   est_header: SquareHeader,
 ) -> None:
@@ -1156,7 +1156,7 @@ def _report_student_t(
     return
   nus = [float(x) for x in args.student_t.split(",") if x.strip()]
   gauss, tcols = student_t_logscore_sweep(
-    aligned_est, matched_gt_t, matched_gt_q, nus, tangent_order=order
+    aligned_est, matched_ref_t, matched_ref_q, nus, tangent_order=order
   )
 
   if not gauss:

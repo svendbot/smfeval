@@ -42,7 +42,7 @@ def _det_header(body_frame: str = "imu") -> SquareHeader:
     body_frame=body_frame,
     gauge=Gauge.FIXED,
     timestamp_unit="seconds",
-    algorithm="gt",
+    algorithm="ref",
     algorithm_version="1.0",
   )
 
@@ -94,23 +94,23 @@ def test_score_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixture):
   rng = np.random.default_rng(0)
   n = 30
   ts = np.linspace(0.0, 3.0, n)
-  gt_pos = np.column_stack([ts * 0.5, np.zeros(n), np.zeros(n)])
-  est_pos = gt_pos + rng.normal(scale=0.02, size=gt_pos.shape)
+  ref_pos = np.column_stack([ts * 0.5, np.zeros(n), np.zeros(n)])
+  est_pos = ref_pos + rng.normal(scale=0.02, size=ref_pos.shape)
 
   est_path = tmp_path / "est.SQUARE"
-  gt_path = tmp_path / "gt.SQUARE"
+  ref_path = tmp_path / "ref.SQUARE"
   _write(
     est_path,
     _gauss_header(),
     [_gauss_step(t, p) for t, p in zip(ts, est_pos, strict=False)],
   )
   _write(
-    gt_path,
+    ref_path,
     _det_header(),
-    [_det_step(t, p) for t, p in zip(ts, gt_pos, strict=False)],
+    [_det_step(t, p) for t, p in zip(ts, ref_pos, strict=False)],
   )
 
-  rc = main(["score", str(est_path), str(gt_path), "--n_samples", "32"])
+  rc = main(["score", str(est_path), str(ref_path), "--n_samples", "32"])
   out = capsys.readouterr().out
   assert rc == 0
   assert "smfeval scoring report" in out
@@ -126,22 +126,22 @@ def _write_calibration_case(tmp_path: Path, scale: float) -> tuple[Path, Path]:
   rng = np.random.default_rng(1)
   n = 200
   ts = np.linspace(0.0, 20.0, n)
-  gt_pos = np.column_stack([ts * 0.5, np.zeros(n), np.zeros(n)])
+  ref_pos = np.column_stack([ts * 0.5, np.zeros(n), np.zeros(n)])
   # σ_t = 0.1 m (cov diag 0.01); inject N(0, (scale·σ)²) translation error.
-  est_pos = gt_pos + rng.normal(scale=scale * 0.1, size=gt_pos.shape)
+  est_pos = ref_pos + rng.normal(scale=scale * 0.1, size=ref_pos.shape)
   est_path = tmp_path / "est.SQUARE"
-  gt_path = tmp_path / "gt.SQUARE"
+  ref_path = tmp_path / "ref.SQUARE"
   _write(
     est_path,
     _gauss_header(),
     [_gauss_step(t, p) for t, p in zip(ts, est_pos, strict=False)],
   )
   _write(
-    gt_path,
+    ref_path,
     _det_header(),
-    [_det_step(t, p) for t, p in zip(ts, gt_pos, strict=False)],
+    [_det_step(t, p) for t, p in zip(ts, ref_pos, strict=False)],
   )
-  return est_path, gt_path
+  return est_path, ref_path
 
 
 def test_calibration_flag_consistent(
@@ -150,12 +150,12 @@ def test_calibration_flag_consistent(
   # error matched to Σ (scale 1) → ANEES ≈ dof. Use a 99% interval
   # (--alpha 0.01): for calibrated data E[ANEES]=dof sits at the interval
   # centre, so a tight (90%) interval rejects ~10% of draws by construction.
-  est_path, gt_path = _write_calibration_case(tmp_path, scale=1.0)
+  est_path, ref_path = _write_calibration_case(tmp_path, scale=1.0)
   rc = main(
     [
       "score",
       str(est_path),
-      str(gt_path),
+      str(ref_path),
       "--align",
       "none",
       "--alpha",
@@ -178,9 +178,9 @@ def test_calibration_flag_optimistic_when_overconfident(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
   # error 3× what Σ claims → over-confident → optimistic verdict.
-  est_path, gt_path = _write_calibration_case(tmp_path, scale=3.0)
+  est_path, ref_path = _write_calibration_case(tmp_path, scale=3.0)
   rc = main(
-    ["score", str(est_path), str(gt_path), "--align", "none", "--calibration"]
+    ["score", str(est_path), str(ref_path), "--align", "none", "--calibration"]
   )
   out = capsys.readouterr().out
   assert rc == 0
@@ -194,18 +194,18 @@ def test_calibration_flag_skipped_for_deterministic(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
   est_path = tmp_path / "est.SQUARE"
-  gt_path = tmp_path / "gt.SQUARE"
+  ref_path = tmp_path / "ref.SQUARE"
   _write(
     est_path,
     _det_header(),
     [_det_step(t, np.array([t, 0, 0])) for t in range(5)],
   )
   _write(
-    gt_path,
+    ref_path,
     _det_header(),
     [_det_step(t, np.array([t, 0, 0])) for t in range(5)],
   )
-  rc = main(["score", str(est_path), str(gt_path), "--calibration"])
+  rc = main(["score", str(est_path), str(ref_path), "--calibration"])
   err = capsys.readouterr().err
   assert rc == 0
   assert "calibration split: skipped" in err
@@ -223,8 +223,8 @@ def _translation_anees(out: str) -> float:
 def test_consume_ref_cov_requires_interpolate(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
-  est_path, gt_path = _write_calibration_case(tmp_path, scale=3.0)
-  rc = main(["score", str(est_path), str(gt_path), "--consume-ref-cov"])
+  est_path, ref_path = _write_calibration_case(tmp_path, scale=3.0)
+  rc = main(["score", str(est_path), str(ref_path), "--consume-ref-cov"])
   assert rc == 2
   assert "requires --sync=interpolate_ref" in capsys.readouterr().err
 
@@ -232,33 +232,33 @@ def test_consume_ref_cov_requires_interpolate(
 def test_consume_ref_cov_reduces_calibration_term(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
-  # Dense GT at 10 Hz; est offset half a period so the GP predictive Σ_ref > 0.
+  # Dense reference at 10 Hz; est offset half a period so the GP predictive Σ_ref > 0.
   rng = np.random.default_rng(2)
   n = 240
-  gt_t = np.linspace(0.0, 24.0, n)
-  est_t = gt_t + 0.05
-  gt_pos = np.column_stack([gt_t * 0.5, np.zeros(n), np.zeros(n)])
+  ref_t = np.linspace(0.0, 24.0, n)
+  est_t = ref_t + 0.05
+  ref_pos = np.column_stack([ref_t * 0.5, np.zeros(n), np.zeros(n)])
   est_pos = np.column_stack([est_t * 0.5, np.zeros(n), np.zeros(n)])
   est_pos += rng.normal(
     scale=0.3, size=est_pos.shape
   )  # over-confident (Σ tight)
   est_path = tmp_path / "est.SQUARE"
-  gt_path = tmp_path / "gt.SQUARE"
+  ref_path = tmp_path / "ref.SQUARE"
   _write(
     est_path,
     _gauss_header(),
     [_gauss_step(t, p) for t, p in zip(est_t, est_pos, strict=False)],
   )
   _write(
-    gt_path,
+    ref_path,
     _det_header(),
-    [_det_step(t, p) for t, p in zip(gt_t, gt_pos, strict=False)],
+    [_det_step(t, p) for t, p in zip(ref_t, ref_pos, strict=False)],
   )
 
   common = [
     "score",
     str(est_path),
-    str(gt_path),
+    str(ref_path),
     "--align",
     "none",
     "--sync",
@@ -279,13 +279,13 @@ def test_ess_inflate_scales_anees(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
   # Σ → c·Σ with constant c=4 ⇒ NEES → NEES/4 ⇒ ANEES drops ~4×.
-  est_path, gt_path = _write_calibration_case(tmp_path, scale=3.0)
+  est_path, ref_path = _write_calibration_case(tmp_path, scale=3.0)
   cfile = tmp_path / "cfile.txt"
   cfile.write_text("# t c\n0 4.0\n30 4.0\n")  # constant c=4 over the range
   base = [
     "score",
     str(est_path),
-    str(gt_path),
+    str(ref_path),
     "--align",
     "none",
     "--calibration",
@@ -301,10 +301,10 @@ def test_ess_inflate_scales_anees(
 
 def test_score_no_matches(tmp_path: Path, capsys: pytest.CaptureFixture):
   est_path = tmp_path / "est.SQUARE"
-  gt_path = tmp_path / "gt.SQUARE"
+  ref_path = tmp_path / "ref.SQUARE"
   _write(est_path, _gauss_header(), [_gauss_step(0.0, np.zeros(3))])
-  _write(gt_path, _det_header(), [_det_step(100.0, np.zeros(3))])
-  rc = main(["score", str(est_path), str(gt_path)])
+  _write(ref_path, _det_header(), [_det_step(100.0, np.zeros(3))])
+  rc = main(["score", str(est_path), str(ref_path)])
   err = capsys.readouterr().err
   assert rc == 2
   assert "no matched pairs" in err
@@ -322,18 +322,18 @@ def test_score_body_frame_mismatch_rejected(
   ts = np.linspace(0.0, 1.0, n)
   pos = np.column_stack([ts, np.zeros(n), np.zeros(n)])
   est_path = tmp_path / "est.SQUARE"
-  gt_path = tmp_path / "gt.SQUARE"
+  ref_path = tmp_path / "ref.SQUARE"
   _write(
     est_path,
     _gauss_header(body_frame="imu"),
     [_gauss_step(t, p) for t, p in zip(ts, pos, strict=False)],
   )
   _write(
-    gt_path,
+    ref_path,
     _det_header(body_frame="lidar"),
     [_det_step(t, p) for t, p in zip(ts, pos, strict=False)],
   )
-  rc = main(["score", str(est_path), str(gt_path), "--n_samples", "16"])
+  rc = main(["score", str(est_path), str(ref_path), "--n_samples", "16"])
   err = capsys.readouterr().err
   assert rc == 2
   assert "body frames differ" in err
@@ -344,7 +344,7 @@ def test_score_body_frame_transform_applied(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
   # Same positions in both; estimate orientations rotated 90° about z relative
-  # to GT (which is identity). The body-frame transform R = R_z(-π/2) should
+  # to reference (which is identity). The body-frame transform R = R_z(-π/2) should
   # bring them into agreement so scoring proceeds without saturating.
   import json as _json
 
@@ -352,7 +352,7 @@ def test_score_body_frame_transform_applied(
   ts = np.linspace(0.0, 3.0, n)
   pos = np.column_stack([ts * 0.5, np.zeros(n), np.zeros(n)])
   est_path = tmp_path / "est.SQUARE"
-  gt_path = tmp_path / "gt.SQUARE"
+  ref_path = tmp_path / "ref.SQUARE"
   R_z90 = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
   q_z90 = np.array([0.0, 0.0, np.sin(np.pi / 4), np.cos(np.pi / 4)])
   est_steps = []
@@ -361,10 +361,10 @@ def test_score_body_frame_transform_applied(
     est_steps.append(
       GaussianStep(timestamp=t, translation=p, quat_xyzw=q_z90, covariance=cov)
     )
-  gt_steps = [_det_step(t, p) for t, p in zip(ts, pos, strict=False)]
+  ref_steps = [_det_step(t, p) for t, p in zip(ts, pos, strict=False)]
   _write(est_path, _gauss_header(body_frame="imu"), est_steps)
-  _write(gt_path, _det_header(body_frame="lidar"), gt_steps)
-  # T_est_body__gt_body: gt_body (identity-oriented) expressed in est_body
+  _write(ref_path, _det_header(body_frame="lidar"), ref_steps)
+  # T_est_body__ref_body: ref_body (identity-oriented) expressed in est_body
   # (z-90-rotated) coords → R = R_z(-π/2).
   extr = tmp_path / "extrinsic.json"
   extr.write_text(
@@ -374,7 +374,7 @@ def test_score_body_frame_transform_applied(
     [
       "score",
       str(est_path),
-      str(gt_path),
+      str(ref_path),
       "--body-frame-transform",
       str(extr),
       "--n_samples",
@@ -393,10 +393,10 @@ def test_score_body_frame_transform_applied(
 def test_nees_consistent_three_line_verdict(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
-  est, gt = _write_calibration_case(tmp_path, scale=1.0)
+  est, ref = _write_calibration_case(tmp_path, scale=1.0)
   # --align none: the SE(3) Umeyama fit would absorb part of the injected
   # error and read exactly-calibrated data as slightly conservative.
-  rc = main(["nees", str(est), str(gt), "--align", "none"])
+  rc = main(["nees", str(est), str(ref), "--align", "none"])
   out = capsys.readouterr().out
   assert rc == 0
   assert "median NEES" in out
@@ -408,8 +408,8 @@ def test_nees_consistent_three_line_verdict(
 def test_nees_overconfident_reports_scale_gap(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
-  est, gt = _write_calibration_case(tmp_path, scale=10.0)
-  rc = main(["nees", str(est), str(gt)])
+  est, ref = _write_calibration_case(tmp_path, scale=10.0)
+  rc = main(["nees", str(est), str(ref)])
   out = capsys.readouterr().out
   assert rc == 0
   assert "covariance scale gap k" in out
@@ -421,8 +421,8 @@ def test_nees_overconfident_reports_scale_gap(
 def test_nees_json(tmp_path: Path, capsys: pytest.CaptureFixture):
   import json as _json
 
-  est, gt = _write_calibration_case(tmp_path, scale=3.0)
-  rc = main(["nees", str(est), str(gt), "--json"])
+  est, ref = _write_calibration_case(tmp_path, scale=3.0)
+  rc = main(["nees", str(est), str(ref), "--json"])
   out = capsys.readouterr().out
   assert rc == 0
   v = _json.loads(out)
@@ -437,7 +437,7 @@ def test_nees_rejects_deterministic(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
   p = tmp_path / "det.SQUARE"
-  g = tmp_path / "gt.SQUARE"
+  g = tmp_path / "ref.SQUARE"
   steps = [_det_step(0.1 * i, np.array([i * 0.1, 0.0, 0.0])) for i in range(20)]
   _write(p, _det_header(), steps)
   _write(g, _det_header(), steps)

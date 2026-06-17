@@ -17,10 +17,10 @@ def _steps(ts: np.ndarray, pos: np.ndarray) -> list[DeterministicStep]:
 
 
 def _straight_track(n: int = 50, dt: float = 0.1, v: float = 1.0):
-  """GT moving along +x: track frame is along=+x, cross=+y, vertical=+z."""
+  """reference moving along +x: track frame is along=+x, cross=+y, vertical=+z."""
   ts = np.arange(n) * dt
-  gt = np.column_stack([v * ts, np.zeros(n), np.zeros(n)])
-  return ts, gt
+  ref = np.column_stack([v * ts, np.zeros(n), np.zeros(n)])
+  return ts, ref
 
 
 @pytest.mark.parametrize(
@@ -32,11 +32,11 @@ def _straight_track(n: int = 50, dt: float = 0.1, v: float = 1.0):
   ],
 )
 def test_constant_drift_is_pure_bias_on_the_right_axis(drift, axis):
-  ts, gt = _straight_track()
+  ts, ref = _straight_track()
   # est accumulates `drift` per step: every increment error equals drift,
   # so the error is 100% bias and lands on the drifted axis.
-  est = gt + np.outer(np.arange(len(ts)), drift)
-  results = bias_variance(_steps(ts, est), gt, windows_s=[0.1])
+  est = ref + np.outer(np.arange(len(ts)), drift)
+  results = bias_variance(_steps(ts, est), ref, windows_s=[0.1])
   assert len(results) == 1
   r = results[0]
   assert r.dominant_axis == axis
@@ -47,9 +47,9 @@ def test_constant_drift_is_pure_bias_on_the_right_axis(drift, axis):
 
 def test_iid_noise_is_mostly_variance():
   rng = np.random.default_rng(42)
-  ts, gt = _straight_track(n=400)
-  est = gt + rng.normal(scale=0.05, size=gt.shape)
-  results = bias_variance(_steps(ts, est), gt, windows_s=[0.1])
+  ts, ref = _straight_track(n=400)
+  est = ref + rng.normal(scale=0.05, size=ref.shape)
+  results = bias_variance(_steps(ts, est), ref, windows_s=[0.1])
   assert len(results) == 1
   # zero-mean noise: bias contribution shrinks as 1/n_pairs.
   assert results[0].bias_fraction < 0.05
@@ -58,20 +58,20 @@ def test_iid_noise_is_mostly_variance():
 def test_vertical_only_motion_is_gated_out():
   n = 20
   ts = np.arange(n) * 0.1
-  gt = np.column_stack([np.zeros(n), np.zeros(n), 0.5 * np.arange(n)])
-  est = gt + 0.01
-  # No horizontal GT increment exceeds min_horiz_m: no track frame exists.
-  assert bias_variance(_steps(ts, est), gt, windows_s=[0.1]) == []
+  ref = np.column_stack([np.zeros(n), np.zeros(n), 0.5 * np.arange(n)])
+  est = ref + 0.01
+  # No horizontal reference increment exceeds min_horiz_m: no track frame exists.
+  assert bias_variance(_steps(ts, est), ref, windows_s=[0.1]) == []
 
 
 def test_window_longer_than_track_yields_nothing():
-  ts, gt = _straight_track(n=10)
-  assert bias_variance(_steps(ts, gt), gt, windows_s=[100.0]) == []
+  ts, ref = _straight_track(n=10)
+  assert bias_variance(_steps(ts, ref), ref, windows_s=[100.0]) == []
 
 
 def test_multiple_windows_one_result_each():
-  ts, gt = _straight_track(n=100)
-  est = gt + 0.01
-  results = bias_variance(_steps(ts, est), gt, windows_s=[0.1, 1.0])
+  ts, ref = _straight_track(n=100)
+  est = ref + 0.01
+  results = bias_variance(_steps(ts, est), ref, windows_s=[0.1, 1.0])
   assert [r.window_s for r in results] == [0.1, 1.0]
   assert results[0].n_pairs > results[1].n_pairs > 0

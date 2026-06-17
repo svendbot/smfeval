@@ -56,7 +56,7 @@ def interval_from_samples(
 
 def translation_magnitude_interval_score(
   pred_step: Step,
-  gt_translation: np.ndarray,
+  ref_translation: np.ndarray,
   alpha: float = 0.1,
   n_samples: int = 128,
   rng: np.random.Generator | None = None,
@@ -67,11 +67,11 @@ def translation_magnitude_interval_score(
   Predictive samples from the step's belief yield the equal-tailed
   interval :math:`[l, u]`; the observation is the reference
   translation's distance from the predictive mean,
-  :math:`y = \lVert t_\mathrm{gt} - \mu_t\rVert`.
+  :math:`y = \lVert t_\mathrm{ref} - \mu_t\rVert`.
   """
   rng = rng if rng is not None else np.random.default_rng(0)
   samples, mu = translation_samples(pred_step, n_samples, rng, tangent_order)
   mags = np.linalg.norm(samples - mu, axis=1)
   lo, hi = interval_from_samples(mags, alpha)
-  obs = float(np.linalg.norm(gt_translation - mu))
+  obs = float(np.linalg.norm(ref_translation - mu))
   return interval_score(lo, hi, obs, alpha)

@@ -27,7 +27,7 @@ def test_score_json_matches_schema(capsys):
     [
       "score",
       str(DET / "est.smfeval"),
-      str(DET / "gt.tum"),
+      str(DET / "ref.tum"),
       "--ref-body-frame",
       "imu",
       "--seed",

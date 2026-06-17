@@ -32,7 +32,7 @@ The first screen must show, in order:
    The verdict line is the product. k and 2.37 are interpretable without
    reading the paper; keep them as defaults.
 4. The no-reference mode, stated as the headline capability:
-   "No ground truth? Run two filters and score them against each other;
+   "No reference? Run two filters and score them against each other;
    an elevated pairwise NEES certifies overconfidence with no reference
    consulted." Command: `smfeval pair a.square b.square`. This is the
    structural advantage over evo; lead with it.

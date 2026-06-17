@@ -29,7 +29,7 @@ _SIDECAR_ATOL_S = 1e-6
 def looks_like_tum(path: Path) -> bool:
   """Detect bare-TUM trajectory files (no ``#%FORMAT`` header).
 
-  Matches the CLI help: GT may be smfeval or TUM.
+  Matches the CLI help: reference may be smfeval or TUM.
   """
   with path.open(encoding="utf-8-sig") as f:
     for line in f:
