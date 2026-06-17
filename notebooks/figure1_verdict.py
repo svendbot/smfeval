@@ -18,9 +18,7 @@ import shutil
 import urllib.request
 from pathlib import Path
 
-BASE = (
-  "https://raw.githubusercontent.com/svendbot/smfeval/main/notebooks/data"
-)
+BASE = "https://raw.githubusercontent.com/svendbot/smfeval/main/notebooks/data"
 FILES = {
   "est.SQUARE": "christ-church-03_fast_lio2.SQUARE.gz",
   "ref.tum": "christ-church-03_ref.tum.gz",
@@ -80,25 +78,41 @@ order = header.tangent_order
 tf = json.loads(Path("imu_to_lidar.json").read_text())
 T_off = homogeneous(np.array(tf["R"]).reshape(3, 3), np.array(tf["t"]))
 conv = header.tangent_convention
-est = [apply_body_transform(s, T_off, tangent_convention=conv, tangent_order=order) for s in est]
+est = [
+  apply_body_transform(s, T_off, tangent_convention=conv, tangent_order=order)
+  for s in est
+]
 
 # match timestamps, align under the declared gauge, score each pose
 m = match_timestamps(
-  np.array([s.timestamp for s in est]), np.array([s.timestamp for s in ref]), t_max_diff=0.01
+  np.array([s.timestamp for s in est]),
+  np.array([s.timestamp for s in ref]),
+  t_max_diff=0.01,
 )
 matched = [est[i] for i in m.est_indices]
 ref_t = np.array([ref[j].translation for j in m.ref_indices])
 ref_q = np.array([ref[j].quat_xyzw for j in m.ref_indices])
 fit = fit_alignment(
-  np.array([s.translation for s in matched]), ref_t, mode=align_mode_for_gauge(header.gauge)
+  np.array([s.translation for s in matched]),
+  ref_t,
+  mode=align_mode_for_gauge(header.gauge),
 )
 aligned = [
-  propagate_step(s, fit.transform, scale=fit.scale, tangent_convention=conv, tangent_order=order)
+  propagate_step(
+    s,
+    fit.transform,
+    scale=fit.scale,
+    tangent_convention=conv,
+    tangent_order=order,
+  )
   for s in matched
 ]
 
 nees = np.array(
-  [gaussian_log_score_components(s, t, q, order).translation.nees for s, t, q in zip(aligned, ref_t, ref_q, strict=True)]
+  [
+    gaussian_log_score_components(s, t, q, order).translation.nees
+    for s, t, q in zip(aligned, ref_t, ref_q, strict=True)
+  ]
 )
 verdict = nees_verdict(nees, dof=3)
 print(render_nees_verdict(verdict))
@@ -120,8 +134,12 @@ fig, ax = plt.subplots(figsize=(7, 4))
 bins = np.logspace(-2, np.log10(finite.max()), 80)
 ax.hist(finite, bins=bins, density=True, alpha=0.6, label="realised NEES")
 x = np.logspace(-2, 2, 400)
-ax.plot(x, chi2.pdf(x, df=3) * x * np.log(10), "k--", label=r"$\chi^2_3$ (calibrated)")
-ax.axvline(verdict.median_nees, color="C3", label=f"median = {verdict.median_nees:.3g}")
+ax.plot(
+  x, chi2.pdf(x, df=3) * x * np.log(10), "k--", label=r"$\chi^2_3$ (calibrated)"
+)
+ax.axvline(
+  verdict.median_nees, color="C3", label=f"median = {verdict.median_nees:.3g}"
+)
 ax.axvline(
   verdict.calibrated_median,
   color="k",

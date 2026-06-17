@@ -54,7 +54,9 @@ def _build_argv(scenario: Path, json_out: Path) -> tuple[list[str], bool]:
     argv += ["--json"]
     return argv, True
 
-  ref = scenario / ("ref.tum" if (scenario / "ref.tum").exists() else "ref.smfeval")
+  ref = scenario / (
+    "ref.tum" if (scenario / "ref.tum").exists() else "ref.smfeval"
+  )
   est = scenario / "est.smfeval"
   argv = [cmd, str(est), str(ref)]
   if cmd == "score":

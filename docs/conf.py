@@ -19,19 +19,19 @@ copyright = f"{datetime.now():%Y}, {author}"
 release = _pkg_version("smfeval")
 
 extensions = [
-    "sphinx.ext.autodoc",
-    "sphinx.ext.autosummary",
-    "sphinx.ext.napoleon",
-    "sphinx.ext.mathjax",
-    "sphinx.ext.viewcode",
-    "sphinx.ext.intersphinx",
+  "sphinx.ext.autodoc",
+  "sphinx.ext.autosummary",
+  "sphinx.ext.napoleon",
+  "sphinx.ext.mathjax",
+  "sphinx.ext.viewcode",
+  "sphinx.ext.intersphinx",
 ]
 
 autosummary_generate = True
 autodoc_default_options = {
-    "members": True,
-    "undoc-members": False,
-    "show-inheritance": True,
+  "members": True,
+  "undoc-members": False,
+  "show-inheritance": True,
 }
 autodoc_typehints = "description"
 # the codebase uses Google-style docstrings (ruff pydocstyle convention)
@@ -41,9 +41,9 @@ napoleon_numpy_docstring = True
 napoleon_use_rtype = False
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
-    "numpy": ("https://numpy.org/doc/stable", None),
-    "scipy": ("https://docs.scipy.org/doc/scipy", None),
+  "python": ("https://docs.python.org/3", None),
+  "numpy": ("https://numpy.org/doc/stable", None),
+  "scipy": ("https://docs.scipy.org/doc/scipy", None),
 }
 
 templates_path = ["_templates"]
@@ -60,15 +60,15 @@ html_js_files = ["force-light.js"]
 # A calm light palette and a roomier reading column. Dark variables mirror the
 # light ones so a system-dark visitor still gets the readable light rendering.
 _palette = {
-    "color-brand-primary": "#15608d",
-    "color-brand-content": "#15608d",
-    "color-foreground-primary": "#1c1c1e",
-    "color-foreground-secondary": "#55555b",
-    "color-background-primary": "#ffffff",
-    "color-background-secondary": "#f6f6f4",
-    "color-admonition-background": "#f6f6f4",
+  "color-brand-primary": "#15608d",
+  "color-brand-content": "#15608d",
+  "color-foreground-primary": "#1c1c1e",
+  "color-foreground-secondary": "#55555b",
+  "color-background-primary": "#ffffff",
+  "color-background-secondary": "#f6f6f4",
+  "color-admonition-background": "#f6f6f4",
 }
 html_theme_options = {
-    "light_css_variables": _palette,
-    "dark_css_variables": _palette,
+  "light_css_variables": _palette,
+  "dark_css_variables": _palette,
 }

@@ -18,6 +18,7 @@ that the belief calls that gap z sigma -- the covariance is the lie.
 Run: ``python notebooks/figure_overconfidence.py`` (numpy, scipy, matplotlib,
 smfeval). Mirrors the slam_benchmark paper teaser, sourced from public data.
 """
+
 from __future__ import annotations
 
 import gzip
@@ -55,7 +56,9 @@ OUT = HERE.parent / "docs" / "img" / "overconfidence"
 C_REF = "#111111"
 C_EST = "#1E66F5"
 C_ERR = "#E5322D"
-CALIBRATED = float(chi2.median(df=3))  # 2.366: per-pose NEES under a true belief
+CALIBRATED = float(
+  chi2.median(df=3)
+)  # 2.366: per-pose NEES under a true belief
 
 
 def _gunzip(src: Path, dst: Path) -> None:
@@ -75,7 +78,10 @@ def load_run(tmp: Path):
   order = header.tangent_order
   est = [
     apply_body_transform(
-      s, T_off, tangent_convention=header.tangent_convention, tangent_order=order
+      s,
+      T_off,
+      tangent_convention=header.tangent_convention,
+      tangent_order=order,
     )
     for s in est
   ]
@@ -142,9 +148,21 @@ def scale_bar(ax, half: float):
   x = x0 + 0.08 * (x1 - x0)
   y = y0 + 0.10 * (y1 - y0)
   ax.plot([x, x + L], [y, y], color="0.2", lw=2.5, solid_capstyle="butt")
-  lab = f"{L:.0f} m" if L >= 1 else f"{L * 100:.0f} cm" if L >= 0.01 else f"{L * 1000:.0f} mm"
+  lab = (
+    f"{L:.0f} m"
+    if L >= 1
+    else f"{L * 100:.0f} cm"
+    if L >= 0.01
+    else f"{L * 1000:.0f} mm"
+  )
   ax.text(
-    x + L / 2, y + 0.03 * (y1 - y0), lab, ha="center", va="bottom", fontsize=9.5, color="0.2"
+    x + L / 2,
+    y + 0.03 * (y1 - y0),
+    lab,
+    ha="center",
+    va="bottom",
+    fontsize=9.5,
+    color="0.2",
   )
 
 
@@ -186,9 +204,18 @@ def main() -> int:
     f"n={len(nees)} median NEES={np.median(nees):.1f} (z={np.sqrt(np.median(nees)):.0f})  "
     f"APE RMSE={rmse * 100:.1f} cm"
   )
-  print(f"pose idx={k} NEES={nees[k]:.0f} z={z:.0f} err={err_m * 100:.1f} cm 90%major={wmaj * 1000:.1f} mm")
+  print(
+    f"pose idx={k} NEES={nees[k]:.0f} z={z:.0f} err={err_m * 100:.1f} cm 90%major={wmaj * 1000:.1f} mm"
+  )
 
-  plt.rcParams.update({"font.size": 12, "axes.labelsize": 12, "xtick.labelsize": 11, "ytick.labelsize": 11})
+  plt.rcParams.update(
+    {
+      "font.size": 12,
+      "axes.labelsize": 12,
+      "xtick.labelsize": 11,
+      "ytick.labelsize": 11,
+    }
+  )
   fig, ax = plt.subplots(figsize=(7.4, 6.4), layout="constrained")
 
   # macro: observer track + estimate track coloured by per-pose NEES
@@ -197,7 +224,9 @@ def main() -> int:
   segs = np.stack([pts[:-1], pts[1:]], axis=1)
   cval = 0.5 * (nees[:-1] + nees[1:])
   vmax = float(np.percentile(cval, 98))
-  lc = LineCollection(segs, cmap="plasma", norm=LogNorm(vmin=CALIBRATED, vmax=vmax), zorder=2)
+  lc = LineCollection(
+    segs, cmap="plasma", norm=LogNorm(vmin=CALIBRATED, vmax=vmax), zorder=2
+  )
   lc.set_array(cval)
   lc.set_linewidth(2.0)
   ax.add_collection(lc)
@@ -205,7 +234,12 @@ def main() -> int:
   cb.set_label("per-pose translation NEES", fontsize=11)
   ticks = [t for t in (CALIBRATED, 1e2, 1e3, 1e4, 1e5) if t <= vmax]
   cb.set_ticks(ticks)
-  cb.ax.set_yticklabels(["2.37" if t == CALIBRATED else f"$10^{{{int(np.log10(t))}}}$" for t in ticks])
+  cb.ax.set_yticklabels(
+    [
+      "2.37" if t == CALIBRATED else f"$10^{{{int(np.log10(t))}}}$"
+      for t in ticks
+    ]
+  )
   ax.set_aspect("equal")
   ax.autoscale_view()
   ax.set_xlabel("x [m]")
@@ -222,10 +256,14 @@ def main() -> int:
   # one stacked box (the track is tall and narrow, so left+right boxes collide):
   # what a mean-only metric reports, then what a calibrated belief should read.
   ax.text(
-    0.02, 0.02,
+    0.02,
+    0.02,
     f"trajectory APE RMSE = {rmse * 100:.1f} cm\n"
     r"calibrated $\Rightarrow$ NEES = 2.37",
-    transform=ax.transAxes, fontsize=11, va="bottom", linespacing=1.6,
+    transform=ax.transAxes,
+    fontsize=11,
+    va="bottom",
+    linespacing=1.6,
     bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.7", alpha=0.9),
   )
 
@@ -241,12 +279,24 @@ def main() -> int:
   insA.plot(segE[:, 0], segE[:, 1], "-", color=C_EST, lw=2.2, zorder=2)
   insA.plot(*p_est, "o", color=C_EST, ms=6, mec="white", mew=0.8, zorder=4)
   insA.plot(*p_ref, "s", color=C_REF, ms=7, mec="white", mew=0.8, zorder=4)
-  insA.annotate("", xy=p_ref, xytext=p_est, arrowprops=dict(arrowstyle="-|>", color=C_ERR, lw=2.0), zorder=5)
+  insA.annotate(
+    "",
+    xy=p_ref,
+    xytext=p_est,
+    arrowprops=dict(arrowstyle="-|>", color=C_ERR, lw=2.0),
+    zorder=5,
+  )
   insA.text(
-    0.04, 0.96,
+    0.04,
+    0.96,
     f"{err_m * 100:.0f} cm = {z:.0f}$\\sigma$\n({mult99:.0f}x outside 99%)",
-    transform=insA.transAxes, color=C_ERR, fontsize=11, fontweight="bold",
-    va="top", ha="left", zorder=6,
+    transform=insA.transAxes,
+    color=C_ERR,
+    fontsize=11,
+    fontweight="bold",
+    va="top",
+    ha="left",
+    zorder=6,
     bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="none", alpha=0.8),
   )
   insA.set_xlim(c[0] - halfA, c[0] + halfA)
@@ -263,14 +313,32 @@ def main() -> int:
   insB = ax.inset_axes([0.60, 0.58, 0.28, 0.28])
   insB.plot(segE[:, 0], segE[:, 1], "-", color=C_EST, lw=2.0, zorder=2)
   insB.add_patch(
-    Ellipse(p_est, wmaj, wmin, angle=ang, fill=True, alpha=0.45, facecolor=C_EST, edgecolor=C_EST, lw=1.8, zorder=3)
+    Ellipse(
+      p_est,
+      wmaj,
+      wmin,
+      angle=ang,
+      fill=True,
+      alpha=0.45,
+      facecolor=C_EST,
+      edgecolor=C_EST,
+      lw=1.8,
+      zorder=3,
+    )
   )
   insB.plot(*p_est, "o", color=C_EST, ms=6, mec="white", mew=0.8, zorder=4)
   u = e_w / (err_m + 1e-12)
   insB.annotate(
-    f"true pose\n{z:.0f}$\\sigma$ this way", xy=p_est + u * halfB * 0.95, xytext=p_est + u * halfB * 0.30,
-    color=C_ERR, fontsize=9.5, fontweight="bold", ha="center", va="center",
-    arrowprops=dict(arrowstyle="-|>", color=C_ERR, lw=1.8), zorder=5
+    f"true pose\n{z:.0f}$\\sigma$ this way",
+    xy=p_est + u * halfB * 0.95,
+    xytext=p_est + u * halfB * 0.30,
+    color=C_ERR,
+    fontsize=9.5,
+    fontweight="bold",
+    ha="center",
+    va="center",
+    arrowprops=dict(arrowstyle="-|>", color=C_ERR, lw=1.8),
+    zorder=5,
   )
   insB.set_xlim(p_est[0] - halfB, p_est[0] + halfB)
   insB.set_ylim(p_est[1] - halfB, p_est[1] + halfB)
@@ -279,7 +347,13 @@ def main() -> int:
   insB.set_yticks([])
   scale_bar(insB, halfB)
   insB.set_title("reported 90% region", fontsize=10)
-  insA.indicate_inset([p_est[0] - halfB, p_est[1] - halfB, 2 * halfB, 2 * halfB], insB, edgecolor="0.4", lw=1.0, alpha=0.9)
+  insA.indicate_inset(
+    [p_est[0] - halfB, p_est[1] - halfB, 2 * halfB, 2 * halfB],
+    insB,
+    edgecolor="0.4",
+    lw=1.0,
+    alpha=0.9,
+  )
 
   OUT.parent.mkdir(parents=True, exist_ok=True)
   fig.savefig(str(OUT) + ".png", dpi=200, bbox_inches="tight")

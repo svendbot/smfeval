@@ -217,7 +217,9 @@ def student_t_logscore_sweep(
   """
   gauss: list[float] = []
   tcols: dict[float, list[float]] = {nu: [] for nu in nus}
-  for step, ref_t, ref_q in zip(steps, ref_translations, ref_quats, strict=True):
+  for step, ref_t, ref_q in zip(
+    steps, ref_translations, ref_quats, strict=True
+  ):
     if not isinstance(step, GaussianStep):
       continue
     xi = se3_log(
