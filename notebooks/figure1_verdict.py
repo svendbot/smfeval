@@ -45,7 +45,7 @@ print("data ready:", list(FILES))
 # LiDAR frame, so the filter's own extrinsic is passed along.
 
 # %%
-# !smfeval nees est.SQUARE gt.tum --gt-body-frame lidar --body-frame-transform imu_to_lidar.json
+# !smfeval nees est.SQUARE gt.tum --ref-body-frame lidar --body-frame-transform imu_to_lidar.json
 
 # %% [markdown]
 # Median NEES around 10^3 against a calibrated reference of 2.37: the published

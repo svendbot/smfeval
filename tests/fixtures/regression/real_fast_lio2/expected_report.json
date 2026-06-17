@@ -112,7 +112,7 @@
   "calibration_split": null,
   "bias_variance": null,
   "recommendations": [
-    "32.7% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_gt to confirm calibration findings.",
+    "32.7% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_ref to confirm calibration findings.",
     "6 DoF removed over 32 m of trajectory; post-alignment residuals are biased low. Consider --n_to_align to fit on a prefix and score on the remainder.",
     "Coverage below nominal combined with KS p < 0.05 \u2014 the filter is over-confident (claimed \u03a3 too tight, reference falls outside the predicted intervals); widen process noise. Miscalibration is unlikely to be explained by sync error alone."
   ],
@@ -125,7 +125,7 @@
       ],
       "explanation": "A competing confounder: timestamp-matching error shrinks short-window \u03a3_rel the same way local over-confidence does.",
       "recommended_actions": [
-        "Re-score with --sync=interpolate_gt to separate sync from a genuine calibration fault before trusting short-horizon verdicts."
+        "Re-score with --sync=interpolate_ref to separate sync from a genuine calibration fault before trusting short-horizon verdicts."
       ]
     }
   ]

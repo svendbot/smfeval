@@ -37,7 +37,7 @@ its reference partner. The sync-risk score
 measures the position error that slop induces, relative to the belief's own
 translation sigma; pairs above :math:`\sim 0.3` are flagged. Matching error
 shrinks the short-window covariance the same way genuine local over-confidence
-does, so when many pairs fire, re-score with ``--sync=interpolate_gt`` (a GP on
+does, so when many pairs fire, re-score with ``--sync=interpolate_ref`` (a GP on
 :math:`SE(3)` queried at each estimate timestamp) before trusting a
 short-horizon calibration finding.
 

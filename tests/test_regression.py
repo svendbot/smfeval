@@ -61,10 +61,10 @@ def _build_argv(scenario: Path, json_out: Path) -> tuple[list[str], bool]:
     argv += ["--seed", str(spec.get("seed", 0))]
     if "n_samples" in spec:
       argv += ["--n_samples", str(spec["n_samples"])]
-  if spec.get("gt_body_frame"):
-    argv += ["--gt-body-frame", spec["gt_body_frame"]]
-  if spec.get("gt_pose_frame"):
-    argv += ["--gt-pose-frame", spec["gt_pose_frame"]]
+  if spec.get("ref_body_frame"):
+    argv += ["--ref-body-frame", spec["ref_body_frame"]]
+  if spec.get("ref_pose_frame"):
+    argv += ["--ref-pose-frame", spec["ref_pose_frame"]]
   if spec.get("body_frame_transform"):
     argv += [
       "--body-frame-transform",

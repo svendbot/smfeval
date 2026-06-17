@@ -23,7 +23,7 @@ def recommendations(rep: Report) -> list[str]:
     frac = 100.0 * risk_excess / n_matched
     out.append(
       f"{frac:.1f}% of pairs have sync risk > {sync['risk_threshold']:.1f}; "
-      "consider cross-checking with --sync=interpolate_gt to confirm "
+      "consider cross-checking with --sync=interpolate_ref to confirm "
       "calibration findings."
     )
 

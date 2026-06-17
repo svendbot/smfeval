@@ -86,14 +86,14 @@ def _add_common_args(p: argparse.ArgumentParser) -> None:
   )
   p.add_argument("--n_to_align", type=int, default=None)
   p.add_argument(
-    "--gt-body-frame",
+    "--ref-body-frame",
     default=None,
-    help="body frame of the reference file (required when GT is plain TUM)",
+    help="body frame of the reference file (required when it is plain TUM)",
   )
   p.add_argument(
-    "--gt-pose-frame",
+    "--ref-pose-frame",
     default="world",
-    help="pose frame (outer container) of the reference file when GT is "
+    help="pose frame (outer container) of the reference file when it is "
     'plain TUM. Default "world", matching the common TUM convention. '
     "Must equal the estimate's POSE_FRAME — no in-tool transform.",
   )
@@ -102,30 +102,30 @@ def _add_common_args(p: argparse.ArgumentParser) -> None:
     type=Path,
     default=None,
     help='JSON file {"R": [9 floats row-major], "t": [3 floats]} giving '
-    "T_est_body__gt_body (the new body frame's pose in the old body "
-    "frame). Required when est and gt declare different BODY_FRAMEs.",
+    "T_est_body__ref_body (the new body frame's pose in the old body "
+    "frame). Required when est and reference declare different BODY_FRAMEs.",
   )
   p.add_argument(
     "--sync",
     type=SyncMode,
     choices=list(SyncMode),
     default=SyncMode.NEAREST,
-    help="GT-matching strategy. 'nearest' (default) picks the nearest GT "
-    "timestamp; 'interpolate_gt' fits a piecewise GP on SE(3) over a "
-    "local window of GT samples and queries it at each est timestamp "
+    help="reference-matching strategy. 'nearest' (default) picks the nearest "
+    "reference timestamp; 'interpolate_ref' fits a piecewise GP on SE(3) over "
+    "a local window of reference samples and queries it at each est timestamp "
     "(Zhang & Scaramuzza 2019, §IV.B).",
   )
   p.add_argument(
     "--sync_window",
     type=int,
     default=10,
-    help="number of GT samples per GP window when --sync=interpolate_gt",
+    help="number of reference samples per GP window when --sync=interpolate_ref",
   )
   p.add_argument(
     "--sync_length_scale",
     type=float,
     default=0.1,
-    help="SE-kernel length scale in seconds when --sync=interpolate_gt",
+    help="SE-kernel length scale in seconds when --sync=interpolate_ref",
   )
   # escape hatch: estimates without a SQUARE header --------------------------
   p.add_argument(
@@ -194,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
     "gap k, coverage",
   )
   pn.add_argument("est", type=Path, help="SQUARE-format estimate file")
-  pn.add_argument("gt", type=Path, help="reference file (SQUARE or TUM)")
+  pn.add_argument("ref", type=Path, help="reference file (SQUARE or TUM)")
   _add_common_args(pn)
   pn.add_argument(
     "--alpha",
@@ -235,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
 
   ps = sub.add_parser("score", help="produce a full scoring report")
   ps.add_argument("est", type=Path, help="SQUARE-format estimate file")
-  ps.add_argument("gt", type=Path, help="reference file (SQUARE or TUM)")
+  ps.add_argument("ref", type=Path, help="reference file (SQUARE or TUM)")
   _add_common_args(ps)
   ps.add_argument("--alpha", type=float, default=0.1)
   ps.add_argument("--n_samples", type=int, default=128)
@@ -269,17 +269,17 @@ def main(argv: list[str] | None = None) -> int:
     "c = (n_eff/n_eff_ref)^β captures the correlated-measurement effect "
     "(overconfidence ∝ point density, c∝n_eff). Source-agnostic / cross-filter "
     "— generate the c-file from any per-scan density source. Composes with "
-    "--consume-gt-cov as Σ_eff = c·Σ_pred + Σ_gt.",
+    "--consume-ref-cov as Σ_eff = c·Σ_pred + Σ_ref.",
   )
   ps.add_argument(
-    "--consume-gt-cov",
+    "--consume-ref-cov",
     action="store_true",
-    help="fold the GT observer covariance into the predictive before scoring: "
-    "Σ_eff = Σ_pred + Σ_gt (proof-of-concept; the score then accounts for "
-    "reference uncertainty, not just the filter's). Requires "
-    "--sync=interpolate_gt, which supplies Σ_gt as the GP predictive "
-    "covariance — a stand-in for the per-sample GT covariance datasets do not "
-    "yet ship (the call-to-action).",
+    help="fold the reference observer covariance into the predictive before "
+    "scoring: Σ_eff = Σ_pred + Σ_ref (proof-of-concept; the score then accounts "
+    "for reference uncertainty, not just the filter's). Requires "
+    "--sync=interpolate_ref, which supplies Σ_ref as the GP predictive "
+    "covariance — a stand-in for the per-sample reference covariance datasets "
+    "do not yet ship (the call-to-action).",
   )
   ps.add_argument(
     "--calibration",
@@ -443,8 +443,8 @@ def _resolve_sync(
 ):
   """Pair estimate and GT poses by --sync mode.
 
-  Sixth element is the matched GT covariance (Q, 6, 6) under interpolate_gt
-  (the GP predictive Σ_gt), else None.
+  Sixth element is the matched GT covariance (Q, 6, 6) under interpolate_ref
+  (the GP predictive Σ_ref), else None.
 
   Prints to stderr and returns None on error (empty match / no overlap).
   """
@@ -454,7 +454,7 @@ def _resolve_sync(
   gt_quats = np.array([s.quat_xyzw for s in gt_steps])
 
   match args.sync:
-    case SyncMode.INTERPOLATE_GT:
+    case SyncMode.INTERPOLATE_REF:
       query_t = est_ts + args.t_offset
       interp_t, interp_q, interp_cov, keep = interpolate_gt_at(
         query_t,
@@ -573,7 +573,7 @@ class PreparedRun:
   fit: AlignmentFit
   order: TangentOrder
   risks: np.ndarray
-  gt_cov: np.ndarray | None  # GP predictive covariance under interpolate_gt
+  gt_cov: np.ndarray | None  # GP predictive covariance under interpolate_ref
 
 
 def _load_estimate(args: argparse.Namespace) -> tuple[SquareHeader, list[Step]]:
@@ -630,24 +630,24 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
   """
   try:
     est_header, est_steps = _load_estimate(args)
-    if looks_like_tum(args.gt):
-      if args.gt_body_frame is None:
+    if looks_like_tum(args.ref):
+      if args.ref_body_frame is None:
         print(
           "error: reference file is plain TUM but its body frame "
-          "is not declared. Pass --gt-body-frame <name> matching the "
+          "is not declared. Pass --ref-body-frame <name> matching the "
           f"estimate's BODY_FRAME (estimate declares "
           f"{est_header.body_frame!r}).",
           file=sys.stderr,
         )
         return None
       gt_tum, gt_steps = load_tum(
-        args.gt,
-        pose_frame=args.gt_pose_frame,
-        body_frame=args.gt_body_frame,
+        args.ref,
+        pose_frame=args.ref_pose_frame,
+        body_frame=args.ref_body_frame,
       )
       gt_header: SquareHeader = gt_tum.to_square()
     else:
-      gt_header, gt_steps = load_square(args.gt)
+      gt_header, gt_steps = load_square(args.ref)
   except (FormatError, OSError) as e:
     print(f"error: {e}", file=sys.stderr)
     return None
@@ -657,8 +657,8 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
       f"error: pose frames differ — estimate is {est_header.pose_frame!r}, "
       f"reference is {gt_header.pose_frame!r}. The scoring tool does "
       "not transform between outer reference frames; pre-align both "
-      "trajectories into a common pose frame, or pass --gt-pose-frame "
-      "if the GT file is plain TUM and the default 'world' is wrong.",
+      "trajectories into a common pose frame, or pass --ref-pose-frame "
+      "if the reference file is plain TUM and the default 'world' is wrong.",
       file=sys.stderr,
     )
     return None
@@ -791,7 +791,7 @@ def _adjust_covariance(
   """Apply ESS inflation and GT-covariance folding to the predictive steps.
 
   Returns the adjusted steps, or None (after printing an error) when
-  --consume-gt-cov is requested without an interpolated GT covariance. gt_cov is
+  --consume-ref-cov is requested without an interpolated GT covariance. gt_cov is
   the isotropic GP predictive covariance, so the tangent-order of the sum is
   immaterial; the gaussian-validity check stays on the raw predictive cov.
   """
@@ -815,15 +815,15 @@ def _adjust_covariance(
         file=sys.stderr,
       )
 
-  if args.consume_gt_cov and gt_cov is None:
+  if args.consume_ref_cov and gt_cov is None:
     print(
-      "error: --consume-gt-cov requires --sync=interpolate_gt (it supplies "
-      "Σ_gt as the GP predictive covariance)",
+      "error: --consume-ref-cov requires --sync=interpolate_ref (it supplies "
+      "Σ_ref as the GP predictive covariance)",
       file=sys.stderr,
     )
     return None
 
-  if ess_c is None and not args.consume_gt_cov:
+  if ess_c is None and not args.consume_ref_cov:
     return aligned_est
 
   scored_est: list = []
@@ -834,7 +834,7 @@ def _adjust_covariance(
     cov = s.covariance
     if ess_c is not None:  # cov *= ess_c  (ESS inflation)
       cov = ess_c[k] * cov
-    if args.consume_gt_cov:  # cov += gt_cov  (observer uncertainty)
+    if args.consume_ref_cov:  # cov += gt_cov  (observer uncertainty)
       cov = cov + gt_cov[k]
     scored_est.append(replace(s, covariance=cov))
   return scored_est

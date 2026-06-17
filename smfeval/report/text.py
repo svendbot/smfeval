@@ -68,7 +68,7 @@ def _render_sync(rep: Report) -> str:
             f"                          [warning] {excess} pairs ({frac:.1f}%) "
             f"exceed risk {s.get('risk_threshold', 0.3):.1f}"
           )
-    case SyncMode.INTERPOLATE_GT:
+    case SyncMode.INTERPOLATE_REF:
       if risk_q is not None:
         lines.append(
           f"  GP σ (m):   median {_fmt_float(risk_q['median'], 4)},"

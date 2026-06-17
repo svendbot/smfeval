@@ -220,19 +220,19 @@ def _translation_anees(out: str) -> float:
   )
 
 
-def test_consume_gt_cov_requires_interpolate(
+def test_consume_ref_cov_requires_interpolate(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
   est_path, gt_path = _write_calibration_case(tmp_path, scale=3.0)
-  rc = main(["score", str(est_path), str(gt_path), "--consume-gt-cov"])
+  rc = main(["score", str(est_path), str(gt_path), "--consume-ref-cov"])
   assert rc == 2
-  assert "requires --sync=interpolate_gt" in capsys.readouterr().err
+  assert "requires --sync=interpolate_ref" in capsys.readouterr().err
 
 
-def test_consume_gt_cov_reduces_calibration_term(
+def test_consume_ref_cov_reduces_calibration_term(
   tmp_path: Path, capsys: pytest.CaptureFixture
 ):
-  # Dense GT at 10 Hz; est offset half a period so the GP predictive Σ_gt > 0.
+  # Dense GT at 10 Hz; est offset half a period so the GP predictive Σ_ref > 0.
   rng = np.random.default_rng(2)
   n = 240
   gt_t = np.linspace(0.0, 24.0, n)
@@ -262,16 +262,16 @@ def test_consume_gt_cov_reduces_calibration_term(
     "--align",
     "none",
     "--sync",
-    "interpolate_gt",
+    "interpolate_ref",
     "--calibration",
   ]
   rc = main(common)
   base = _translation_anees(capsys.readouterr().out)
   assert rc == 0
-  rc = main(common + ["--consume-gt-cov"])
+  rc = main(common + ["--consume-ref-cov"])
   consumed = _translation_anees(capsys.readouterr().out)
   assert rc == 0
-  # Folding a PSD Σ_gt into the predictive can only inflate Σ_eff ⇒ NEES drops.
+  # Folding a PSD Σ_ref into the predictive can only inflate Σ_eff ⇒ NEES drops.
   assert consumed < base
 
 

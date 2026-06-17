@@ -1,6 +1,6 @@
 {
   "cmd": "score",
-  "gt_body_frame": "lidar",
+  "ref_body_frame": "lidar",
   "seed": 0,
   "extra": [],
   "n_samples": 32,

@@ -11,7 +11,7 @@ action. It is the machine-readable form of the attribution protocol:
   translation calibration optimistic   accel / scale    which sensor channel
   windowed: hot at smallest Δt         local            measurement model / sync
   windowed: ANEES grows with Δt        accumulation     tune filter vs loop close
-  sync risk excess                     competing cfdr   --sync=interpolate_gt
+  sync risk excess                     competing cfdr   --sync=interpolate_ref
 
 ``diagnose(rep)`` reads only what is present on the :class:`Report`: the
 translation calibration split (populated under ``--calibration``), sync, and
@@ -176,7 +176,7 @@ def _diagnose_windowed(windowed: list[dict]) -> list[Diagnosis]:
           "Local over-confidence points at the measurement model (per-scan "
           "likelihood / ESS), not long-horizon drift.",
           "Rule out the sync confounder first: re-score with "
-          "--sync=interpolate_gt (if ANEES drops, sync; if not, it is real).",
+          "--sync=interpolate_ref (if ANEES drops, sync; if not, it is real).",
         ],
       )
     )
@@ -289,7 +289,7 @@ def diagnose(rep: Report) -> list[Diagnosis]:
           "window Σ_rel the same way local over-confidence does."
         ),
         recommended_actions=[
-          "Re-score with --sync=interpolate_gt to separate sync from a genuine "
+          "Re-score with --sync=interpolate_ref to separate sync from a genuine "
           "calibration fault before trusting short-horizon verdicts.",
         ],
       )

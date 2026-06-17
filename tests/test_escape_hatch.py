@@ -179,7 +179,7 @@ def test_cli_nees_on_wide_tum(tmp_path, capsys):
       str(gt_f),
       "--est-body-frame",
       "imu",
-      "--gt-body-frame",
+      "--ref-body-frame",
       "imu",
       "--align",
       "none",
@@ -209,7 +209,7 @@ def test_cli_nees_on_tum_with_sidecar(tmp_path, capsys):
       str(cov_f),
       "--est-body-frame",
       "imu",
-      "--gt-body-frame",
+      "--ref-body-frame",
       "imu",
       "--align",
       "none",
@@ -227,7 +227,7 @@ def test_cli_bare_tum_estimate_requires_body_frame(tmp_path, capsys):
   gt_f = tmp_path / "gt.tum"
   _write_wide_tum(est_f, ts, est, cov)
   _write_tum(gt_f, ts, gt)
-  rc = main(["nees", str(est_f), str(gt_f), "--gt-body-frame", "imu"])
+  rc = main(["nees", str(est_f), str(gt_f), "--ref-body-frame", "imu"])
   err = capsys.readouterr().err
   assert rc == 2
   assert "--est-body-frame" in err
@@ -245,7 +245,7 @@ def test_cli_rejects_unknown_column_count(tmp_path, capsys):
       str(gt_f),
       "--est-body-frame",
       "imu",
-      "--gt-body-frame",
+      "--ref-body-frame",
       "imu",
     ]
   )

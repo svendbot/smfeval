@@ -8,7 +8,7 @@ Command:
 
 ```
 smfeval nees traj.SQUARE gt-tum.txt \
-  --gt-body-frame lidar \
+  --ref-body-frame lidar \
   --body-frame-transform spires_imu_to_lidar.json
 ```
 

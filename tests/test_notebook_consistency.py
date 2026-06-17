@@ -102,7 +102,7 @@ def test_notebook_library_path_matches_cli(
       "nees",
       str(notebook_files / "est.SQUARE"),
       str(notebook_files / "gt.tum"),
-      "--gt-body-frame",
+      "--ref-body-frame",
       "lidar",
       "--body-frame-transform",
       str(notebook_files / "imu_to_lidar.json"),

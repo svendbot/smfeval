@@ -233,7 +233,7 @@ def test_sync_risk_fires_only_for_nearest():
       "n_matched": 1000,
       "risk_excess_count": 500,
       "risk_threshold": 0.3,
-      "mode": "interpolate_gt",
+      "mode": "interpolate_ref",
     }
   )
   assert FailureMode.SYNC_RISK not in _modes(rep_interp)

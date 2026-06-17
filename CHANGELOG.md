@@ -45,7 +45,7 @@ families (paper §II.b / §V.d).
   structured failure-mode diagnoses with recommended actions.
 - Student-t belief-transform intervention (`--student-t`), per-scan ESS
   covariance inflation (`--ess-inflate`), GT-covariance folding
-  (`--consume-gt-cov`).
+  (`--consume-ref-cov`).
 - Fixed catastrophic cancellation in the SE(3) V-jacobian small-angle
   branch (exp/log round-trip error 5e-9 to <5e-15).
 

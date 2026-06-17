@@ -82,7 +82,7 @@
   "calibration_split": null,
   "bias_variance": null,
   "recommendations": [
-    "100.0% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_gt to confirm calibration findings."
+    "100.0% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_ref to confirm calibration findings."
   ],
   "diagnoses": [
     {
@@ -93,7 +93,7 @@
       ],
       "explanation": "A competing confounder: timestamp-matching error shrinks short-window \u03a3_rel the same way local over-confidence does.",
       "recommended_actions": [
-        "Re-score with --sync=interpolate_gt to separate sync from a genuine calibration fault before trusting short-horizon verdicts."
+        "Re-score with --sync=interpolate_ref to separate sync from a genuine calibration fault before trusting short-horizon verdicts."
       ]
     }
   ]

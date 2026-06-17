@@ -8,7 +8,7 @@ Command (I2EKF-LO already estimates in the LiDAR body frame, so no
 body-frame transform is needed against the Spires GT):
 
 ```
-smfeval nees traj.SQUARE gt-tum.txt --gt-body-frame lidar
+smfeval nees traj.SQUARE gt-tum.txt --ref-body-frame lidar
 ```
 
 Output (verbatim):

@@ -154,7 +154,7 @@ Missing header metadata comes from flags: `--est-body-frame` (required),
 `--gauge` (default `se3`). The assumed values are echoed on stderr.
 
 ```
-$ smfeval nees est.tum gt.tum --cov est.cov --est-body-frame imu --gt-body-frame imu
+$ smfeval nees est.tum gt.tum --cov est.cov --est-body-frame imu --ref-body-frame imu
 note: bare-TUM estimate read as gaussian_se3 (body_frame='imu', ...)
 median NEES 2.31   (calibrated: 2.37)
 ...

@@ -41,7 +41,7 @@ The only dependencies are NumPy and SciPy (Python 3.10+).
 ## Score a filter
 
 ```
-$ smfeval nees estimate.SQUARE reference.tum --gt-body-frame lidar
+$ smfeval nees estimate.SQUARE reference.tum --ref-body-frame lidar
 median NEES 1.04e3   (calibrated: 2.37)
 covariance scale gap k = 441, ~21x too tight per axis
 90% coverage: 0.000  (calibrated: 0.900)
@@ -98,7 +98,7 @@ in `SQUARE_spec.md`.
   `timestamp c11 c21 c22 ... c66` rows.
 
 ```sh
-smfeval nees est.tum gt.tum --cov est.cov --est-body-frame imu --gt-body-frame imu
+smfeval nees est.tum gt.tum --cov est.cov --est-body-frame imu --ref-body-frame imu
 ```
 
 Most filters compute a covariance internally and never publish it. For four
@@ -154,10 +154,10 @@ Diagnoses (attribution → action)
   [warning] sync_risk
       A competing confounder: timestamp-matching error shrinks short-window Σ_rel the same way local over-confidence does.
       · 29.4% of pairs exceed sync risk 0.3
-      → Re-score with --sync=interpolate_gt to separate sync from a genuine calibration fault before trusting short-horizon verdicts.
+      → Re-score with --sync=interpolate_ref to separate sync from a genuine calibration fault before trusting short-horizon verdicts.
 
 Recommendations
-  - 29.4% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_gt to confirm calibration findings.
+  - 29.4% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_ref to confirm calibration findings.
   - 6 DoF removed over 32 m of trajectory; post-alignment residuals are biased low. Consider --n_to_align to fit on a prefix and score on the remainder.
   - Coverage below nominal combined with KS p < 0.05 — the filter is over-confident (claimed Σ too tight, reference falls outside the predicted intervals); widen process noise. Miscalibration is unlikely to be explained by sync error alone.
 ```

@@ -132,7 +132,7 @@ def main() -> None:
     cut, scen = write_fixture(f"real_{name}", run)
     gt_rows = cut_gt(cut[0].timestamp, cut[-1].timestamp)
     (scen / "gt.tum").write_text("\n".join(gt_rows) + "\n")
-    args: dict = {"cmd": cmd, "gt_body_frame": "lidar", "seed": 0, "extra": []}
+    args: dict = {"cmd": cmd, "ref_body_frame": "lidar", "seed": 0, "extra": []}
     if cmd == "score":
       args["n_samples"] = 32
     if needs_tf:
