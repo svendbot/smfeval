@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 - 2026-06-12
+## 0.4.0 - 2026-06-21
 
 Everything needed to score a filter's own belief against reference.
 Scoring is on the **translation** marginal; orientation is left to future
@@ -65,7 +65,8 @@ forthcoming paper).
   understatement, pairwise dilution laws, coverage separation.
 - Real-data regression fixtures from Oxford Spires christ-church-03
   (CC BY-NC-SA 4.0, attributed), including a no-reference pair scenario.
-- CI test and lint workflow (previously only tag-publish existed).
+- CI test, lint, and type-check (pyright) workflow, the latter covering
+  the library, tests, and notebooks (previously only tag-publish existed).
 
 ### Packaging
 
