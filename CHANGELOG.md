@@ -17,8 +17,8 @@ forthcoming paper).
   each other (A→B Umeyama, difference under summed covariances, χ²₃). An
   elevated pairwise NEES certifies overconfidence with no reference
   consulted, and the statistic lower-bounds the miscalibration (propriety
-  caveat printed with every verdict). Ported from the slam_benchmark audit
-  and verified exact against it.
+  caveat printed with every verdict). Verified exact against an independent
+  audit implementation.
 - `smfeval validate --strict`. Mechanical exporter gate (per-row covariance
   SPD, plausible magnitude, not degenerate-zero, finite poses).
 

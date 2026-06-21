@@ -32,7 +32,7 @@ uses translations only, so the rotation slice absorbs no gauge
 correction and its pairwise NEES conflates calibration with the
 unaligned heading difference.
 
-Ported from the slam_benchmark audit (``scripts/e9_pairwise.py``).
+Verified exact against an independent audit implementation.
 """
 
 from dataclasses import dataclass, field
