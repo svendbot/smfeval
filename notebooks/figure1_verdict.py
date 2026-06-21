@@ -64,15 +64,20 @@ from smfeval.align import (
   fit_alignment,
   propagate_step,
 )
+from smfeval.format import TangentOrder
 from smfeval.io import load_square, load_tum
 from smfeval.report.verdict import nees_verdict, render_nees_verdict
 from smfeval.scoring import gaussian_log_score_components
 from smfeval.se3.lie import homogeneous
+from smfeval.steps import GaussianStep
 from smfeval.sync import match_timestamps
 
-header, est = load_square(Path("est.SQUARE"))
+header, raw = load_square(Path("est.SQUARE"))
+est = [s for s in raw if isinstance(s, GaussianStep)]
+if len(est) != len(raw):
+  raise ValueError("figure expects an all-gaussian_se3 estimate")
 _, ref = load_tum(Path("ref.tum"), pose_frame="world", body_frame="lidar")
-order = header.tangent_order
+order = header.tangent_order or TangentOrder.TRANS_ROT
 
 # re-express the estimate in the reference (LiDAR) body frame
 tf = json.loads(Path("imu_to_lidar.json").read_text())

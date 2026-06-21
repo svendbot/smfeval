@@ -6,11 +6,11 @@ Oxford Spires ``christ-church-03``). One macro panel + two nested zooms:
 
   macro : the estimate track coloured by per-pose translation NEES (the whole
           run sits far above the calibrated 2.37, so it is not a local glitch),
-          with the observer track underneath.
-  zoom A: the estimate and observer pose at one representative step; the gap
+          with the reference track underneath.
+  zoom A: the estimate and reference pose at one representative step; the gap
           between them is z sigma.
   zoom B: the reported 90% region blown up until its shape is visible -- it is
-          millimetres across, and the truth is z sigma away, off-frame.
+          millimetres across, and the reference is z sigma away, off-frame.
 
 The point: ATE/RPE see only the small mean gap (zoom A's "cm"); smfeval sees
 that the belief calls that gap z sigma -- the covariance is the lie.
@@ -43,10 +43,12 @@ from smfeval.align import (
   fit_alignment,
   propagate_step,
 )
+from smfeval.format import TangentOrder
 from smfeval.io import load_square, load_tum
 from smfeval.scoring import gaussian_log_score_components
 from smfeval.se3 import quat_xyzw_to_rot, trans_slice
 from smfeval.se3.lie import homogeneous
+from smfeval.steps import GaussianStep
 from smfeval.sync import match_timestamps
 
 HERE = Path(__file__).resolve().parent
@@ -58,7 +60,7 @@ C_EST = "#1E66F5"
 C_ERR = "#E5322D"
 CALIBRATED = float(
   chi2.median(df=3)
-)  # 2.366: per-pose NEES under a true belief
+)  # 2.366: per-pose NEES under a calibrated belief
 
 
 def _gunzip(src: Path, dst: Path) -> None:
@@ -70,12 +72,15 @@ def load_run(tmp: Path):
   """Aligned estimate steps + matched reference, scored per pose (NEES, world error)."""
   _gunzip(DATA / "christ-church-03_fast_lio2.SQUARE.gz", tmp / "est.SQUARE")
   _gunzip(DATA / "christ-church-03_ref.tum.gz", tmp / "ref.tum")
-  header, est = load_square(tmp / "est.SQUARE")
+  header, raw = load_square(tmp / "est.SQUARE")
+  est = [s for s in raw if isinstance(s, GaussianStep)]
+  if len(est) != len(raw):
+    raise ValueError("figure expects an all-gaussian_se3 estimate")
   _, ref = load_tum(tmp / "ref.tum", pose_frame="world", body_frame="lidar")
 
   tf = json.loads((DATA / "imu_to_lidar.json").read_text())
   T_off = homogeneous(np.array(tf["R"]).reshape(3, 3), np.array(tf["t"]))
-  order = header.tangent_order
+  order = header.tangent_order or TangentOrder.TRANS_ROT
   est = [
     apply_body_transform(
       s,
@@ -169,7 +174,7 @@ def scale_bar(ax, half: float):
 def pick_pose(est_xyz, ref_t, nees, conf=0.90, min_err=0.02, mid=(0.1, 0.9)):
   """Pick a representative overconfident pose.
 
-  Mid-run, truth outside the conf region, planar error >= min_err, NEES
+  Mid-run, reference outside the conf region, planar error >= min_err, NEES
   nearest the run median (not cherry-picked).
   """
   n = len(nees)
@@ -194,7 +199,7 @@ def main() -> int:
   e_w = p_ref - p_est
   err_m = float(np.linalg.norm(e_w))
   z = float(np.sqrt(nees[k]))
-  # plain-language gloss of z: how far past the 99% credible radius the truth
+  # plain-language gloss of z: how far past the 99% credible radius the reference
   # sits (the 99% radius for 3 dof is sqrt(chi2.ppf(0.99, 3)) ~= 3.37)
   mult99 = z / float(np.sqrt(chi2.ppf(0.99, df=3)))
   cov_w = rot[k] @ cov_t[k] @ rot[k].T
@@ -218,14 +223,14 @@ def main() -> int:
   )
   fig, ax = plt.subplots(figsize=(7.4, 6.4), layout="constrained")
 
-  # macro: observer track + estimate track coloured by per-pose NEES
+  # macro: reference track + estimate track coloured by per-pose NEES
   ax.plot(ref_t[:, 0], ref_t[:, 1], "-", color=C_REF, lw=1.2, zorder=1)
   pts = est_xyz[:, :2]
   segs = np.stack([pts[:-1], pts[1:]], axis=1)
   cval = 0.5 * (nees[:-1] + nees[1:])
   vmax = float(np.percentile(cval, 98))
   lc = LineCollection(
-    segs, cmap="plasma", norm=LogNorm(vmin=CALIBRATED, vmax=vmax), zorder=2
+    list(segs), cmap="plasma", norm=LogNorm(vmin=CALIBRATED, vmax=vmax), zorder=2
   )
   lc.set_array(cval)
   lc.set_linewidth(2.0)
@@ -246,7 +251,7 @@ def main() -> int:
   ax.set_ylabel("y [m]")
   ax.legend(
     handles=[
-      Line2D([0], [0], color=C_REF, lw=1.2, label="observer trajectory"),
+      Line2D([0], [0], color=C_REF, lw=1.2, label="reference trajectory"),
       Line2D([0], [0], color=C_EST, lw=2.0, label="FAST-LIO2 estimator"),
     ],
     loc="upper left",
@@ -274,15 +279,15 @@ def main() -> int:
   # zoom A: the two tracks + the gap
   c = 0.5 * (p_est + p_ref)
   halfA = max(err_m, wmaj) * 1.5
-  insA = ax.inset_axes([0.17, 0.28, 0.34, 0.34])
+  insA = ax.inset_axes((0.17, 0.28, 0.34, 0.34))
   insA.plot(segG[:, 0], segG[:, 1], "-", color=C_REF, lw=2.2, zorder=2)
   insA.plot(segE[:, 0], segE[:, 1], "-", color=C_EST, lw=2.2, zorder=2)
   insA.plot(*p_est, "o", color=C_EST, ms=6, mec="white", mew=0.8, zorder=4)
   insA.plot(*p_ref, "s", color=C_REF, ms=7, mec="white", mew=0.8, zorder=4)
   insA.annotate(
     "",
-    xy=p_ref,
-    xytext=p_est,
+    xy=(p_ref[0], p_ref[1]),
+    xytext=(p_est[0], p_est[1]),
     arrowprops=dict(arrowstyle="-|>", color=C_ERR, lw=2.0),
     zorder=5,
   )
@@ -305,16 +310,16 @@ def main() -> int:
   insA.set_xticks([])
   insA.set_yticks([])
   scale_bar(insA, halfA)
-  insA.set_title("estimate vs true track", fontsize=10)
+  insA.set_title("estimate vs reference track", fontsize=10)
   ax.indicate_inset_zoom(insA, edgecolor="0.4", lw=1.0, alpha=0.9)
 
   # zoom B: the reported 90% region, to scale
   halfB = wmaj * 1.8
-  insB = ax.inset_axes([0.60, 0.58, 0.28, 0.28])
+  insB = ax.inset_axes((0.60, 0.58, 0.28, 0.28))
   insB.plot(segE[:, 0], segE[:, 1], "-", color=C_EST, lw=2.0, zorder=2)
   insB.add_patch(
     Ellipse(
-      p_est,
+      (p_est[0], p_est[1]),
       wmaj,
       wmin,
       angle=ang,
@@ -329,7 +334,7 @@ def main() -> int:
   insB.plot(*p_est, "o", color=C_EST, ms=6, mec="white", mew=0.8, zorder=4)
   u = e_w / (err_m + 1e-12)
   insB.annotate(
-    f"true pose\n{z:.0f}$\\sigma$ this way",
+    f"reference pose\n{z:.0f}$\\sigma$ this way",
     xy=p_est + u * halfB * 0.95,
     xytext=p_est + u * halfB * 0.30,
     color=C_ERR,
@@ -348,7 +353,7 @@ def main() -> int:
   scale_bar(insB, halfB)
   insB.set_title("reported 90% region", fontsize=10)
   insA.indicate_inset(
-    [p_est[0] - halfB, p_est[1] - halfB, 2 * halfB, 2 * halfB],
+    (p_est[0] - halfB, p_est[1] - halfB, 2 * halfB, 2 * halfB),
     insB,
     edgecolor="0.4",
     lw=1.0,
