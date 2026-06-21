@@ -13,7 +13,14 @@ license-files = ["LICENSE"]
 authors = [{ name = "Ola Rønning", email = "oroe@itu.dk" }]
 classifiers = [
     "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
 ]
 dependencies = [
     "numpy>=1.24",
@@ -22,6 +29,10 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/svendbot/smfeval"
+Repository = "https://github.com/svendbot/smfeval"
+Documentation = "https://github.com/svendbot/smfeval#readme"
+Changelog = "https://github.com/svendbot/smfeval/blob/main/CHANGELOG.md"
+Issues = "https://github.com/svendbot/smfeval/issues"
 
 [dependency-groups]
 dev = [

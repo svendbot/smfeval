@@ -104,3 +104,6 @@ result-*
 # Sphinx
 docs/_build/
 docs/_autosummary/
+
+# Stale bytecode tree from the pre-rename src/ layout
+src/

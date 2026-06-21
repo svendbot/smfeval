@@ -5,7 +5,6 @@ r"""Calibration diagnostics.
 - Mahalanobis coverage of the translation residual under the predictive Σ_t
   (proper ellipsoidal credible region, χ²_3 threshold)
 - standardized residuals (Mahalanobis form)
-- TODO(Ola): add HDI?
 
 Orthogonal to scoring rules: scoring rules (e.g. CRPS, log score) reward
 sharpness conditional on the reference landing in support, while calibration
