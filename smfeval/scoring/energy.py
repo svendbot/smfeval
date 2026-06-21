@@ -27,7 +27,7 @@ from smfeval.scoring._kernel import (
   sample_gaussian_tangent,
 )
 from smfeval.se3.lie import trans_slice
-from smfeval.steps import EnsembleStep, GaussianStep, Step
+from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
 
 
 def energy_score(
@@ -51,18 +51,18 @@ def energy_score(
   """
   rng = rng if rng is not None else np.random.default_rng(0)
 
-  if isinstance(pred_step, GaussianStep):
-    sl = trans_slice(tangent_order)
-    cov_t = pred_step.covariance[sl, sl]
-    samples = sample_gaussian_tangent(
-      pred_step.translation, cov_t, n_samples, rng
-    )
-    return energy_score_estimator(samples, ref_translation)
-
-  if isinstance(pred_step, EnsembleStep):
-    n = pred_step.particles.shape[0]
-    if n == 0:
-      return float("nan")
-    return energy_score_estimator(pred_step.particles[:, :3], ref_translation)
-
-  return float(np.linalg.norm(pred_step.translation - ref_translation))
+  match pred_step:
+    case GaussianStep():
+      sl = trans_slice(tangent_order)
+      cov_t = pred_step.covariance[sl, sl]
+      samples = sample_gaussian_tangent(
+        pred_step.translation, cov_t, n_samples, rng
+      )
+      return energy_score_estimator(samples, ref_translation)
+    case EnsembleStep():
+      n = pred_step.particles.shape[0]
+      if n == 0:
+        return float("nan")
+      return energy_score_estimator(pred_step.particles[:, :3], ref_translation)
+    case DeterministicStep():
+      return float(np.linalg.norm(pred_step.translation - ref_translation))

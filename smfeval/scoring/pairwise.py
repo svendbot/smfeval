@@ -43,7 +43,7 @@ from scipy.stats import chi2
 from smfeval.align import fit_alignment, propagate_step
 from smfeval.format import Representation, SquareHeader, TangentOrder
 from smfeval.scoring.logscore import AneesResult, anees_consistency
-from smfeval.se3.lie import pose_matrix, relative, se3_log, trans_slice
+from smfeval.se3.lie import pose_residual, trans_slice
 from smfeval.steps import GaussianStep, Step
 from smfeval.sync import match_timestamps
 
@@ -163,12 +163,8 @@ def pair_translation_nees(
   for k, (sa, sb) in enumerate(zip(a, b, strict=True)):
     if not (isinstance(sa, GaussianStep) and isinstance(sb, GaussianStep)):
       continue
-    xi = se3_log(
-      relative(
-        pose_matrix(sa.translation, sa.quat_xyzw),
-        pose_matrix(sb.translation, sb.quat_xyzw),
-      ),
-      order=order_a,
+    xi = pose_residual(
+      sa.translation, sa.quat_xyzw, sb.translation, sb.quat_xyzw, order_a
     )
     d[k] = xi[ti_a]
     cov[k] = sa.covariance[ti_a, ti_a] + sb.covariance[ti_b, ti_b]

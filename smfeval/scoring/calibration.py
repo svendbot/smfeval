@@ -47,7 +47,7 @@ from scipy.stats import chi2, kstest
 
 from smfeval.format import TangentOrder
 from smfeval.scoring._predictive import translation_samples
-from smfeval.se3.lie import pose_matrix, relative, se3_log, trans_slice
+from smfeval.se3.lie import pose_residual, trans_slice
 from smfeval.steps import EnsembleStep, GaussianStep, Step
 
 # Empirical-CDF resolution for PIT is 1/N; 256 keeps it well below KS sensitivity
@@ -85,9 +85,7 @@ def _whitened_translation_residual(
   """
   match step:
     case GaussianStep():
-      T_mean = pose_matrix(step.translation, step.quat_xyzw)
-      T_obs = pose_matrix(ref_t, ref_q)
-      xi = se3_log(relative(T_mean, T_obs), order=order)
+      xi = pose_residual(step.translation, step.quat_xyzw, ref_t, ref_q, order)
       ti = trans_slice(order)
       rho = xi[ti]
       cov_t = step.covariance[ti, ti]

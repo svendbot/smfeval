@@ -178,6 +178,23 @@ def relative(T1: np.ndarray, T2: np.ndarray) -> np.ndarray:
   return invert(T1) @ T2
 
 
+def pose_residual(
+  t1: np.ndarray,
+  q1_xyzw: np.ndarray,
+  t2: np.ndarray,
+  q2_xyzw: np.ndarray,
+  order: TangentOrder = TangentOrder.TRANS_ROT,
+) -> np.ndarray:
+  r"""Tangent residual :math:`\log(T_1^{-1} T_2)` between two poses.
+
+  Each pose is given as a translation and ``xyzw`` quaternion; the result is
+  the 6-vector in the convention selected by ``order``.
+  """
+  return se3_log(
+    relative(pose_matrix(t1, q1_xyzw), pose_matrix(t2, q2_xyzw)), order
+  )
+
+
 def _split(
   xi: np.ndarray, order: TangentOrder
 ) -> tuple[np.ndarray, np.ndarray]:

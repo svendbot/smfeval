@@ -27,9 +27,7 @@ from scipy.stats import chi2
 
 from smfeval.format import TangentOrder
 from smfeval.se3.lie import (
-  pose_matrix,
-  relative,
-  se3_log,
+  pose_residual,
   trans_slice,
 )
 from smfeval.steps import GaussianStep
@@ -81,9 +79,13 @@ def gaussian_log_score(
   out, which for a Gaussian is the translation sub-vector under the
   matching sub-covariance.
   """
-  T_mean = pose_matrix(step.translation, step.quat_xyzw)
-  T_obs = pose_matrix(ref_translation, ref_quat_xyzw)
-  xi = se3_log(relative(T_mean, T_obs), order=tangent_order)
+  xi = pose_residual(
+    step.translation,
+    step.quat_xyzw,
+    ref_translation,
+    ref_quat_xyzw,
+    tangent_order,
+  )
   t_idx = trans_slice(tangent_order)
   trans = _gaussian_neg_log_density(xi[t_idx], step.covariance[t_idx, t_idx])
   return GaussianLogScore(translation=trans)
@@ -162,9 +164,13 @@ def gaussian_log_score_components(
   the two additive components so attribution can read the calibration term
   (graded, χ²-referenced) while the raw score remains the proper headline.
   """
-  T_mean = pose_matrix(step.translation, step.quat_xyzw)
-  T_obs = pose_matrix(ref_translation, ref_quat_xyzw)
-  xi = se3_log(relative(T_mean, T_obs), order=tangent_order)
+  xi = pose_residual(
+    step.translation,
+    step.quat_xyzw,
+    ref_translation,
+    ref_quat_xyzw,
+    tangent_order,
+  )
   t_idx = trans_slice(tangent_order)
   return DecomposedLogScore(
     translation=_score_components(xi[t_idx], step.covariance[t_idx, t_idx]),
@@ -222,12 +228,8 @@ def student_t_logscore_sweep(
   ):
     if not isinstance(step, GaussianStep):
       continue
-    xi = se3_log(
-      relative(
-        pose_matrix(step.translation, step.quat_xyzw),
-        pose_matrix(ref_t, ref_q),
-      ),
-      order=tangent_order,
+    xi = pose_residual(
+      step.translation, step.quat_xyzw, ref_t, ref_q, tangent_order
     )
     t_idx = trans_slice(tangent_order)
     xi_t = xi[t_idx]

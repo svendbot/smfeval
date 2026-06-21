@@ -10,7 +10,7 @@ from scipy.special import logsumexp
 
 from smfeval.format import TangentOrder
 from smfeval.se3.lie import trans_slice
-from smfeval.steps import EnsembleStep, GaussianStep
+from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
 
 
 def _ref_velocity(ref_ts: np.ndarray, ref_pos: np.ndarray) -> np.ndarray:
@@ -39,20 +39,22 @@ def _ensemble_weighted_mean_var(
   return mean, var
 
 
-def _trans_sigma(step, order: TangentOrder | None) -> float:
+def _trans_sigma(step: Step, order: TangentOrder | None) -> float:
   """Predictive translation 1-sigma in metres."""
-  if isinstance(step, GaussianStep):
-    ti = trans_slice(order or TangentOrder.TRANS_ROT)
-    cov_t = step.covariance[ti, ti]
-    return float(np.sqrt(max(np.trace(cov_t) / 3.0, 0.0)))
-  if isinstance(step, EnsembleStep):
-    positions = step.particles[:, :3]
-    if step.weights is not None:
-      _, var = _ensemble_weighted_mean_var(positions, step.weights)
-    else:
-      var = positions.var(axis=0)
-    return float(np.sqrt(max(var.mean(), 0.0)))
-  return 0.0
+  match step:
+    case GaussianStep():
+      ti = trans_slice(order or TangentOrder.TRANS_ROT)
+      cov_t = step.covariance[ti, ti]
+      return float(np.sqrt(max(np.trace(cov_t) / 3.0, 0.0)))
+    case EnsembleStep():
+      positions = step.particles[:, :3]
+      if step.weights is not None:
+        _, var = _ensemble_weighted_mean_var(positions, step.weights)
+      else:
+        var = positions.var(axis=0)
+      return float(np.sqrt(max(var.mean(), 0.0)))
+    case DeterministicStep():
+      return 0.0
 
 
 def sync_risk(
