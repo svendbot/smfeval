@@ -18,7 +18,8 @@ PIT here uses the translation-magnitude scalarisation of the residual,
 :math:`p = F_\mathrm{pred}(y_\mathrm{obs})`, computed empirically from
 predictive samples; under a well-calibrated belief :math:`p \sim U(0, 1)`
 (Dawid, 1984; Diebold, Gunther & Tay, 1998). Orientation is not scored
-(proper scores on SO(3) carry intractable normalisers; see the paper).
+(proper scores on SO(3) carry intractable normalisers; the full argument
+is in a forthcoming paper).
 
 References:
 -----------

@@ -1,7 +1,7 @@
 r"""Compact verdict blocks for the ``nees`` and ``pair`` verbs.
 
-The verdict is the product: three lines a stranger can read without the
-paper. The covariance scale gap is
+The verdict is the product: three lines a stranger can read without any
+further reading. The covariance scale gap is
 
 .. math::
 

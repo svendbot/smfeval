@@ -216,13 +216,13 @@ button reads [`CITATION.cff`](CITATION.cff).
 > https://github.com/svendbot/smfeval
 
 A paper describing the methodology and the audit behind it is in preparation,
-to be released with [slam_benchmark](https://github.com/svendbot/slam_benchmark).
+to be released with `slam_benchmark`.
 
 ## Provenance
 
 smfeval grew out of a systematic audit of uncertainty calibration in
 LiDAR-inertial odometry.
-[slam_benchmark](https://github.com/svendbot/slam_benchmark) is the audit that
+`slam_benchmark` is the audit that
 motivated this tool. The trajectory data used in fixtures and the notebook
 derives from the
 [Oxford Spires Dataset](https://dynamic.robots.ox.ac.uk/datasets/oxford-spires/)

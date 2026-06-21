@@ -24,8 +24,8 @@ posterior covariance and convert it to a SQUARE file smfeval can score:
 | I2EKF-LO  | github.com/YWL0720/I2EKF-LO           | `8d2158cda30e` | verified | Spires christ-church-03          | 1.77e10              |
 
 **verified** — audited against the filter source *and* the empirical error
-scatter (the paper's Sec. V.d standard): the exported covariance is the
-filter's actual posterior, in the declared frame and convention.
+scatter: the exported covariance is the filter's actual posterior, in the
+declared frame and convention.
 **contributed** — community-submitted with the required artifacts but not
 yet source-audited.
 

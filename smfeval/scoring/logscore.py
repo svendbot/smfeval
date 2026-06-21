@@ -5,8 +5,9 @@ by Good (1952) and is strictly proper (Gneiting & Raftery, 2007).
 
 We score the 3-D translation block of the SE(3) belief. Orientation is
 not scored: a proper score on SO(3) needs a belief density whose
-normaliser is intractable for the natural rotation families (paper,
-§II.b / §V.d). The translation marginal of the pose Gaussian is the
+normaliser is intractable for the natural rotation families (the full
+argument is in a forthcoming paper). The translation marginal of the
+pose Gaussian is the
 Gaussian on the translation sub-vector with the matching sub-covariance,
 obtained by indexing the residual and covariance with
 :func:`smfeval.se3.lie.trans_slice`.

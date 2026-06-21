@@ -2,8 +2,8 @@ r"""Continuous Ranked Probability Score (CRPS) on the translation marginal.
 
 Translation is scored per-axis. Orientation is not scored: proper scores
 on SO(3) need a belief density whose normaliser is intractable for the
-natural rotation families, so the tool scores translation only (see the
-paper, §II.b / §V.d).
+natural rotation families, so the tool scores translation only (the full
+argument is in a forthcoming paper).
 
 CRPS was introduced by Matheson & Winkler (1976); the kernel-score and
 energy-form characterisation we use here is from Gneiting & Raftery

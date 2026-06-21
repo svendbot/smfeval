@@ -5,10 +5,10 @@ introduced by Székely (2003) and characterised as a strictly proper
 multivariate kernel score by Gneiting & Raftery (2007).
 
 We score the translation marginal only. Orientation needs a proper score
-on SO(3), whose natural belief families carry intractable normalisers
-(paper, §II.b / §V.d), so it is out of scope. At the reported covariance
-the translation energy score reduces to the per-pose error norm that APE
-aggregates (paper, §I / §III).
+on SO(3), whose natural belief families carry intractable normalisers, so
+it is out of scope; the full argument is in a forthcoming paper. At the
+reported covariance the translation energy score reduces to the per-pose
+error norm that APE aggregates.
 
 References:
 -----------

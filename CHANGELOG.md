@@ -2,11 +2,11 @@
 
 ## 0.4.0 - 2026-06-12
 
-The release that matches the paper. Everything needed to score a filter's
-own belief against reference. Scoring is on the **translation** marginal;
-orientation is left to future work, since a proper score on SO(3) needs a
-belief density whose normaliser is intractable for the natural rotation
-families (paper §II.b / §V.d).
+Everything needed to score a filter's own belief against reference.
+Scoring is on the **translation** marginal; orientation is left to future
+work, since a proper score on SO(3) needs a belief density whose normaliser
+is intractable for the natural rotation families (the full argument is in a
+forthcoming paper).
 
 ### New verbs
 

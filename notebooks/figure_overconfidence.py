@@ -16,7 +16,7 @@ The point: ATE/RPE see only the small mean gap (zoom A's "cm"); smfeval sees
 that the belief calls that gap z sigma -- the covariance is the lie.
 
 Run: ``python notebooks/figure_overconfidence.py`` (numpy, scipy, matplotlib,
-smfeval). Mirrors the slam_benchmark paper teaser, sourced from public data.
+smfeval). Sourced from public data.
 """
 
 from __future__ import annotations

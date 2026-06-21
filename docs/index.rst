@@ -13,7 +13,8 @@ Deray & Atchuthan (2018) and Barfoot (2017).
 Orientation is not scored. A proper score on SO(3) needs a belief density
 whose normaliser is intractable for the natural rotation families, and the
 first-order tangent alternative awaits a rotation-frame audit, so rotation
-scoring is left to future work (see the accompanying paper, §II.b / §V.d).
+scoring is left to future work (the full argument is in a forthcoming
+paper).
 
 Scoring rules are evaluated *prequentially* (Dawid, 1984): at each
 matched timestep the one-step-ahead predictive belief is scored against
