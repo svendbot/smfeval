@@ -9,16 +9,16 @@ For Sim(3), the scale `s` enters the translation block of the Adjoint and
 multiplies translations.
 """
 
-from typing import TypeVar
+from typing import TypeVar, cast
 
 import numpy as np
 from scipy.spatial.transform import Rotation
 
 from smfeval.format import TangentConvention, TangentOrder
 from smfeval.se3.lie import adjoint, invert, trans_slice
-from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep
+from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
 
-StepT = TypeVar("StepT", GaussianStep, EnsembleStep, DeterministicStep)
+StepT = TypeVar("StepT", bound=Step)
 
 
 def _scaled_adjoint(
@@ -53,8 +53,11 @@ def propagate_step(
       new_t, new_q = _apply_to_pose(
         transform, scale, step.translation, step.quat_xyzw
       )
-      return DeterministicStep(
-        timestamp=step.timestamp, translation=new_t, quat_xyzw=new_q
+      return cast(
+        StepT,
+        DeterministicStep(
+          timestamp=step.timestamp, translation=new_t, quat_xyzw=new_q
+        ),
       )
 
     case GaussianStep():
@@ -74,11 +77,14 @@ def propagate_step(
       else:
         Ad = _scaled_adjoint(transform, scale, tangent_order)
         new_cov = Ad @ step.covariance @ Ad.T
-      return GaussianStep(
-        timestamp=step.timestamp,
-        translation=new_t,
-        quat_xyzw=new_q,
-        covariance=new_cov,
+      return cast(
+        StepT,
+        GaussianStep(
+          timestamp=step.timestamp,
+          translation=new_t,
+          quat_xyzw=new_q,
+          covariance=new_cov,
+        ),
       )
 
     case EnsembleStep():
@@ -89,10 +95,13 @@ def propagate_step(
       rots = Rotation.from_quat(step.particles[:, 3:]).as_matrix()
       new_rots = R @ rots  # broadcast (3,3) x (n,3,3) -> (n,3,3)
       new[:, 3:] = Rotation.from_matrix(new_rots).as_quat()
-      return EnsembleStep(
-        timestamp=step.timestamp,
-        particles=new,
-        weights=None if step.weights is None else step.weights.copy(),
+      return cast(
+        StepT,
+        EnsembleStep(
+          timestamp=step.timestamp,
+          particles=new,
+          weights=None if step.weights is None else step.weights.copy(),
+        ),
       )
     case _:
       raise TypeError(f"unsupported step type {type(step).__name__}")
@@ -132,8 +141,11 @@ def apply_body_transform(
   match step:
     case DeterministicStep():
       new_t, new_q = _new_mean(step.translation, step.quat_xyzw)
-      return DeterministicStep(
-        timestamp=step.timestamp, translation=new_t, quat_xyzw=new_q
+      return cast(
+        StepT,
+        DeterministicStep(
+          timestamp=step.timestamp, translation=new_t, quat_xyzw=new_q
+        ),
       )
 
     case GaussianStep():
@@ -147,11 +159,14 @@ def apply_body_transform(
         new_cov = Ad_inv @ step.covariance @ Ad_inv.T
       else:
         new_cov = step.covariance.copy()
-      return GaussianStep(
-        timestamp=step.timestamp,
-        translation=new_t,
-        quat_xyzw=new_q,
-        covariance=new_cov,
+      return cast(
+        StepT,
+        GaussianStep(
+          timestamp=step.timestamp,
+          translation=new_t,
+          quat_xyzw=new_q,
+          covariance=new_cov,
+        ),
       )
 
     case EnsembleStep():
@@ -160,10 +175,13 @@ def apply_body_transform(
       new[:, :3] = step.particles[:, :3] + np.einsum("nij,j->ni", rots, t_off)
       new_rots = np.einsum("nij,jk->nik", rots, R_off)
       new[:, 3:] = Rotation.from_matrix(new_rots).as_quat()
-      return EnsembleStep(
-        timestamp=step.timestamp,
-        particles=new,
-        weights=None if step.weights is None else step.weights.copy(),
+      return cast(
+        StepT,
+        EnsembleStep(
+          timestamp=step.timestamp,
+          particles=new,
+          weights=None if step.weights is None else step.weights.copy(),
+        ),
       )
     case _:
       raise TypeError(f"unsupported step type {type(step).__name__}")

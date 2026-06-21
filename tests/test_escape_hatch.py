@@ -23,6 +23,7 @@ from smfeval.io import (
   load_tum_with_sidecar,
   sniff_tum_columns,
 )
+from smfeval.steps import GaussianStep
 
 _RNG = np.random.default_rng(9)
 
@@ -95,6 +96,7 @@ def test_wide_tum_is_headerless_square_body(tmp_path):
   assert h_w.representation is Representation.GAUSSIAN_SE3
   assert len(s_w) == len(s_s) == 20
   for a, b in zip(s_w, s_s, strict=True):
+    assert isinstance(a, GaussianStep) and isinstance(b, GaussianStep)
     assert a.timestamp == b.timestamp
     np.testing.assert_array_equal(a.translation, b.translation)
     np.testing.assert_array_equal(a.covariance, b.covariance)

@@ -112,7 +112,9 @@ def _diagnose_absolute(absolute: dict) -> list[Diagnosis]:
   """Channel attribution from the translation calibration slice."""
   out: list[Diagnosis] = []
   trans = absolute.get("translation")
-  tv = trans["verdict"] if trans else None
+  if not trans:
+    return out
+  tv = trans["verdict"]
 
   if tv == "optimistic":
     out.append(

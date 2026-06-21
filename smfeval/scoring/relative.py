@@ -50,7 +50,9 @@ exposes the local-precision / drift profile as a function of horizon.
 See ``plans/0.5-relative-crps.md``.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 
@@ -131,7 +133,7 @@ class RelativeCalibrationResult:
 
 
 def relative_calibration(
-  steps: list[Step],
+  steps: Sequence[Step],
   ref_translations: np.ndarray,
   *,
   windows_s: list[float],
@@ -152,6 +154,7 @@ def relative_calibration(
       "relative_calibration requires GaussianStep inputs "
       "(a published position covariance); got a non-Gaussian step"
     )
+  steps = cast("Sequence[GaussianStep]", steps)
   ts = np.array([s.timestamp for s in steps], dtype=float)
   mu = np.array([s.translation for s in steps], dtype=float)
   sl = trans_slice(tangent_order)
@@ -194,7 +197,7 @@ def relative_calibration(
 
 
 def relative_translation_crps(
-  steps: list[Step],
+  steps: Sequence[Step],
   ref_translations: np.ndarray,
   *,
   windows_s: list[float],
@@ -224,6 +227,7 @@ def relative_translation_crps(
       "relative_translation_crps requires GaussianStep inputs "
       "(a published position covariance); got a non-Gaussian step"
     )
+  steps = cast("Sequence[GaussianStep]", steps)
   ts = np.array([s.timestamp for s in steps], dtype=float)
   mu = np.array([s.translation for s in steps], dtype=float)
   sl = trans_slice(tangent_order)

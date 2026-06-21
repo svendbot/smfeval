@@ -35,6 +35,7 @@ unaligned heading difference.
 Verified exact against an independent audit implementation.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -88,9 +89,9 @@ def _med(a: np.ndarray) -> float:
 
 def pair_translation_nees(
   header_a: SquareHeader,
-  steps_a: list[Step],
+  steps_a: Sequence[Step],
   header_b: SquareHeader,
-  steps_b: list[Step],
+  steps_b: Sequence[Step],
   *,
   t_max_diff: float = 0.01,
   min_matched: int = 10,

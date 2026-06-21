@@ -21,10 +21,12 @@ from smfeval.align import (
   propagate_step,
 )
 from smfeval.cli.main import main
+from smfeval.format import TangentOrder
 from smfeval.io import load_square, load_tum
 from smfeval.report.verdict import nees_verdict, render_nees_verdict
 from smfeval.scoring import gaussian_log_score_components
 from smfeval.se3.lie import homogeneous
+from smfeval.steps import GaussianStep
 from smfeval.sync import match_timestamps
 
 _DATA = Path(__file__).parent.parent / "notebooks" / "data"
@@ -47,12 +49,15 @@ def notebook_files(tmp_path: Path) -> Path:
 
 def _library_verdict(d: Path) -> str:
   """The notebook's library-API cell, verbatim logic."""
-  est_header, est_steps = load_square(d / "est.SQUARE")
+  est_header, raw = load_square(d / "est.SQUARE")
+  est_steps = [s for s in raw if isinstance(s, GaussianStep)]
+  if len(est_steps) != len(raw):
+    raise ValueError("notebook pipeline expects an all-gaussian_se3 estimate")
   _, ref_steps = load_tum(d / "ref.tum", pose_frame="world", body_frame="lidar")
 
   tf = json.loads((d / "imu_to_lidar.json").read_text())
   T_off = homogeneous(np.array(tf["R"]).reshape(3, 3), np.array(tf["t"]))
-  order = est_header.tangent_order
+  order = est_header.tangent_order or TangentOrder.TRANS_ROT
   est_steps = [
     apply_body_transform(
       s,

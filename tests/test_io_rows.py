@@ -185,6 +185,7 @@ def test_ensemble_weighted_round_trip():
   for a, b in zip(steps, out, strict=False):
     assert abs(a.timestamp - b.timestamp) < 1e-9
     assert np.allclose(a.particles, b.particles)
+    assert a.weights is not None
     assert b.weights is not None
     assert np.allclose(a.weights, b.weights)
 
@@ -209,6 +210,8 @@ def test_ensemble_grouping_by_string_equality():
   parse_header(src)
   out = list(iter_steps(src, h))
   assert len(out) == 2
+  assert isinstance(out[0], EnsembleStep)
+  assert isinstance(out[1], EnsembleStep)
   assert out[0].particles.shape == (2, 7)
   assert out[1].particles.shape == (1, 7)
 
@@ -264,6 +267,8 @@ def test_truncated_final_ensemble_row_tolerated():
   parse_header(src)
   out = list(iter_steps(src, h))
   assert len(out) == 2
+  assert isinstance(out[0], EnsembleStep)
+  assert isinstance(out[1], EnsembleStep)
   assert out[0].particles.shape[0] == 2
   assert out[1].particles.shape[0] == 1
 

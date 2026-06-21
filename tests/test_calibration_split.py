@@ -48,7 +48,11 @@ RNG = np.random.default_rng(7)
 
 
 def _gauss(t: np.ndarray, cov_diag: float | np.ndarray) -> GaussianStep:
-  cov = np.eye(6) * cov_diag if np.isscalar(cov_diag) else np.diag(cov_diag)
+  cov = (
+    np.diag(cov_diag)
+    if isinstance(cov_diag, np.ndarray)
+    else np.eye(6) * cov_diag
+  )
   return GaussianStep(
     timestamp=0.0,
     translation=t,
@@ -105,7 +109,7 @@ def test_non_pd_covariance_is_inf():
 
 def test_anees_consistent_for_calibrated_draws():
   dof = 6
-  nees = chi2.rvs(df=dof, size=4000, random_state=RNG)
+  nees = np.asarray(chi2.rvs(df=dof, size=4000, random_state=RNG))
   res = anees_consistency(nees, dof=dof)
   assert res.verdict == "consistent"
   assert res.lo < res.anees < res.hi
@@ -116,7 +120,7 @@ def test_anees_consistent_for_calibrated_draws():
 def test_anees_optimistic_when_overconfident():
   dof = 3
   # error variance 3× what Σ claims → NEES inflated → over-confident.
-  nees = 3.0 * chi2.rvs(df=dof, size=2000, random_state=RNG)
+  nees = np.asarray(3.0 * chi2.rvs(df=dof, size=2000, random_state=RNG))
   res = anees_consistency(nees, dof=dof)
   assert res.verdict == "optimistic"
   assert res.anees > res.hi
@@ -124,7 +128,7 @@ def test_anees_optimistic_when_overconfident():
 
 def test_anees_conservative_when_underconfident():
   dof = 3
-  nees = 0.3 * chi2.rvs(df=dof, size=2000, random_state=RNG)
+  nees = np.asarray(0.3 * chi2.rvs(df=dof, size=2000, random_state=RNG))
   res = anees_consistency(nees, dof=dof)
   assert res.verdict == "conservative"
   assert res.anees < res.lo

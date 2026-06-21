@@ -143,6 +143,7 @@ def test_propagate_ensemble():
   out = propagate_step(step, T)
   expected_t = (T[:3, :3] @ particles[:, :3].T).T + T[:3, 3]
   assert np.allclose(out.particles[:, :3], expected_t)
+  assert out.weights is not None
   assert np.allclose(out.weights, weights)
 
 

@@ -230,7 +230,10 @@ def main() -> int:
   cval = 0.5 * (nees[:-1] + nees[1:])
   vmax = float(np.percentile(cval, 98))
   lc = LineCollection(
-    list(segs), cmap="plasma", norm=LogNorm(vmin=CALIBRATED, vmax=vmax), zorder=2
+    list(segs),
+    cmap="plasma",
+    norm=LogNorm(vmin=CALIBRATED, vmax=vmax),
+    zorder=2,
   )
   lc.set_array(cval)
   lc.set_linewidth(2.0)

@@ -591,9 +591,9 @@ def _load_estimate(args: argparse.Namespace) -> tuple[SquareHeader, list[Step]]:
   if was_tum:
     suffix = ""
     if header.representation is Representation.GAUSSIAN_SE3:
-      suffix = (
-        f", {header.tangent_convention.value}, {header.tangent_order.value}"
-      )
+      conv = header.tangent_convention or TangentConvention.RIGHT
+      order = header.tangent_order or TangentOrder.TRANS_ROT
+      suffix = f", {conv.value}, {order.value}"
     print(
       f"note: bare-TUM estimate read as {header.representation.value} "
       f"(body_frame={header.body_frame!r}, pose_frame={header.pose_frame!r}, "

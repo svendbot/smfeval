@@ -5,11 +5,11 @@ from hypothesis import assume
 from hypothesis import strategies as st
 from scipy.spatial.transform import Rotation
 
-FINITE = {"allow_nan": False, "allow_infinity": False}
-
 
 def floats(lo: float, hi: float):
-  return st.floats(min_value=lo, max_value=hi, **FINITE)
+  return st.floats(
+    min_value=lo, max_value=hi, allow_nan=False, allow_infinity=False
+  )
 
 
 def vec(n: int, lo: float = -10.0, hi: float = 10.0):

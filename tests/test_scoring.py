@@ -21,7 +21,11 @@ RNG = np.random.default_rng(11)
 def _gauss(
   ts: float, t: np.ndarray, cov_diag: float | np.ndarray
 ) -> GaussianStep:
-  cov = np.eye(6) * cov_diag if np.isscalar(cov_diag) else np.diag(cov_diag)
+  cov = (
+    np.diag(cov_diag)
+    if isinstance(cov_diag, np.ndarray)
+    else np.eye(6) * cov_diag
+  )
   return GaussianStep(
     timestamp=ts,
     translation=t,

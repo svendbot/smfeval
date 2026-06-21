@@ -256,7 +256,7 @@ def load_estimate(
     )
   ncols = sniff_tum_columns(path)
   if ncols == 29:
-    return load_tum_gaussian(
+    hdr, gsteps = load_tum_gaussian(
       path,
       pose_frame=pose_frame,
       body_frame=body_frame,
@@ -264,8 +264,10 @@ def load_estimate(
       tangent_order=tangent_order,
       gauge=gauge,
     )
+    steps: list[Step] = list(gsteps)
+    return hdr, steps
   if ncols == 8 and cov is not None:
-    return load_tum_with_sidecar(
+    hdr, gsteps = load_tum_with_sidecar(
       path,
       cov,
       pose_frame=pose_frame,
@@ -274,10 +276,13 @@ def load_estimate(
       tangent_order=tangent_order,
       gauge=gauge,
     )
+    steps = list(gsteps)
+    return hdr, steps
   if ncols == 8:
-    tum, steps = load_tum(path, pose_frame=pose_frame, body_frame=body_frame)
+    tum, dsteps = load_tum(path, pose_frame=pose_frame, body_frame=body_frame)
     header = tum.to_square()
     header.gauge = gauge
+    steps = list(dsteps)
     return header, steps
   raise FormatError(
     f"header-less estimate has {ncols} columns; expected 8 (TUM, "
