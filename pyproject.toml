@@ -65,7 +65,7 @@ exclude = [
 ]
 
 [tool.pyright]
-include = ["smfeval", "tests"]
+include = ["smfeval", "tests", "notebooks"]
 pythonVersion = "3.10"
 venvPath = "."
 venv = ".venv"

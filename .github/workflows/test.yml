@@ -46,6 +46,17 @@ jobs:
           echo "code=$fmt  spec=$spec"
           [ "$fmt" = "$spec" ] || { echo "::error::SQUARE_spec.md Version ($spec) != FORMAT_VERSION ($fmt)"; exit 1; }
 
+  typecheck:
+    name: pyright
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Sync dependencies
+        run: uv sync --dev
+      - name: Typecheck
+        run: uvx pyright@1.1.410
+
   docs:
     name: sphinx
     runs-on: ubuntu-latest
