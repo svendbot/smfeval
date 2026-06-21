@@ -11,13 +11,15 @@ The committed excerpts are derived from the Oxford Spires dataset and are
 redistributed under CC BY-NC-SA 4.0 with attribution — see
 tests/fixtures/regression/DATA_LICENSE.md.
 
-Run on the author's machine (needs ~/smf/slam_benchmark):
-  uv run python scripts/make_regression_fixtures.py
+Point SLAM_BENCHMARK at a local slam_benchmark checkout, then:
+  SLAM_BENCHMARK=/path/to/slam_benchmark \
+    uv run python scripts/make_regression_fixtures.py
 then regenerate goldens:
   UPDATE_FIXTURES=1 uv run pytest tests/test_regression.py
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -28,7 +30,10 @@ from smfeval.format import Representation
 from smfeval.io import load_square, write_header, write_steps
 from smfeval.se3.lie import homogeneous, invert
 
-BENCH = Path.home() / "smf" / "slam_benchmark"
+_bench_root = os.environ.get("SLAM_BENCHMARK")
+if not _bench_root:
+  sys.exit("set SLAM_BENCHMARK to a local slam_benchmark checkout")
+BENCH = Path(_bench_root)
 EVAL = BENCH / "evaluation"
 REF_TUM = (
   BENCH
