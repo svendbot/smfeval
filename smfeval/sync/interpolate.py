@@ -27,7 +27,7 @@ from scipy.linalg import cho_factor, cho_solve
 from scipy.spatial.transform import Rotation
 
 from smfeval.format import TangentOrder
-from smfeval.se3.lie import invert, pose_matrix, se3_exp, se3_log
+from smfeval.se3.lie import invert, se3_exp, se3_log
 
 _IDENTITY_QUAT_XYZW = np.array([0.0, 0.0, 0.0, 1.0])
 
@@ -84,9 +84,15 @@ def interpolate_ref_at(
   keep = np.zeros(n_q, dtype=bool)
   in_range = (query_times >= ref_times[0]) & (query_times <= ref_times[-1])
 
-  T_all = np.stack(
-    [pose_matrix(ref_translations[k], ref_quats[k]) for k in range(n_ref)]
-  )
+  T_all = np.zeros((n_ref, 4, 4))
+  T_all[:, :3, :3] = Rotation.from_quat(ref_quats).as_matrix()
+  T_all[:, :3, 3] = ref_translations
+  T_all[:, 3, 3] = 1.0
+
+  # The tangent data, kernel matrix, and its Cholesky factor depend only on
+  # the window, and consecutive (sorted) queries usually share one — cache
+  # the last window's factorization: (lo, hi), T_ref, cho_factor, alpha.
+  cache = None
 
   i = 0
   while i < n_q:
@@ -101,26 +107,27 @@ def interpolate_ref_at(
     lo = max(0, hi - window)
     t_win = ref_times[lo:hi]
 
-    ref_local = (hi - lo) // 2
-    T_ref = T_all[lo + ref_local]
-    T_ref_inv = invert(T_ref)
-    xis = np.array(
-      [
-        se3_log(T_ref_inv @ T_all[lo + j], TangentOrder.TRANS_ROT)
-        for j in range(hi - lo)
-      ]
-    )
+    if cache is None or cache[0] != (lo, hi):
+      ref_local = (hi - lo) // 2
+      T_ref = T_all[lo + ref_local]
+      T_ref_inv = invert(T_ref)
+      xis = np.array(
+        [
+          se3_log(T_ref_inv @ T_all[lo + j], TangentOrder.TRANS_ROT)
+          for j in range(hi - lo)
+        ]
+      )
+      dt_pair = t_win[:, None] - t_win[None, :]
+      K_zz = signal_variance * np.exp(-0.5 * (dt_pair / length_scale_s) ** 2)
+      K_zz += noise_variance * np.eye(hi - lo)
+      # SE kernel + positive noise_variance jitter is mathematically SPD;
+      # cho_factor is the cheap path and we trust it to succeed.
+      c_and_lower = cho_factor(K_zz)
+      cache = ((lo, hi), T_ref, c_and_lower, cho_solve(c_and_lower, xis))
+    _, T_ref, c_and_lower, alpha = cache
 
     dt = t_win - qt
-    dt_pair = t_win[:, None] - t_win[None, :]
-    K_zz = signal_variance * np.exp(-0.5 * (dt_pair / length_scale_s) ** 2)
-    K_zz += noise_variance * np.eye(hi - lo)
     K_qz = signal_variance * np.exp(-0.5 * (dt / length_scale_s) ** 2)
-
-    # SE kernel + positive noise_variance jitter is mathematically SPD;
-    # cho_factor is the cheap path and we trust it to succeed.
-    c_and_lower = cho_factor(K_zz)
-    alpha = cho_solve(c_and_lower, xis)
     v_kk = cho_solve(c_and_lower, K_qz)
     mu_xi = K_qz @ alpha
     var_xi = max(float(signal_variance - K_qz @ v_kk), 0.0)

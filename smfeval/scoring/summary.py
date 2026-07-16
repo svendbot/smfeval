@@ -199,12 +199,13 @@ def _stationary_bootstrap_indices(
   restart = rng.random(size=(n_resamples, n)) < p
   restart[:, 0] = True
 
-  idx = np.empty((n_resamples, n), dtype=np.int64)
-  idx[:, 0] = starts[:, 0]
-  for t in range(1, n):
-    cont = (idx[:, t - 1] + 1) % n
-    idx[:, t] = np.where(restart[:, t], starts[:, t], cont)
-  return idx
+  # idx[t] = (starts[r] + (t - r)) % n with r the most recent restart <= t;
+  # closed form of the continue-or-restart recurrence, no Python loop.
+  t_grid = np.arange(n)
+  last_restart = np.maximum.accumulate(np.where(restart, t_grid, 0), axis=1)
+  return (
+    np.take_along_axis(starts, last_restart, axis=1) + (t_grid - last_restart)
+  ) % n
 
 
 def summarize(

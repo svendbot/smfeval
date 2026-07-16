@@ -11,20 +11,13 @@ import pytest
 from smfeval.scoring.crps import _gaussian_crps
 from smfeval.scoring.relative import relative_translation_crps
 from smfeval.steps import DeterministicStep, GaussianStep
-
-_Q_ID = np.array([0.0, 0.0, 0.0, 1.0])
+from tests._factories import Q_ID as _Q_ID
+from tests._factories import gauss_step
 
 
 def _step(t: float, p, var_diag) -> GaussianStep:
-  cov = np.zeros((6, 6))
-  cov[:3, :3] = np.diag(var_diag)
-  cov[3:, 3:] = np.eye(3) * 1e-4
-  return GaussianStep(
-    timestamp=t,
-    translation=np.asarray(p, dtype=float),
-    quat_xyzw=_Q_ID,
-    covariance=cov,
-  )
+  diag = np.concatenate([np.asarray(var_diag, dtype=float), np.full(3, 1e-4)])
+  return gauss_step(t, p, diag)
 
 
 def test_two_pose_window_matches_hand_computation():

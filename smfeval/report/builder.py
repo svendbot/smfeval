@@ -12,6 +12,7 @@ from smfeval.scoring.ensemble_diag import EnsembleDiagnostic
 from smfeval.scoring.summary import ScoreSummary
 from smfeval.sync.match import MatchResult
 from smfeval.sync.mode import SyncMode
+from smfeval.sync.risk import DEFAULT_SYNC_RISK_THRESHOLD
 
 # Version of the JSON report contract (docs/report.schema.json). Bump when the
 # report structure changes. Separate from the package and SQUARE format versions.
@@ -50,12 +51,12 @@ def build_report(
   fit: AlignmentFit,
   declared_gauge: Gauge,
   sync_risks: np.ndarray | None,
-  sync_risk_threshold: float,
   ensemble: EnsembleDiagnostic | None,
   scores: dict[str, ScoreSummary],
   calibration: CalibrationResult | None,
   trajectory_length_m: float | None,
   sync_mode: SyncMode = SyncMode.NEAREST,
+  sync_risk_threshold: float = DEFAULT_SYNC_RISK_THRESHOLD,
 ) -> Report:
   rep = Report()
 

@@ -5,15 +5,11 @@ import pytest
 
 from smfeval.scoring.bias_variance import bias_variance
 from smfeval.steps import DeterministicStep
-
-_Q_ID = np.array([0.0, 0.0, 0.0, 1.0])
+from tests._factories import det_step
 
 
 def _steps(ts: np.ndarray, pos: np.ndarray) -> list[DeterministicStep]:
-  return [
-    DeterministicStep(timestamp=float(t), translation=p, quat_xyzw=_Q_ID)
-    for t, p in zip(ts, pos, strict=True)
-  ]
+  return [det_step(float(t), p) for t, p in zip(ts, pos, strict=True)]
 
 
 def _straight_track(n: int = 50, dt: float = 0.1, v: float = 1.0):

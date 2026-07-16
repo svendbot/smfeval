@@ -22,10 +22,12 @@ from smfeval.scoring.logscore import (
   GaussianLogScore,
   ScoreComponents,
   anees_consistency,
+  batched_score_components,
   gaussian_log_score,
   gaussian_log_score_components,
   student_t_logscore_sweep,
   student_t_neg_log_density,
+  translation_components,
 )
 from smfeval.scoring.pairwise import (
   PROPRIETY_CAVEAT,
@@ -45,6 +47,16 @@ from smfeval.scoring.summary import (
   summarize,
 )
 
+# Human-readable (label, unit) for each score key in a report's scores dict.
+# Renderers iterate the dict and look labels up here, so a newly added score
+# cannot silently vanish from the text report.
+SCORE_LABELS: dict[str, tuple[str, str]] = {
+  "translation_crps": ("Translation CRPS", "m"),
+  "energy_score": ("Energy score", "m"),
+  "log_score_translation": ("Log score (translation)", ""),
+  "interval_score": ("Interval score", ""),
+}
+
 __all__ = [
   "PROPRIETY_CAVEAT",
   "AneesResult",
@@ -60,6 +72,7 @@ __all__ = [
   "ScoreComponents",
   "ScoreSummary",
   "anees_consistency",
+  "batched_score_components",
   "bias_variance",
   "calibrate",
   "relative_calibration",
@@ -74,6 +87,7 @@ __all__ = [
   "pair_translation_nees",
   "politis_white_block_length",
   "summarize",
+  "translation_components",
   "translation_crps",
   "translation_magnitude_interval_score",
 ]

@@ -37,12 +37,18 @@ _DIRECTION = {
 class NeesVerdict:
   """Verdict statistics; the k/direction fields derive from these."""
 
-  median_nees: float
   coverage: float  # fraction inside the nominal ellipsoid
   nominal_coverage: float
   dof: int
-  n: int
   anees: AneesResult
+
+  @property
+  def median_nees(self) -> float:
+    return self.anees.median
+
+  @property
+  def n(self) -> int:
+    return self.anees.n
 
   @property
   def calibrated_median(self) -> float:
@@ -98,11 +104,9 @@ def nees_verdict(
     else anees_consistency(vals, dof=dof, alpha=alpha)
   )
   return NeesVerdict(
-    median_nees=res.median,
     coverage=float((vals <= q_nominal).mean()) if vals.size else float("nan"),
     nominal_coverage=nominal,
     dof=dof,
-    n=int(vals.size),
     anees=res,
   )
 

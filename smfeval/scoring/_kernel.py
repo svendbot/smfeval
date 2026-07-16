@@ -10,6 +10,7 @@ prediction, and estimation*. JASA 102(477), 359–378.
 """
 
 import numpy as np
+from scipy.spatial.distance import pdist
 
 
 def sample_gaussian_tangent(
@@ -50,10 +51,9 @@ def energy_score_estimator(
   term1 = float(np.linalg.norm(diffs, axis=1).mean())
   if m == 1:
     return term1
-  pairwise = np.linalg.norm(samples[:, None, :] - samples[None, :, :], axis=-1)
-  # exclude diagonal
-  sum_pairs = pairwise.sum() - np.trace(pairwise)
-  term2 = float(sum_pairs / (m * (m - 1)))
+  # pdist gives the strict upper triangle: no diagonal, half the work of
+  # the full m x m matrix; both triangles sum to twice it.
+  term2 = float(2.0 * pdist(samples).sum() / (m * (m - 1)))
   return term1 - 0.5 * term2
 
 
@@ -73,7 +73,9 @@ def crps_estimator(samples: np.ndarray, observation: float) -> float:
   term1 = float(np.abs(samples - observation).mean())
   if m == 1:
     return term1
-  diffs = np.abs(samples[:, None] - samples[None, :])
-  sum_pairs = diffs.sum() - np.trace(diffs)
-  term2 = float(sum_pairs / (m * (m - 1)))
+  # In 1-D the pairwise sum has an O(m log m) closed form on the order
+  # statistics: sum_{i<j}(x_(j) - x_(i)) = sum_i (2i - m + 1) x_(i).
+  xs = np.sort(samples.ravel())
+  coef = 2.0 * np.arange(m) - (m - 1)
+  term2 = float(2.0 * (coef * xs).sum() / (m * (m - 1)))
   return term1 - 0.5 * term2

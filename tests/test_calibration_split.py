@@ -16,6 +16,7 @@ from smfeval.scoring.logscore import (
 )
 from smfeval.scoring.relative import relative_calibration
 from smfeval.steps import GaussianStep
+from tests._factories import gauss_step
 
 
 def _gauss_neglogp(xi, cov):
@@ -48,17 +49,7 @@ RNG = np.random.default_rng(7)
 
 
 def _gauss(t: np.ndarray, cov_diag: float | np.ndarray) -> GaussianStep:
-  cov = (
-    np.diag(cov_diag)
-    if isinstance(cov_diag, np.ndarray)
-    else np.eye(6) * cov_diag
-  )
-  return GaussianStep(
-    timestamp=0.0,
-    translation=t,
-    quat_xyzw=np.array([0.0, 0.0, 0.0, 1.0]),
-    covariance=cov,
-  )
+  return gauss_step(0.0, t, cov_diag)
 
 
 def test_components_sum_to_log_score_and_match_neg_log_density():

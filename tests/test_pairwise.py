@@ -15,8 +15,6 @@ from scipy.spatial.transform import Rotation
 from scipy.stats import chi2
 
 from smfeval.format import (
-  FORMAT_VERSION,
-  Gauge,
   Representation,
   SquareHeader,
   TangentConvention,
@@ -24,9 +22,9 @@ from smfeval.format import (
 )
 from smfeval.scoring.pairwise import PairInputError, pair_translation_nees
 from smfeval.steps import DeterministicStep, GaussianStep
+from tests._factories import Q_ID as _Q_ID
+from tests._factories import square_header
 from tests._strategies import spd6, vec
-
-_Q_ID = np.array([0.0, 0.0, 0.0, 1.0])
 
 
 def _header(
@@ -34,15 +32,10 @@ def _header(
   representation: Representation = Representation.GAUSSIAN_SE3,
   body_frame: str = "lidar",
 ) -> SquareHeader:
-  return SquareHeader(
-    format_version=FORMAT_VERSION,
-    representation=representation,
+  return square_header(
+    representation,
     pose_frame="odom",
     body_frame=body_frame,
-    gauge=Gauge.SE3,
-    timestamp_unit="seconds",
-    algorithm="testbot",
-    algorithm_version="1.0",
     tangent_convention=convention,
     tangent_order=TangentOrder.TRANS_ROT,
     rotation_param="axis_angle",

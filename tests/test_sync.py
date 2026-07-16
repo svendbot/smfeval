@@ -3,6 +3,7 @@ import numpy as np
 from smfeval.format import TangentOrder
 from smfeval.steps import GaussianStep
 from smfeval.sync import match_timestamps, sync_risk
+from tests._factories import gauss_step
 
 
 def test_match_basic():
@@ -57,12 +58,7 @@ def test_match_gap_quantiles():
 
 
 def _gauss_step(ts: float, pos: np.ndarray, cov_diag: float) -> GaussianStep:
-  return GaussianStep(
-    timestamp=ts,
-    translation=pos,
-    quat_xyzw=np.array([0.0, 0.0, 0.0, 1.0]),
-    covariance=np.eye(6) * cov_diag,
-  )
+  return gauss_step(ts, pos, cov_diag)
 
 
 def test_sync_risk_zero_when_dt_zero():

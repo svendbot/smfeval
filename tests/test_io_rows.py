@@ -4,47 +4,27 @@ import numpy as np
 import pytest
 
 from smfeval.format import (
-  FORMAT_VERSION,
   FormatError,
   Gauge,
   Representation,
   SquareHeader,
-  TangentConvention,
-  TangentOrder,
   WeightFormat,
 )
 from smfeval.io import iter_steps, parse_header, write_header, write_steps
 from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep
+from tests._factories import square_header
 
 RNG = np.random.default_rng(42)
 
 
 def _gaussian_header() -> SquareHeader:
-  return SquareHeader(
-    format_version=FORMAT_VERSION,
-    representation=Representation.GAUSSIAN_SE3,
-    pose_frame="world",
-    body_frame="imu",
-    gauge=Gauge.GRAVITY_YAW,
-    timestamp_unit="seconds",
-    algorithm="testbot",
-    algorithm_version="1.0",
-    tangent_convention=TangentConvention.RIGHT,
-    tangent_order=TangentOrder.TRANS_ROT,
-    rotation_param="axis_angle",
-  )
+  return square_header(Representation.GAUSSIAN_SE3, gauge=Gauge.GRAVITY_YAW)
 
 
 def _ensemble_header(weighted: bool = True) -> SquareHeader:
-  return SquareHeader(
-    format_version=FORMAT_VERSION,
-    representation=Representation.ENSEMBLE_SE3,
-    pose_frame="world",
-    body_frame="imu",
+  return square_header(
+    Representation.ENSEMBLE_SE3,
     gauge=Gauge.SIM3,
-    timestamp_unit="seconds",
-    algorithm="testbot",
-    algorithm_version="1.0",
     weighted=weighted,
     weight_format=WeightFormat.LOG,
     weights_normalized=False,
@@ -52,15 +32,8 @@ def _ensemble_header(weighted: bool = True) -> SquareHeader:
 
 
 def _deterministic_header() -> SquareHeader:
-  return SquareHeader(
-    format_version=FORMAT_VERSION,
-    representation=Representation.DETERMINISTIC,
-    pose_frame="world",
-    body_frame="imu",
-    gauge=Gauge.FIXED,
-    timestamp_unit="seconds",
-    algorithm="ref",
-    algorithm_version="1.0",
+  return square_header(
+    Representation.DETERMINISTIC, gauge=Gauge.FIXED, algorithm="ref"
   )
 
 

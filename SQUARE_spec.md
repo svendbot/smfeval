@@ -31,7 +31,7 @@ Common to all representations:
 ```
 
 `BODY_FRAME` names the rigid body whose pose is reported (`imu`, `lidar`,
-`base_link`). It is a property of the publisher, not the dataset. FAST-LIO2's
+`base_link`). The body frame is a property of the publisher, not the dataset. FAST-LIO2's
 `state_ikfom` is in the IMU frame and declares `BODY_FRAME imu`; Oxford Spires
 reference is in the LiDAR frame and declares `BODY_FRAME lidar`. Names are free-form
 strings matched by exact equality.
@@ -41,7 +41,7 @@ When estimate and reference body frames differ, the scoring tool requires
 [3 floats]}`. `T_off` is the pose of the reference body frame in the estimate body
 frame (ROS `target_T_source` convention). `R` maps a reference-body vector to
 estimate-body coordinates and `t` is the reference-body origin in estimate-body
-coordinates. It is applied by right-multiplication, `T_world_ref_body =
+coordinates. `T_off` is applied by right-multiplication, `T_world_ref_body =
 T_world_est_body · T_off`. For `right_perturbation` covariances,
 `Σ ← Ad_{T_off^{-1}} · Σ · Ad_{T_off^{-1}}^⊤`; for `left_perturbation`, `Σ` is
 unchanged.
@@ -67,7 +67,7 @@ Ensemble-specific:
 
 `POSE_FRAME world` is a label, not a frame guarantee. `GAUGE` declares which
 degrees of freedom the algorithm pinned at initialization and which it left
-free. It is intrinsic to the algorithm and independent of reference. The
+free. The gauge is intrinsic to the algorithm and independent of reference. The
 scoring tool reads `GAUGE` to pick the default `--align` mode and applies the
 transform to means and covariances (`Σ ↦ Ad_T Σ Ad_T^⊤` for Gaussian,
 particle-wise for ensembles).

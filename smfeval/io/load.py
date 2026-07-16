@@ -26,32 +26,32 @@ _SIDECAR_FIELDS = 22
 _SIDECAR_ATOL_S = 1e-6
 
 
-def looks_like_tum(path: Path) -> bool:
-  """Detect bare-TUM trajectory files (no ``#%FORMAT`` header).
-
-  Matches the CLI help: reference may be smfeval or TUM.
-  """
+def _scan_head(path: Path) -> tuple[bool, list[str]]:
+  """Scan past blank/comment lines: (saw ``#%FORMAT`` marker, first data fields)."""
   with path.open(encoding="utf-8-sig") as f:
     for line in f:
       s = line.strip()
       if not s:
         continue
       if s.startswith("#%FORMAT"):
-        return False
+        return True, []
       if s.startswith("#"):
         continue
-      return True
-  return True
+      return False, s.split()
+  return False, []
+
+
+def looks_like_tum(path: Path) -> bool:
+  """Detect bare-TUM trajectory files (no ``#%FORMAT`` header).
+
+  Matches the CLI help: reference may be smfeval or TUM.
+  """
+  return not _scan_head(path)[0]
 
 
 def sniff_tum_columns(path: Path) -> int:
   """Field count of the first data row of a header-less trajectory file."""
-  with path.open(encoding="utf-8-sig") as f:
-    for line in f:
-      s = line.strip()
-      if s and not s.startswith("#"):
-        return len(s.split())
-  return 0
+  return len(_scan_head(path)[1])
 
 
 def load_tum(
@@ -226,6 +226,25 @@ def load_square(path: Path) -> tuple[SquareHeader, list[Step]]:
     header = parse_header(f)
     steps = list(iter_steps(f, header))
   return header, steps
+
+
+def load_reference(
+  path: Path, *, pose_frame: str, body_frame: str | None
+) -> tuple[SquareHeader, list[Step]]:
+  """Load a reference trajectory: SQUARE natively, or plain TUM.
+
+  A plain-TUM reference carries no frame metadata, so ``body_frame``
+  must declare it; raises :class:`FormatError` when it does not.
+  """
+  if not looks_like_tum(path):
+    return load_square(path)
+  if body_frame is None:
+    raise FormatError(
+      "reference file is plain TUM but its body frame is not declared; "
+      "pass --ref-body-frame <name> matching the estimate's BODY_FRAME"
+    )
+  tum, dsteps = load_tum(path, pose_frame=pose_frame, body_frame=body_frame)
+  return tum.to_square(), list(dsteps)
 
 
 def load_estimate(

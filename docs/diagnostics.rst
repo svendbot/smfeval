@@ -21,8 +21,8 @@ says whether the error is a fixable offset (close to 1) or irreducible noise
 - **along** — scale or time-offset (grows with speed);
 - **cross** — a lateral extrinsic or heading error.
 
-This is what separates "recalibrate the rig" from "tune the noise model", and it
-drives the report's recommended actions.
+The axis attribution is what separates "recalibrate the rig" from "tune the
+noise model", and it drives the report's recommended actions.
 
 Synchronization risk
 --------------------

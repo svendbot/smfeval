@@ -2,7 +2,7 @@ Proper scores
 =============
 
 A scoring rule assigns the belief a penalty :math:`S(F, y)` at the realised
-position :math:`y`. It is *strictly proper* when the expected penalty is
+position :math:`y`. A rule is *strictly proper* when the expected penalty is
 minimised only by reporting the true error distribution, so a filter cannot
 improve its score by hedging or sharpening its covariance dishonestly. All the
 rules below are strictly proper on the translation marginal. Smaller is better.

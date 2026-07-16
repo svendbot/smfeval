@@ -14,24 +14,9 @@ from smfeval.scoring.interval import interval_from_samples
 from smfeval.se3.lie import se3_exp
 from smfeval.se3.quat import rot_to_quat_xyzw
 from smfeval.steps import EnsembleStep, GaussianStep
+from tests._factories import gauss_step as _gauss
 
 RNG = np.random.default_rng(11)
-
-
-def _gauss(
-  ts: float, t: np.ndarray, cov_diag: float | np.ndarray
-) -> GaussianStep:
-  cov = (
-    np.diag(cov_diag)
-    if isinstance(cov_diag, np.ndarray)
-    else np.eye(6) * cov_diag
-  )
-  return GaussianStep(
-    timestamp=ts,
-    translation=t,
-    quat_xyzw=np.array([0.0, 0.0, 0.0, 1.0]),
-    covariance=cov,
-  )
 
 
 def test_translation_crps_decreases_with_better_predictive():

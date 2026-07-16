@@ -12,6 +12,10 @@ from smfeval.format import TangentOrder
 from smfeval.se3.lie import trans_slice
 from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
 
+# Risk above which a matched pair is counted as excess in the report; the
+# single source for the report builder, renderer, and diagnosis layer.
+DEFAULT_SYNC_RISK_THRESHOLD = 0.3
+
 
 def _ref_velocity(ref_ts: np.ndarray, ref_pos: np.ndarray) -> np.ndarray:
   n = len(ref_ts)

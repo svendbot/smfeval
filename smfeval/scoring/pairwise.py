@@ -43,7 +43,11 @@ from scipy.stats import chi2
 
 from smfeval.align import fit_alignment, propagate_step
 from smfeval.format import Representation, SquareHeader, TangentOrder
-from smfeval.scoring.logscore import AneesResult, anees_consistency
+from smfeval.scoring.logscore import (
+  AneesResult,
+  anees_consistency,
+  batched_score_components,
+)
 from smfeval.se3.lie import pose_residual, trans_slice
 from smfeval.steps import GaussianStep, Step
 from smfeval.sync import match_timestamps
@@ -73,8 +77,15 @@ class PairResult:
   nees_axis: np.ndarray  # (n, 3) per-axis NEES from diagonal variances
   log_score_mean: float  # mean pairwise Gaussian -log p (translation)
   anees: AneesResult = field(repr=False)
-  k_pair: float = float("nan")  # median(nees) / chi2_med(3); lower bound
-  k_axis: tuple[float, ...] = (float("nan"),) * 3
+
+  @property
+  def k_pair(self) -> float:
+    """median(nees) / chi2_med(3); lower bound on the scale gap."""
+    return self.anees.median / _CHI2_MED_3
+
+  @property
+  def k_axis(self) -> tuple[float, ...]:
+    return tuple(_med(self.nees_axis[:, i]) / _CHI2_MED_1 for i in range(3))
 
 
 def _require(cond: bool, msg: str) -> None:
@@ -171,23 +182,12 @@ def pair_translation_nees(
     cov[k] = sa.covariance[ti_a, ti_a] + sb.covariance[ti_b, ti_b]
 
   # batched scoring over the staged (n,3) / (n,3,3) arrays
-  nees = np.full(n, np.nan)
-  logs = np.full(n, np.nan)
+  nees, calib, sharp = batched_score_components(d, cov)
+  logs = calib + sharp
   nees_ax = np.full((n, 3), np.nan)
-  ok = np.isfinite(d).all(axis=1) & np.isfinite(cov).all(axis=(1, 2))
-  if ok.any():
-    sign, logdet = np.linalg.slogdet(cov[ok])
-    pd = sign > 0
-    idx = np.flatnonzero(ok)[pd]
-    if idx.size:
-      sol = np.linalg.solve(cov[idx], d[idx, :, None])[:, :, 0]
-      nees[idx] = np.einsum("ij,ij->i", d[idx], sol)
-      logs[idx] = 0.5 * nees[idx] + 0.5 * (
-        logdet[pd] + 3.0 * np.log(2.0 * np.pi)
-      )
-      var = cov[idx][:, [0, 1, 2], [0, 1, 2]]
-      pos = (var > 0).all(axis=1)
-      nees_ax[idx[pos]] = d[idx[pos]] ** 2 / var[pos]
+  var = cov[:, [0, 1, 2], [0, 1, 2]]
+  pos = np.isfinite(nees) & (var > 0).all(axis=1)
+  nees_ax[pos] = d[pos] ** 2 / var[pos]
 
   fin = np.isfinite(nees)
   anees = anees_consistency(nees, dof=3, alpha=alpha)
@@ -201,6 +201,4 @@ def pair_translation_nees(
     nees_axis=nees_ax,
     log_score_mean=float(np.mean(logs[fin])) if fin.any() else float("nan"),
     anees=anees,
-    k_pair=anees.median / _CHI2_MED_3,
-    k_axis=tuple(_med(nees_ax[:, i]) / _CHI2_MED_1 for i in range(3)),
   )

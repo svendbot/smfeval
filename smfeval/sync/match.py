@@ -24,19 +24,17 @@ class MatchResult:
     }
 
 
-def _matching_time_indices(
-  stamps_1: np.ndarray, stamps_2: np.ndarray, max_diff: float, offset_2: float
-) -> tuple[list[int], list[int]]:
-  matching_1: list[int] = []
-  matching_2: list[int] = []
-  s2 = stamps_2 + offset_2
-  for i, t1 in enumerate(stamps_1):
-    diffs = np.abs(s2 - t1)
-    j = int(np.argmin(diffs))
-    if diffs[j] <= max_diff:
-      matching_1.append(i)
-      matching_2.append(j)
-  return matching_1, matching_2
+def nearest_indices(sorted_vals: np.ndarray, queries: np.ndarray) -> np.ndarray:
+  """Index of the nearest entry in ``sorted_vals`` for each query.
+
+  ``sorted_vals`` must be ascending; ties pick the earlier index.
+  """
+  j = np.clip(np.searchsorted(sorted_vals, queries), 0, sorted_vals.size - 1)
+  jl = np.maximum(j - 1, 0)
+  take_left = np.abs(sorted_vals[jl] - queries) <= np.abs(
+    sorted_vals[j] - queries
+  )
+  return np.where(take_left, jl, j)
 
 
 def match_timestamps(
@@ -47,23 +45,22 @@ def match_timestamps(
 ) -> MatchResult:
   """Nearest-neighbor matching with tolerance.
 
-  Iterates over estimate timestamps and selects the nearest reference
-  timestamp; pairs above `t_max_diff` are dropped. `t_offset` is added to
+  For each estimate timestamp the nearest reference timestamp is
+  selected; pairs above `t_max_diff` are dropped. `t_offset` is added to
   estimate timestamps before matching to correct for known clock skew.
   """
   est_ts = np.asarray(est_ts, dtype=float)
   ref_ts = np.asarray(ref_ts, dtype=float)
+  shifted = est_ts + t_offset
 
-  m_est, m_ref = _matching_time_indices(
-    est_ts + t_offset, ref_ts, t_max_diff, 0.0
-  )
-  est_idx = np.array(m_est, dtype=int)
-  ref_idx = np.array(m_ref, dtype=int)
+  order = np.argsort(ref_ts, kind="stable")
+  j = order[nearest_indices(ref_ts[order], shifted)]
+  all_gaps = np.abs(shifted - ref_ts[j])
+  keep = all_gaps <= t_max_diff
 
-  if est_idx.size:
-    gaps = np.abs((est_ts[est_idx] + t_offset) - ref_ts[ref_idx])
-  else:
-    gaps = np.zeros(0)
+  est_idx = np.flatnonzero(keep)
+  ref_idx = j[keep]
+  gaps = all_gaps[keep] if est_idx.size else np.zeros(0)
 
   return MatchResult(
     est_indices=est_idx,

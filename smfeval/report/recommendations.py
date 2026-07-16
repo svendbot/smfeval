@@ -3,7 +3,10 @@
 import math
 
 from smfeval.report.builder import Report
-from smfeval.sync.mode import SyncMode
+from smfeval.report.diagnostics import (
+  ensemble_degeneracy_flagged,
+  sync_risk_flagged,
+)
 
 
 def recommendations(rep: Report) -> list[str]:
@@ -13,13 +16,9 @@ def recommendations(rep: Report) -> list[str]:
   ensemble = rep.ensemble
   cal = rep.calibration
 
-  risk_excess = sync.get("risk_excess_count", 0) or 0
-  n_matched = sync.get("n_matched", 0) or 0
-  if (
-    n_matched
-    and risk_excess / n_matched > 0.01
-    and sync.get("mode", SyncMode.NEAREST) is SyncMode.NEAREST
-  ):
+  if sync_risk_flagged(sync):
+    risk_excess = sync.get("risk_excess_count", 0) or 0
+    n_matched = sync.get("n_matched", 0) or 0
     frac = 100.0 * risk_excess / n_matched
     out.append(
       f"{frac:.1f}% of pairs have sync risk > {sync['risk_threshold']:.1f}; "
@@ -36,7 +35,7 @@ def recommendations(rep: Report) -> list[str]:
       "to fit on a prefix and score on the remainder."
     )
 
-  if ensemble and ensemble.get("degeneracy_fraction", 0.0) > 0.01:
+  if ensemble and ensemble_degeneracy_flagged(ensemble):
     frac = 100.0 * ensemble["degeneracy_fraction"]
     out.append(
       f"Ensemble degeneracy: {frac:.1f}% of timesteps have N_eff < N/10. "

@@ -58,10 +58,15 @@ import numpy as np
 
 from smfeval.format import TangentOrder
 from smfeval.scoring.crps import _gaussian_crps
-from smfeval.scoring.logscore import AneesResult, anees_consistency
+from smfeval.scoring.logscore import (
+  AneesResult,
+  anees_consistency,
+  batched_score_components,
+)
 from smfeval.scoring.summary import ScoreSummary, summarize
 from smfeval.se3.lie import trans_slice
 from smfeval.steps import GaussianStep, Step
+from smfeval.sync.match import nearest_indices
 
 
 @dataclass
@@ -84,6 +89,27 @@ def _default_tolerance(ts: np.ndarray, tolerance_s: float | None) -> float:
   return 0.5 * dt_med
 
 
+def _gaussian_series(
+  steps: Sequence[Step],
+  ref_translations: np.ndarray,
+  tangent_order: TangentOrder,
+  caller: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+  """Stage the (ts, mu, cov_tt, ref) arrays every windowed metric starts from."""
+  if not all(isinstance(s, GaussianStep) for s in steps):
+    raise TypeError(
+      f"{caller} requires GaussianStep inputs "
+      "(a published position covariance); got a non-Gaussian step"
+    )
+  steps = cast("Sequence[GaussianStep]", steps)
+  ts = np.array([s.timestamp for s in steps], dtype=float)
+  mu = np.array([s.translation for s in steps], dtype=float)
+  sl = trans_slice(tangent_order)
+  cov_tt = np.array([s.covariance[sl, sl] for s in steps], dtype=float)
+  ref = np.asarray(ref_translations, dtype=float)
+  return ts, mu, cov_tt, ref
+
+
 def _window_pairs(
   timestamps: np.ndarray, window_s: float, tol_s: float
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -96,11 +122,7 @@ def _window_pairs(
   """
   ts = np.asarray(timestamps, dtype=float)
   target = ts + window_s
-  j = np.searchsorted(ts, target)
-  j = np.clip(j, 0, ts.size - 1)
-  jm1 = np.maximum(j - 1, 0)
-  pick_left = np.abs(ts[jm1] - target) < np.abs(ts[j] - target)
-  j = np.where(pick_left, jm1, j)
+  j = nearest_indices(ts, target)
   i = np.arange(ts.size)
   valid = (j > i) & (np.abs(ts[j] - target) <= tol_s)
   return i[valid], j[valid]
@@ -149,17 +171,9 @@ def relative_calibration(
   no valid pairs). See :class:`RelativeCalibrationResult` for the one-sided
   caveat from the iid :math:`\Sigma_\mathrm{rel}` bound.
   """
-  if not all(isinstance(s, GaussianStep) for s in steps):
-    raise TypeError(
-      "relative_calibration requires GaussianStep inputs "
-      "(a published position covariance); got a non-Gaussian step"
-    )
-  steps = cast("Sequence[GaussianStep]", steps)
-  ts = np.array([s.timestamp for s in steps], dtype=float)
-  mu = np.array([s.translation for s in steps], dtype=float)
-  sl = trans_slice(tangent_order)
-  cov_tt = np.array([s.covariance[sl, sl] for s in steps], dtype=float)
-  ref = np.asarray(ref_translations, dtype=float)
+  ts, mu, cov_tt, ref = _gaussian_series(
+    steps, ref_translations, tangent_order, "relative_calibration"
+  )
   tol = _default_tolerance(ts, tolerance_s)
 
   results: list[RelativeCalibrationResult] = []
@@ -169,15 +183,7 @@ def relative_calibration(
       continue
     r = (ref[j] - ref[i]) - (mu[j] - mu[i])  # relative residual (M, 3)
     cov_rel = cov_tt[i] + cov_tt[j]  # iid upper bound, (M, 3, 3)
-    # batched _score_components: nan/inf where Sigma_rel is not PD
-    nees = np.full(i.size, np.inf)
-    sign, logdet = np.linalg.slogdet(cov_rel)
-    pd = sign > 0
-    if pd.any():
-      sol = np.linalg.solve(cov_rel[pd], r[pd, :, None])[:, :, 0]
-      nees[pd] = np.einsum("ij,ij->i", r[pd], sol)
-    calib = 0.5 * nees
-    sharp = np.where(pd, 0.5 * (logdet + 3.0 * np.log(2.0 * np.pi)), np.inf)
+    nees, calib, sharp = batched_score_components(r, cov_rel)
     sig = np.sqrt(cov_rel[:, [0, 1, 2], [0, 1, 2]].sum(axis=1))
     finite = np.isfinite(calib)
     results.append(
@@ -222,18 +228,10 @@ def relative_translation_crps(
     One :class:`RelativeCrpsResult` per window (skipping windows with no
     valid pairs).
   """
-  if not all(isinstance(s, GaussianStep) for s in steps):
-    raise TypeError(
-      "relative_translation_crps requires GaussianStep inputs "
-      "(a published position covariance); got a non-Gaussian step"
-    )
-  steps = cast("Sequence[GaussianStep]", steps)
-  ts = np.array([s.timestamp for s in steps], dtype=float)
-  mu = np.array([s.translation for s in steps], dtype=float)
-  sl = trans_slice(tangent_order)
-  var = np.array([np.diag(s.covariance)[sl] for s in steps], dtype=float)
-  ref = np.asarray(ref_translations, dtype=float)
-
+  ts, mu, cov_tt, ref = _gaussian_series(
+    steps, ref_translations, tangent_order, "relative_translation_crps"
+  )
+  var = np.diagonal(cov_tt, axis1=1, axis2=2)  # per-axis variances (n, 3)
   tol = _default_tolerance(ts, tolerance_s)
 
   results: list[RelativeCrpsResult] = []

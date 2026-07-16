@@ -28,8 +28,8 @@ from smfeval.format import (
 from smfeval.io import (
   iter_steps,
   load_estimate,
+  load_reference,
   load_square,
-  load_tum,
   looks_like_tum,
   parse_header,
 )
@@ -53,11 +53,11 @@ from smfeval.scoring import (
   energy_score,
   ensemble_diagnostics,
   gaussian_log_score,
-  gaussian_log_score_components,
   relative_calibration,
   relative_translation_crps,
   student_t_logscore_sweep,
   summarize,
+  translation_components,
   translation_crps,
   translation_magnitude_interval_score,
 )
@@ -73,6 +73,7 @@ from smfeval.sync import (
   SyncMode,
   interpolate_ref_at,
   match_timestamps,
+  nearest_indices,
   sync_risk,
 )
 
@@ -630,24 +631,11 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
   """
   try:
     est_header, est_steps = _load_estimate(args)
-    if looks_like_tum(args.ref):
-      if args.ref_body_frame is None:
-        print(
-          "error: reference file is plain TUM but its body frame "
-          "is not declared. Pass --ref-body-frame <name> matching the "
-          f"estimate's BODY_FRAME (estimate declares "
-          f"{est_header.body_frame!r}).",
-          file=sys.stderr,
-        )
-        return None
-      ref_tum, ref_steps = load_tum(
-        args.ref,
-        pose_frame=args.ref_pose_frame,
-        body_frame=args.ref_body_frame,
-      )
-      ref_header: SquareHeader = ref_tum.to_square()
-    else:
-      ref_header, ref_steps = load_square(args.ref)
+    ref_header, ref_steps = load_reference(
+      args.ref,
+      pose_frame=args.ref_pose_frame,
+      body_frame=args.ref_body_frame,
+    )
   except (FormatError, OSError) as e:
     print(f"error: {e}", file=sys.stderr)
     return None
@@ -728,16 +716,10 @@ def _nees(args: argparse.Namespace) -> int:
     )
     return 2
 
-  vals: list[float] = []
-  for s, ref_t, ref_q in zip(
-    pr.aligned_est, pr.matched_ref_t, pr.matched_ref_q, strict=True
-  ):
-    if not isinstance(s, GaussianStep):
-      continue
-    dec = gaussian_log_score_components(s, ref_t, ref_q, pr.order)
-    vals.append(dec.translation.nees)
-
-  v = nees_verdict(np.asarray(vals), dof=3, alpha=args.alpha)
+  comps = translation_components(
+    pr.aligned_est, pr.matched_ref_t, pr.matched_ref_q, pr.order
+  )
+  v = nees_verdict(np.asarray([c.nees for c in comps]), dof=3, alpha=args.alpha)
   if args.json:
     print(json.dumps(v.to_dict(), indent=2, default=_json_default))
   else:
@@ -801,10 +783,7 @@ def _adjust_covariance(
     step_ts = np.array([s.timestamp for s in aligned_est])
     # nearest c per step; the c-file may be sparse (piecewise-constant over a
     # range), so this is a nearest lookup, not a 1:1 match
-    j = np.clip(np.searchsorted(c_ts, step_ts), 0, len(c_ts) - 1)
-    jl = np.maximum(j - 1, 0)
-    j = np.where(np.abs(c_ts[jl] - step_ts) < np.abs(c_ts[j] - step_ts), jl, j)
-    ess_c = c_val[j]
+    ess_c = c_val[nearest_indices(c_ts, step_ts)]
     n_extrap = int(
       np.count_nonzero((step_ts < c_ts.min()) | (step_ts > c_ts.max()))
     )
@@ -850,28 +829,16 @@ def _emit_report(args: argparse.Namespace, rep) -> None:
     print(render_report(rep))
 
 
-def _emit_side_reports(
-  args: argparse.Namespace,
-  aligned_est: list,
-  scored_est: list,
-  matched_ref_t: np.ndarray,
-  matched_ref_q: np.ndarray,
-  order: TangentOrder,
-  est_header: SquareHeader,
-  rpe_windows: list[float] | None,
-  split: dict | None,
-) -> None:
-  """Print the optional relative-CRPS, calibration, and student-t side reports."""
-  if rpe_windows:
-    _report_relative_crps(
-      args, aligned_est, matched_ref_t, order, est_header, rpe_windows
-    )
-  if split is not None:
-    _emit_calibration_machine_lines(split)
-  if args.student_t:
-    _report_student_t(
-      args, scored_est, matched_ref_t, matched_ref_q, order, est_header
-    )
+def _skip_unless_gaussian(header: SquareHeader, what: str) -> bool:
+  """Gate a gaussian-only side report; print the skip note when it fails."""
+  if header.representation is Representation.GAUSSIAN_SE3:
+    return True
+  print(
+    f"\n{what}: skipped — needs gaussian_se3 (a published covariance), "
+    f"got {header.representation.value}",
+    file=sys.stderr,
+  )
+  return False
 
 
 def _score(args: argparse.Namespace) -> int:
@@ -932,24 +899,18 @@ def _score(args: argparse.Namespace) -> int:
   )
 
   split = None
-  if args.calibration:
-    if est_header.representation is Representation.GAUSSIAN_SE3:
-      split = _calibration_split_dict(
-        args, scored_est, matched_ref_t, matched_ref_q, order, rpe_windows
-      )
-    else:
-      print(
-        "\ncalibration split: skipped — needs gaussian_se3 (a published "
-        f"covariance), got {est_header.representation.value}",
-        file=sys.stderr,
-      )
+  if args.calibration and _skip_unless_gaussian(
+    est_header, "calibration split"
+  ):
+    split = _calibration_split_dict(
+      args, scored_est, matched_ref_t, matched_ref_q, order, rpe_windows
+    )
 
   rep = build_report(
     match,
     fit,
     est_header.gauge,
     sync_risks=risks,
-    sync_risk_threshold=0.3,
     ensemble=ensemble_diag,
     scores=scores,
     calibration=cal,
@@ -966,17 +927,17 @@ def _score(args: argparse.Namespace) -> int:
   rep.recommendations = recommendations(rep)
   rep.diagnoses = diagnose(rep)
   _emit_report(args, rep)
-  _emit_side_reports(
-    args,
-    aligned_est,
-    scored_est,
-    matched_ref_t,
-    matched_ref_q,
-    order,
-    est_header,
-    rpe_windows,
-    split,
-  )
+
+  if rpe_windows:
+    _report_relative_crps(
+      args, aligned_est, matched_ref_t, order, est_header, rpe_windows
+    )
+  if split is not None:
+    _emit_calibration_machine_lines(split)
+  if args.student_t:
+    _report_student_t(
+      args, scored_est, matched_ref_t, matched_ref_q, order, est_header
+    )
   return 0
 
 
@@ -995,12 +956,7 @@ def _report_relative_crps(
   Requires a Gaussian predictive; deterministic/ensemble inputs are
   skipped with a notice.
   """
-  if est_header.representation is not Representation.GAUSSIAN_SE3:
-    print(
-      "\nrelative CRPS: skipped — needs gaussian_se3 (a published "
-      f"position covariance), got {est_header.representation.value}",
-      file=sys.stderr,
-    )
+  if not _skip_unless_gaussian(est_header, "relative CRPS"):
     return
   results = relative_translation_crps(
     aligned_est,
@@ -1049,21 +1005,14 @@ def _calibration_split_dict(
   ``{"absolute": {...}, "windowed": [...]}`` or ``None`` if there are no
   Gaussian steps. ``windowed`` is present only when ``--rpe-window`` is set.
   """
-  nees: list[float] = []
-  calib: list[float] = []
-  sharp: list[float] = []
-  for s, ref_t, ref_q in zip(
-    aligned_est, matched_ref_t, matched_ref_q, strict=True
-  ):
-    if not isinstance(s, GaussianStep):
-      continue
-    comp = gaussian_log_score_components(s, ref_t, ref_q, order).translation
-    nees.append(comp.nees)
-    calib.append(comp.calibration)
-    sharp.append(comp.sharpness)
-
-  if not nees:
+  comps = translation_components(
+    aligned_est, matched_ref_t, matched_ref_q, order
+  )
+  if not comps:
     return None
+  nees = [c.nees for c in comps]
+  calib = [c.calibration for c in comps]
+  sharp = [c.sharpness for c in comps]
 
   def _median_finite(xs: list[float]) -> float:
     arr = np.asarray(xs, dtype=float)
@@ -1147,12 +1096,7 @@ def _report_student_t(
   so a finite ν* with a lower mean ⇒ the errors are heavy-tailed and a robust
   likelihood would help. Cross-filter, no filter re-run.
   """
-  if est_header.representation is not Representation.GAUSSIAN_SE3:
-    print(
-      "\nstudent-t: skipped — needs gaussian_se3, got "
-      f"{est_header.representation.value}",
-      file=sys.stderr,
-    )
+  if not _skip_unless_gaussian(est_header, "student-t"):
     return
   nus = [float(x) for x in args.student_t.split(",") if x.strip()]
   gauss, tcols = student_t_logscore_sweep(

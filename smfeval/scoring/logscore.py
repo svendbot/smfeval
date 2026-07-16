@@ -20,6 +20,7 @@ Gneiting, T. & Raftery, A. E. (2007). *Strictly proper scoring rules,
 prediction, and estimation*. JASA 102(477), 359–378.
 """
 
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 
 import numpy as np
@@ -31,7 +32,7 @@ from smfeval.se3.lie import (
   pose_residual,
   trans_slice,
 )
-from smfeval.steps import GaussianStep
+from smfeval.steps import GaussianStep, Step
 
 
 @dataclass
@@ -50,13 +51,7 @@ def _gaussian_neg_log_density(xi: np.ndarray, cov: np.ndarray) -> float:
   :math:`\tfrac12(\xi^\top \Sigma^{-1}\xi + \log\det\Sigma + d\log 2\pi)`,
   or ``inf`` when :math:`\Sigma` is not positive definite.
   """
-  sign, logdet = np.linalg.slogdet(cov)
-  if sign <= 0:
-    return float("inf")
-  inv = np.linalg.solve(cov, xi)
-  quad = float(xi @ inv)
-  d = cov.shape[0]
-  return 0.5 * (quad + logdet + d * np.log(2.0 * np.pi))
+  return _score_components(xi, cov).log_score
 
 
 def gaussian_log_score(
@@ -80,16 +75,10 @@ def gaussian_log_score(
   out, which for a Gaussian is the translation sub-vector under the
   matching sub-covariance.
   """
-  xi = pose_residual(
-    step.translation,
-    step.quat_xyzw,
-    ref_translation,
-    ref_quat_xyzw,
-    tangent_order,
+  dec = gaussian_log_score_components(
+    step, ref_translation, ref_quat_xyzw, tangent_order
   )
-  t_idx = trans_slice(tangent_order)
-  trans = _gaussian_neg_log_density(xi[t_idx], step.covariance[t_idx, t_idx])
-  return GaussianLogScore(translation=trans)
+  return GaussianLogScore(translation=dec.translation.log_score)
 
 
 @dataclass
@@ -176,6 +165,49 @@ def gaussian_log_score_components(
   return DecomposedLogScore(
     translation=_score_components(xi[t_idx], step.covariance[t_idx, t_idx]),
   )
+
+
+def translation_components(
+  steps: Sequence[Step],
+  ref_translations: np.ndarray,
+  ref_quats: np.ndarray,
+  tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
+) -> list[ScoreComponents]:
+  """Per-step translation :class:`ScoreComponents` over the Gaussian entries.
+
+  Non-Gaussian steps are skipped, mirroring the CLI's scoring policy.
+  """
+  return [
+    gaussian_log_score_components(s, ref_t, ref_q, tangent_order).translation
+    for s, ref_t, ref_q in zip(steps, ref_translations, ref_quats, strict=True)
+    if isinstance(s, GaussianStep)
+  ]
+
+
+def batched_score_components(
+  residuals: np.ndarray, covs: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+  r"""Batched :func:`_score_components` over stacked residuals/covariances.
+
+  Returns ``(nees, calibration, sharpness)`` arrays of shape ``(n,)`` for
+  ``residuals`` of shape ``(n, d)`` and ``covs`` of shape ``(n, d, d)``.
+  Entries are ``nan`` where the residual or covariance is non-finite or
+  :math:`\Sigma` is not positive definite, so the calibration/sharpness
+  split and the non-PD handling live here for every batched consumer.
+  """
+  n, d = residuals.shape
+  nees = np.full(n, np.nan)
+  sharpness = np.full(n, np.nan)
+  ok = np.isfinite(residuals).all(axis=1) & np.isfinite(covs).all(axis=(1, 2))
+  if ok.any():
+    sign, logdet = np.linalg.slogdet(covs[ok])
+    pd = sign > 0
+    idx = np.flatnonzero(ok)[pd]
+    if idx.size:
+      sol = np.linalg.solve(covs[idx], residuals[idx, :, None])[:, :, 0]
+      nees[idx] = np.einsum("ij,ij->i", residuals[idx], sol)
+      sharpness[idx] = 0.5 * (logdet[pd] + d * np.log(2.0 * np.pi))
+  return nees, 0.5 * nees, sharpness
 
 
 def student_t_neg_log_density(

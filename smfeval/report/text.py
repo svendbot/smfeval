@@ -3,7 +3,9 @@
 import math
 
 from smfeval.report.builder import Report
+from smfeval.scoring import SCORE_LABELS
 from smfeval.sync.mode import SyncMode
+from smfeval.sync.risk import DEFAULT_SYNC_RISK_THRESHOLD
 
 
 def _fmt_int(n: int | None) -> str:
@@ -64,9 +66,10 @@ def _render_sync(rep: Report) -> str:
         n = s.get("n_matched", 0) or 0
         if excess:
           frac = 100.0 * excess / n if n else 0.0
+          threshold = s.get("risk_threshold", DEFAULT_SYNC_RISK_THRESHOLD)
           lines.append(
             f"                          [warning] {excess} pairs ({frac:.1f}%) "
-            f"exceed risk {s.get('risk_threshold', 0.3):.1f}"
+            f"exceed risk {threshold:.1f}"
           )
     case SyncMode.INTERPOLATE_REF:
       if risk_q is not None:
@@ -131,14 +134,6 @@ def _render_ensemble(rep: Report) -> str:
 
 _SCORE_PRECISION = 3
 
-_SCORE_LABELS: list[tuple[str, str, str]] = [
-  # (key, label, unit)
-  ("translation_crps", "Translation CRPS", "m"),
-  ("energy_score", "Energy score", "m"),
-  ("log_score_translation", "Log score (translation)", ""),
-  ("interval_score", "Interval score", ""),
-]
-
 
 def _fmt_summary_line(label: str, s: dict, unit: str) -> list[str]:
   """Three-line TUM-style summary block for a single prequential score.
@@ -172,11 +167,10 @@ def _fmt_summary_line(label: str, s: dict, unit: str) -> list[str]:
 
 
 def _render_scores(rep: Report) -> str:
-  sc = rep.scores
   lines = ["Scores"]
-  for key, label, unit in _SCORE_LABELS:
-    if key in sc:
-      lines.extend(_fmt_summary_line(label, sc[key], unit))
+  for key, s in rep.scores.items():
+    label, unit = SCORE_LABELS.get(key, (key, ""))
+    lines.extend(_fmt_summary_line(label, s, unit))
   lines.append("")
   return "\n".join(lines)
 

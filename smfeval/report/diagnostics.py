@@ -23,6 +23,7 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 
 from smfeval.report.builder import Report
+from smfeval.sync.risk import DEFAULT_SYNC_RISK_THRESHOLD
 
 
 class FailureMode(str, Enum):
@@ -52,6 +53,31 @@ class Diagnosis:
 
   def to_dict(self) -> dict:
     return asdict(self)
+
+
+# Trigger fractions shared by diagnose() and recommendations() so the two
+# report sections cannot disagree about when a fault fires.
+SYNC_RISK_EXCESS_FRAC = 0.01
+ENSEMBLE_DEGENERACY_FRAC = 0.01
+
+
+def sync_risk_flagged(sync: dict) -> bool:
+  """More than 1% of nearest-matched pairs exceed the risk threshold."""
+  n_matched = sync.get("n_matched", 0) or 0
+  risk_excess = sync.get("risk_excess_count", 0) or 0
+  mode = sync.get("mode")
+  return bool(
+    n_matched
+    and risk_excess / n_matched > SYNC_RISK_EXCESS_FRAC
+    and getattr(mode, "value", mode) == "nearest"
+  )
+
+
+def ensemble_degeneracy_flagged(ensemble: dict | None) -> bool:
+  return bool(
+    ensemble
+    and ensemble.get("degeneracy_fraction", 0.0) > ENSEMBLE_DEGENERACY_FRAC
+  )
 
 
 # ANEES that exceeds the chi2 upper bound by this factor is flagged CRITICAL
@@ -96,8 +122,8 @@ def _regime_action(s: dict) -> str:
     return (
       "Median NEES ≈ dof but the mean is inflated → the over-confidence is a "
       "heavy-dynamics TAIL, not the bulk. A robust (Student-t) likelihood "
-      "targets it; a global Σ inflation would make the (calibrated) bulk "
-      "under-confident."
+      "targets the tail; a global Σ inflation would make the (calibrated) "
+      "bulk under-confident."
     )
   if r == "bulk":
     return (
@@ -178,7 +204,8 @@ def _diagnose_windowed(windowed: list[dict]) -> list[Diagnosis]:
           "Local over-confidence points at the measurement model (per-scan "
           "likelihood / ESS), not long-horizon drift.",
           "Rule out the sync confounder first: re-score with "
-          "--sync=interpolate_ref (if ANEES drops, sync; if not, it is real).",
+          "--sync=interpolate_ref (if the ANEES drops, sync error explains "
+          "the excess; if not, the over-confidence is real).",
         ],
       )
     )
@@ -273,18 +300,17 @@ def diagnose(rep: Report) -> list[Diagnosis]:
     out.extend(_diagnose_bias_variance(rep.bias_variance))
 
   sync = rep.sync or {}
-  n_matched = sync.get("n_matched", 0) or 0
-  risk_excess = sync.get("risk_excess_count", 0) or 0
-  mode = sync.get("mode")
-  mode_val = getattr(mode, "value", mode)
-  if n_matched and risk_excess / n_matched > 0.01 and mode_val == "nearest":
+  if sync_risk_flagged(sync):
+    n_matched = sync.get("n_matched", 0) or 0
+    risk_excess = sync.get("risk_excess_count", 0) or 0
+    threshold = sync.get("risk_threshold", DEFAULT_SYNC_RISK_THRESHOLD)
     out.append(
       Diagnosis(
         mode=FailureMode.SYNC_RISK,
         severity=Severity.WARNING,
         signals_triggered=[
           f"{100.0 * risk_excess / n_matched:.1f}% of pairs exceed sync risk "
-          f"{sync.get('risk_threshold', 0.3):.1f}"
+          f"{threshold:.1f}"
         ],
         explanation=(
           "A competing confounder: timestamp-matching error shrinks short-"
@@ -298,7 +324,7 @@ def diagnose(rep: Report) -> list[Diagnosis]:
     )
 
   ens = rep.ensemble or {}
-  if ens.get("degeneracy_fraction", 0.0) > 0.01:
+  if ensemble_degeneracy_flagged(ens):
     frac = 100.0 * ens["degeneracy_fraction"]
     out.append(
       Diagnosis(

@@ -34,6 +34,7 @@ Removing the bias
 -----------------
 
 ``--n_to_align N`` fits the gauge on a prefix of :math:`N` poses and scores the
-remainder, so the scored poses never enter the fit. Use it whenever the report
-warns that many DoF were removed over a short trajectory; the warning fires when
-the trajectory length is small relative to the degrees of freedom removed.
+remainder, so the scored poses never enter the fit. Pass ``--n_to_align``
+whenever the report warns that many DoF were removed over a short trajectory;
+the warning fires when the trajectory length is small relative to the degrees
+of freedom removed.

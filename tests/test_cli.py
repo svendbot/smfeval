@@ -5,45 +5,30 @@ import pytest
 
 from smfeval.cli.main import main
 from smfeval.format import (
-  FORMAT_VERSION,
   Gauge,
   Representation,
   SquareHeader,
-  TangentConvention,
-  TangentOrder,
 )
 from smfeval.io import write_header, write_steps
-from smfeval.steps import DeterministicStep, GaussianStep
+from smfeval.steps import GaussianStep
+from tests._factories import det_step as _det_step
+from tests._factories import gauss_step, square_header
 
 
 def _gauss_header(
   gauge: Gauge = Gauge.SE3, body_frame: str = "imu"
 ) -> SquareHeader:
-  return SquareHeader(
-    format_version=FORMAT_VERSION,
-    representation=Representation.GAUSSIAN_SE3,
-    pose_frame="world",
-    body_frame=body_frame,
-    gauge=gauge,
-    timestamp_unit="seconds",
-    algorithm="testbot",
-    algorithm_version="1.0",
-    tangent_convention=TangentConvention.RIGHT,
-    tangent_order=TangentOrder.TRANS_ROT,
-    rotation_param="axis_angle",
+  return square_header(
+    Representation.GAUSSIAN_SE3, gauge=gauge, body_frame=body_frame
   )
 
 
 def _det_header(body_frame: str = "imu") -> SquareHeader:
-  return SquareHeader(
-    format_version=FORMAT_VERSION,
-    representation=Representation.DETERMINISTIC,
-    pose_frame="world",
+  return square_header(
+    Representation.DETERMINISTIC,
     body_frame=body_frame,
     gauge=Gauge.FIXED,
-    timestamp_unit="seconds",
     algorithm="ref",
-    algorithm_version="1.0",
   )
 
 
@@ -54,21 +39,7 @@ def _write(path: Path, header: SquareHeader, steps: list) -> None:
 
 
 def _gauss_step(t: float, pos: np.ndarray) -> GaussianStep:
-  cov = np.diag([0.01, 0.01, 0.01, 0.001, 0.001, 0.001])
-  return GaussianStep(
-    timestamp=t,
-    translation=pos,
-    quat_xyzw=np.array([0.0, 0.0, 0.0, 1.0]),
-    covariance=cov,
-  )
-
-
-def _det_step(t: float, pos: np.ndarray) -> DeterministicStep:
-  return DeterministicStep(
-    timestamp=t,
-    translation=pos,
-    quat_xyzw=np.array([0.0, 0.0, 0.0, 1.0]),
-  )
+  return gauss_step(t, pos, np.array([0.01, 0.01, 0.01, 0.001, 0.001, 0.001]))
 
 
 def test_validate_ok(tmp_path: Path, capsys: pytest.CaptureFixture):
