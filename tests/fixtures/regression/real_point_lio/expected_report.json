@@ -1,21 +1,21 @@
 {
-  "median_nees": 5.3609334196393785,
-  "calibrated_median": 2.3659738843753377,
-  "k": 2.2658464047479403,
-  "per_axis_factor": 1.5052728672064544,
+  "median_nees": 5.36093341964,
+  "calibrated_median": 2.36597388438,
+  "k": 2.26584640475,
+  "per_axis_factor": 1.50527286721,
   "scale_direction": "too tight",
-  "coverage": 0.5501618122977346,
+  "coverage": 0.550161812298,
   "nominal_coverage": 0.9,
   "dof": 3,
   "n": 309,
   "direction": "too tight",
   "anees": {
-    "anees": 11.033216823628774,
+    "anees": 11.0332168236,
     "dof": 3,
     "n": 309,
-    "lo": 2.7330668413077825,
-    "hi": 3.2791921347707778,
+    "lo": 2.73306684131,
+    "hi": 3.27919213477,
     "verdict": "optimistic",
-    "median": 5.3609334196393785
+    "median": 5.36093341964
   }
 }

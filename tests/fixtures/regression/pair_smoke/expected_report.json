@@ -2,34 +2,34 @@
   "n_matched": 310,
   "n_scored": 310,
   "join_frac": 1.0,
-  "gap_median_ms": 0.0007152557373046875,
-  "med_d_norm_m": 0.013293208163081712,
-  "log_score_mean": -8.323647488214897,
-  "k_pair_lower_bound": 3.7564198019582733,
+  "gap_median_ms": 0.000715255737305,
+  "med_d_norm_m": 0.0132932081631,
+  "log_score_mean": -8.32364748821,
+  "k_pair_lower_bound": 3.75641980196,
   "k_axis_lower_bound": [
-    5.642203155609497,
-    3.8170992184467742,
-    3.2970359862614513
+    5.64220315561,
+    3.81709921845,
+    3.29703598626
   ],
   "verdict": {
-    "median_nees": 8.887591150183653,
-    "calibrated_median": 2.3659738843753377,
-    "k": 3.7564198019582733,
-    "per_axis_factor": 1.93814855002352,
+    "median_nees": 8.88759115018,
+    "calibrated_median": 2.36597388438,
+    "k": 3.75641980196,
+    "per_axis_factor": 1.93814855002,
     "scale_direction": "too tight",
-    "coverage": 0.3387096774193548,
+    "coverage": 0.338709677419,
     "nominal_coverage": 0.9,
     "dof": 3,
     "n": 310,
     "direction": "too tight",
     "anees": {
-      "anees": 10.350015091882888,
+      "anees": 10.3500150919,
       "dof": 3,
       "n": 310,
-      "lo": 2.7334876848497065,
-      "hi": 3.2787317522696586,
+      "lo": 2.73348768485,
+      "hi": 3.27873175227,
       "verdict": "optimistic",
-      "median": 8.887591150183653
+      "median": 8.88759115018
     }
   },
   "caveat": "propriety caveat: pairwise scores are strictly proper only under a\nhonest reference sigma and independent errors; both violations push\nconservative, so NEES_pair lower-bounds miscalibration."

@@ -12,6 +12,10 @@ Each scenario under ``tests/fixtures/regression/<name>/`` holds:
 The test runs the CLI and compares the JSON output against the golden
 file with numeric tolerance. Set ``UPDATE_FIXTURES=1`` to rewrite the
 golden file in place (use after intentional changes).
+
+Goldens are written with floats rounded to ``GOLDEN_SIG_DIGITS``, so
+regenerating on a machine whose BLAS sums in a different order is a no-op
+instead of a diff in the last digit or two.
 """
 
 import json
@@ -24,12 +28,40 @@ import pytest
 from smfeval.cli.main import main
 
 FIXTURES = Path(__file__).parent / "fixtures" / "regression"
-# Cross-platform tolerance. Sampled scores (rotation CRPS) and bootstrap block
-# lengths vary in the last few digits across BLAS and Python builds, so an
-# exact-match tolerance is not portable. 1e-6 still catches real regressions,
-# which move values by far more than that.
+# Cross-platform tolerance. Sampled scores and bootstrap block lengths vary in
+# the last few digits across BLAS and Python builds, so an exact-match
+# tolerance is not portable. 1e-6 still catches real regressions, which move
+# values by far more than that.
 RTOL = 1e-6
 ATOL = 1e-9
+# Precision goldens are stored at. Digits past this are never read -- the
+# comparison above stops at 1e-6 -- but writing them made UPDATE_FIXTURES
+# produce a diff on any machine but the one that last ran it. 12 leaves six
+# orders of margin under RTOL and four over the ~1e-16 relative spread we
+# actually observe between builds.
+GOLDEN_SIG_DIGITS = 12
+
+
+def _round_sig(x: float, sig: int) -> float:
+  """Round to ``sig`` significant digits; non-finite and zero pass through."""
+  if not math.isfinite(x) or x == 0.0:
+    return x
+  return round(x, sig - 1 - math.floor(math.log10(abs(x))))
+
+
+def _rounded(obj: object, sig: int = GOLDEN_SIG_DIGITS) -> object:
+  """Recursively round every float in a decoded JSON structure.
+
+  Ints (including bools) pass through untouched so the golden keeps their
+  JSON type.
+  """
+  if isinstance(obj, dict):
+    return {k: _rounded(v, sig) for k, v in obj.items()}
+  if isinstance(obj, list):
+    return [_rounded(v, sig) for v in obj]
+  if isinstance(obj, float):
+    return _round_sig(obj, sig)
+  return obj
 
 
 def _scenarios() -> list[Path]:
@@ -135,7 +167,7 @@ def test_regression(
 
   golden = scenario / "expected_report.json"
   if os.environ.get("UPDATE_FIXTURES"):
-    golden.write_text(json.dumps(actual, indent=2) + "\n")
+    golden.write_text(json.dumps(_rounded(actual), indent=2) + "\n")
     pytest.skip(f"updated {golden}")
 
   if not golden.exists():
@@ -146,3 +178,42 @@ def test_regression(
   expected = json.loads(golden.read_text())
   diffs = _compare(actual, expected)
   assert not diffs, "report mismatch:\n  " + "\n  ".join(diffs)
+
+
+def test_round_sig_keeps_significant_digits_across_magnitudes():
+  assert _round_sig(0.0006262220495590752, 12) == 0.000626222049559
+  assert _round_sig(184.46873624905618, 12) == 184.468736249
+  assert _round_sig(5856719983.084327, 12) == 5856719983.08
+
+
+def test_round_sig_passes_through_zero_and_non_finite():
+  assert _round_sig(0.0, 12) == 0.0
+  assert math.isnan(_round_sig(float("nan"), 12))
+  assert _round_sig(float("inf"), 12) == float("inf")
+
+
+def test_rounded_preserves_int_and_bool_types():
+  out = _rounded({"n": 309, "flag": True, "x": 1.23456789012345}, sig=12)
+  assert isinstance(out["n"], int) and out["n"] == 309
+  assert out["flag"] is True
+  assert out["x"] == 1.23456789012
+
+
+def test_rounded_recurses_into_lists_and_nested_dicts():
+  out = _rounded({"a": [{"b": 1.23456789012345}]}, sig=6)
+  assert out == {"a": [{"b": 1.23457}]}
+
+
+@pytest.mark.parametrize("scenario", _scenarios(), ids=lambda p: p.name)
+def test_golden_is_already_rounded(scenario: Path) -> None:
+  """Rounding a committed golden is a fixed point.
+
+  This is what stops UPDATE_FIXTURES from re-dirtying a golden on a machine
+  whose BLAS sums in a different order: the stored value carries no digits
+  past GOLDEN_SIG_DIGITS for that noise to land in.
+  """
+  golden = scenario / "expected_report.json"
+  if not golden.exists():
+    pytest.skip(f"no golden at {golden}")
+  raw = golden.read_text()
+  assert json.dumps(_rounded(json.loads(raw)), indent=2) + "\n" == raw

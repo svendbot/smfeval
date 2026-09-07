@@ -46,6 +46,10 @@
   "too loose" / "undefined"), derived from k rather than from the ANEES word so
   it can never contradict the factor beside it. `per_axis_factor` is now a
   magnitude >= 1 in both directions.
+- Regression goldens store floats rounded to 12 significant digits, so
+  `UPDATE_FIXTURES=1` is a no-op on a machine whose BLAS sums in a different
+  order instead of rewriting the last digit or two. The digits dropped were
+  never read: the comparison tolerance is 1e-6.
 
 ## 0.4.0 - 2026-06-21
 
