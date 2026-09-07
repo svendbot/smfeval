@@ -6,8 +6,8 @@
 # against its realised error and reports the median NEES, the covariance scale
 # gap k, and 90% coverage.
 #
-# Runtime is a few seconds on a free Colab instance. The only smfeval
-# dependencies are numpy and scipy.
+# Runtime is a few seconds. The data ships with the repository, so run this
+# notebook from a clone. The only smfeval dependencies are numpy and scipy.
 
 # %%
 # %pip install -q "smfeval>=0.4"
@@ -15,25 +15,25 @@
 # %%
 import gzip
 import shutil
-import urllib.request
 from pathlib import Path
 
-BASE = "https://raw.githubusercontent.com/svendbot/smfeval/main/notebooks/data"
+# The data ships with the repository; run this notebook from a clone.
+BASE = Path("notebooks/data") if Path("notebooks/data").is_dir() else Path("data")
 FILES = {
   "est.SQUARE": "christ-church-03_fast_lio2.SQUARE.gz",
   "ref.tum": "christ-church-03_ref.tum.gz",
   "imu_to_lidar.json": "imu_to_lidar.json",
 }
 
-for local, remote in FILES.items():
+for local, shipped in FILES.items():
   if Path(local).exists():
     continue
-  raw, _ = urllib.request.urlretrieve(f"{BASE}/{remote}")
-  if remote.endswith(".gz"):
-    with gzip.open(raw, "rb") as src, open(local, "wb") as dst:
+  source = BASE / shipped
+  if shipped.endswith(".gz"):
+    with gzip.open(source, "rb") as src, open(local, "wb") as dst:
       shutil.copyfileobj(src, dst)
   else:
-    shutil.copy(raw, local)
+    shutil.copy(source, local)
 print("data ready:", list(FILES))
 
 # %% [markdown]
