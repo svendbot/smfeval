@@ -1,6 +1,5 @@
 # smfeval: score the belief, not just the mean
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/svendbot/smfeval/blob/main/notebooks/figure1_verdict.ipynb)
 [![PyPI](https://img.shields.io/pypi/v/smfeval)](https://pypi.org/project/smfeval/)
 [![Python](https://img.shields.io/pypi/pyversions/smfeval)](https://pypi.org/project/smfeval/)
 [![Tests](https://github.com/svendbot/smfeval/actions/workflows/test.yml/badge.svg)](https://github.com/svendbot/smfeval/actions/workflows/test.yml)
@@ -25,9 +24,7 @@ per-pose gap is what `smfeval` scores. (Data: Oxford Spires, CC BY-NC-SA 4.0.)*
 
 ## Try it now
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/svendbot/smfeval/blob/main/notebooks/figure1_verdict.ipynb)
-
-The notebook reproduces the headline verdict on one Oxford Spires sequence end
+`notebooks/figure1_verdict.ipynb` reproduces the headline verdict on one Oxford Spires sequence end
 to end (install, fetch data, verdict, NEES-vs-reference plot).
 
 ## Install
