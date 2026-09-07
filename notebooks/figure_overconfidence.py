@@ -145,9 +145,9 @@ def planar_ellipse(cov2: np.ndarray, conf: float):
 
 def scale_bar(ax, half: float):
   """Round-number scale bar in the lower-left of a zoom axes (m / cm / mm)."""
-  for L in (0.5, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005, 0.002, 0.001):
-    if L < 1.4 * half:
-      break
+  bars = (0.5, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005, 0.002, 0.001)
+  # Largest bar that fits the zoom; the smallest is the floor when none does.
+  L = next((b for b in bars if b < 1.4 * half), bars[-1])
   x0, x1 = ax.get_xlim()
   y0, y1 = ax.get_ylim()
   x = x0 + 0.08 * (x1 - x0)

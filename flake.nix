@@ -26,12 +26,11 @@
             pythonEnv
             pkgs.uv
             pkgs.ruff
-            # For `make typecheck`. pyright-python runs the global node when
-            # it finds one and otherwise downloads a generic-linux binary
-            # that NixOS cannot exec, so without this `uvx pyright` fails
-            # here. Supplying node rather than pkgs.pyright keeps local and
-            # CI on the one pinned version (nixpkgs lags it).
-            pkgs.nodejs
+            # `uvx pyright` cannot run here: pyright-python falls back to a
+            # generic-linux node binary that NixOS will not exec. This build
+            # wraps its own node. Keep the CI pins in .github/workflows/
+            # test.yml matching the versions this nixpkgs provides.
+            pkgs.pyright
           ];
 
           shellHook = ''
