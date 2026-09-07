@@ -55,7 +55,8 @@ jobs:
       - name: Sync dependencies
         run: uv sync --dev
       - name: Typecheck
-        run: uvx pyright@1.1.410
+        # Version pinned in the Makefile so local and CI cannot drift apart.
+        run: make typecheck
 
   docs:
     name: sphinx
