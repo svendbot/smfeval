@@ -21,6 +21,15 @@
         ]);
       in
       {
+        # Versions the CI pins must track. CI has no nix in its lint and
+        # typecheck jobs, so the `pins` job in .github/workflows/test.yml
+        # reads these and fails when a pin drifts from the flake -- e.g.
+        # after a `nix flake update`.
+        toolVersions = {
+          ruff = pkgs.ruff.version;
+          pyright = pkgs.pyright.version;
+        };
+
         devShells.default = pkgs.mkShell {
           packages = [
             pythonEnv
@@ -28,8 +37,8 @@
             pkgs.ruff
             # `uvx pyright` cannot run here: pyright-python falls back to a
             # generic-linux node binary that NixOS will not exec. This build
-            # wraps its own node. Keep the CI pins in .github/workflows/
-            # test.yml matching the versions this nixpkgs provides.
+            # wraps its own node. Its version is exported as toolVersions
+            # below, which CI checks its pin against.
             pkgs.pyright
           ];
 

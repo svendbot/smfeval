@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+# The lint and typecheck jobs run without nix, so they pin the tools the dev
+# shell gets from nixpkgs. The `pins` job fails if either drifts from the
+# flake -- keep these two lines as the only place the versions appear.
+env:
+  RUFF_VERSION: "0.15.11"
+  PYRIGHT_VERSION: "1.1.408"
+
 jobs:
   test:
     name: pytest (py${{ matrix.python-version }})
@@ -34,9 +41,9 @@ jobs:
       - name: Sync dependencies
         run: uv sync --dev
       - name: Lint
-        run: uvx ruff@0.15.11 check smfeval tests scripts
+        run: uvx ruff@${{ env.RUFF_VERSION }} check smfeval tests scripts
       - name: Format check
-        run: uvx ruff@0.15.11 format --check smfeval tests scripts
+        run: uvx ruff@${{ env.RUFF_VERSION }} format --check smfeval tests scripts
       - name: Exporter layout
         run: uv run python scripts/check_exporters.py
       - name: SQUARE spec version matches FORMAT_VERSION
@@ -55,9 +62,28 @@ jobs:
       - name: Sync dependencies
         run: uv sync --dev
       - name: Typecheck
-        # Match the pyright the dev shell provides (see flake.nix), so a
-        # local `make typecheck` and this job cannot disagree.
-        run: uvx pyright@1.1.408
+        run: uvx pyright@${{ env.PYRIGHT_VERSION }}
+
+  pins:
+    name: pins match flake
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v30
+      - name: Tool pins match the flake's nixpkgs
+        run: |
+          status=0
+          check() {
+            flake=$(nix eval --raw ".#toolVersions.x86_64-linux.$1")
+            echo "$1: pinned=$2 flake=$flake"
+            if [ "$2" != "$flake" ]; then
+              echo "::error::$1 pin $2 != flake.lock's nixpkgs ($flake). Set $3 in this file to $flake, or revert the flake.lock bump."
+              status=1
+            fi
+          }
+          check ruff "$RUFF_VERSION" RUFF_VERSION
+          check pyright "$PYRIGHT_VERSION" PYRIGHT_VERSION
+          exit $status
 
   docs:
     name: sphinx
