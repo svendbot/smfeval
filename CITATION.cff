@@ -10,7 +10,7 @@ authors:
     given-names: "Ola"
     email: oroe@itu.dk
 version: 0.4.0
-date-released: 2026-06-12
+date-released: 2026-06-21
 repository-code: "https://github.com/svendbot/smfeval"
 license: Apache-2.0
 keywords:
