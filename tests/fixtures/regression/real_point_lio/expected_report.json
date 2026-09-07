@@ -3,6 +3,7 @@
   "calibrated_median": 2.3659738843753377,
   "k": 2.2658464047479403,
   "per_axis_factor": 1.5052728672064544,
+  "scale_direction": "too tight",
   "coverage": 0.5501618122977346,
   "nominal_coverage": 0.9,
   "dof": 3,

@@ -9,11 +9,17 @@ further reading. The covariance scale gap is
 
 — the factor by which the published covariance is too tight (k > 1) or
 too loose (k < 1), since under a calibrated belief the per-pose NEES is
-:math:`\chi^2_d` distributed (median 2.366 for d=3). The per-axis factor
-is :math:`\sqrt{k}` (variance vs standard deviation). The qualitative
-direction comes from the two-sided ANEES :math:`\chi^2` interval, so a
-filter within sampling noise of calibrated prints "consistent" even when
-k is not exactly 1.
+:math:`\chi^2_d` distributed (median 2.366 for d=3).
+
+A published :math:`\Sigma = c\,\Sigma_\mathrm{true}` gives :math:`k = 1/c`,
+so per axis the standard deviation is off by :math:`\sqrt{c}`: a factor
+:math:`\sqrt{k}` when it is too tight, :math:`1/\sqrt{k}` when it is too
+loose. The reported per-axis factor is therefore always :math:`\ge 1` and
+``scale_direction`` says which way it points.
+
+Whether a gap is reported at all comes from the two-sided ANEES
+:math:`\chi^2` interval, so a filter within sampling noise of calibrated
+prints "consistent" even when k is not exactly 1.
 """
 
 import re
@@ -60,7 +66,24 @@ class NeesVerdict:
 
   @property
   def per_axis_factor(self) -> float:
-    return float(np.sqrt(self.k)) if self.k >= 0 else float("nan")
+    r"""Per-axis sigma discrepancy implied by k, as a magnitude :math:`\ge 1`.
+
+    :math:`\sqrt{k}` when the covariance is too tight, :math:`1/\sqrt{k}`
+    when it is too loose. Reporting :math:`\sqrt{k}` in both directions
+    understated an under-confident filter: k = 0.25 means sigma is 2x too
+    loose per axis, not 0.5x. Pair with :attr:`scale_direction`.
+    """
+    if not np.isfinite(self.k) or self.k <= 0.0:
+      return float("nan")
+    root = float(np.sqrt(self.k))
+    return root if self.k >= 1.0 else 1.0 / root
+
+  @property
+  def scale_direction(self) -> str:
+    """Which way k points, independent of the ANEES consistency verdict."""
+    if not np.isfinite(self.k) or self.k <= 0.0:
+      return "undefined"
+    return "too tight" if self.k >= 1.0 else "too loose"
 
   @property
   def direction(self) -> str:
@@ -72,6 +95,7 @@ class NeesVerdict:
       "calibrated_median": self.calibrated_median,
       "k": self.k,
       "per_axis_factor": self.per_axis_factor,
+      "scale_direction": self.scale_direction,
       "coverage": self.coverage,
       "nominal_coverage": self.nominal_coverage,
       "dof": self.dof,
@@ -123,9 +147,11 @@ def render_nees_verdict(v: NeesVerdict) -> str:
   if v.direction == "consistent":
     gap = f"covariance scale consistent (k = {_fmt(v.k)})"
   else:
+    # The gap clause is a statement about k, so its direction word comes
+    # from k too; the ANEES verdict only decides whether to print it.
     gap = (
       f"covariance scale gap k = {_fmt(v.k)}, "
-      f"~{_fmt(v.per_axis_factor)}x {v.direction} per axis"
+      f"~{_fmt(v.per_axis_factor)}x {v.scale_direction} per axis"
     )
   return "\n".join(
     [
@@ -161,7 +187,8 @@ def render_pair_verdict(res: PairResult, v: NeesVerdict, *, caveat: str) -> str:
   else:
     gap = (
       f"pairwise scale gap k >= {_fmt(v.k)}, "
-      f">={_fmt(v.per_axis_factor)}x {v.direction} per axis  (lower bound)"
+      f">={_fmt(v.per_axis_factor)}x {v.scale_direction} per axis  "
+      "(lower bound)"
     )
   lines = [
     f"matched {res.n_matched} pose pairs, scored {res.n_scored}  "

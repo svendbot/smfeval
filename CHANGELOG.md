@@ -20,6 +20,14 @@
 - Ensemble weights in the sync-risk sigma are read using the header's
   `WEIGHT_FORMAT` instead of guessing from the sign of the values. All-positive
   unnormalized log weights were silently misread as linear.
+- `--ess-inflate` and `--consume-ref-cov` now reach the `--rpe-window` relative
+  CRPS table. It was computed on the unadjusted steps, so a single report could
+  show a windowed calibration on inflated Sigma beside a relative CRPS on
+  un-inflated Sigma with nothing marking the difference.
+- The per-axis scale factor is no longer inverted for an under-confident
+  filter. `sqrt(k)` is right only when the covariance is too tight; too loose
+  it is `1/sqrt(k)`, so k = 0.25 now reads "~2x too loose per axis" instead of
+  "~0.5x".
 
 ### Removed
 
@@ -34,6 +42,10 @@
   `calibration.coverage_p` / `calibration.n_coverage` added, and `sync.risk_n`
   (pairs with a defined sync risk) added. Sync-risk excess fractions are now
   reported over `risk_n` rather than `n_matched`.
+- The `nees` / `pair` verdict dict gains `scale_direction` ("too tight" /
+  "too loose" / "undefined"), derived from k rather than from the ANEES word so
+  it can never contradict the factor beside it. `per_axis_factor` is now a
+  magnitude >= 1 in both directions.
 
 ## 0.4.0 - 2026-06-21
 

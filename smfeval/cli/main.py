@@ -856,7 +856,6 @@ def _score(args: argparse.Namespace) -> int:
     return 2
   est_header = pr.est_header
   matched_est = pr.matched_est
-  aligned_est = pr.aligned_est
   matched_ref_t = pr.matched_ref_t
   matched_ref_q = pr.matched_ref_q
   match, fit, risks, ref_cov = pr.match, pr.fit, pr.risks, pr.ref_cov
@@ -875,7 +874,10 @@ def _score(args: argparse.Namespace) -> int:
       normalized=bool(est_header.weights_normalized),
     )
 
-  scored_est = _adjust_covariance(args, aligned_est, ref_cov)
+  # Everything downstream scores `scored_est`, never pr.aligned_est: the
+  # --ess-inflate / --consume-ref-cov adjustments have to reach every score
+  # in the run, or one table silently disagrees with the rest.
+  scored_est = _adjust_covariance(args, pr.aligned_est, ref_cov)
   if scored_est is None:
     return 2
 
@@ -937,7 +939,7 @@ def _score(args: argparse.Namespace) -> int:
     bv_windows = rpe_windows or [0.1, 1.0, 10.0]
     rep.bias_variance = [
       r.to_dict()
-      for r in bias_variance(aligned_est, matched_ref_t, windows_s=bv_windows)
+      for r in bias_variance(scored_est, matched_ref_t, windows_s=bv_windows)
     ]
   rep.recommendations = recommendations(rep)
   rep.diagnoses = diagnose(rep)
@@ -945,7 +947,7 @@ def _score(args: argparse.Namespace) -> int:
 
   if rpe_windows:
     _report_relative_crps(
-      args, aligned_est, matched_ref_t, order, est_header, rpe_windows
+      args, scored_est, matched_ref_t, order, est_header, rpe_windows
     )
   if split is not None:
     _emit_calibration_machine_lines(split)
@@ -964,7 +966,7 @@ def _score(args: argparse.Namespace) -> int:
 
 def _report_relative_crps(
   args: argparse.Namespace,
-  aligned_est: list,
+  scored_est: list,
   matched_ref_t: np.ndarray,
   order: TangentOrder,
   est_header: SquareHeader,
@@ -976,11 +978,14 @@ def _report_relative_crps(
   loses once the filter is overconfident (|z| ≫ 1 → CRPS → |error|).
   Requires a Gaussian predictive; deterministic/ensemble inputs are
   skipped with a notice.
+
+  Scores the covariance-adjusted steps, so --ess-inflate / --consume-ref-cov
+  reach this table as well as the report's.
   """
   if not _skip_unless_gaussian(est_header, "relative CRPS"):
     return
   results = relative_translation_crps(
-    aligned_est,
+    scored_est,
     matched_ref_t,
     windows_s=windows,
     tangent_order=order,

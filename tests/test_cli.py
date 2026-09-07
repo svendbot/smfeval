@@ -270,6 +270,48 @@ def test_ess_inflate_scales_anees(
   assert np.isclose(a_ess, a_base / 4.0, rtol=0.02)
 
 
+def _relative_crps_z2(out: str) -> list[float]:
+  """mean_z2 from each machine-readable RELATIVE_CRPS_TRANS line."""
+  return [
+    float(next(t.split("=")[1] for t in ln.split() if t.startswith("mean_z2=")))
+    for ln in out.splitlines()
+    if "RELATIVE_CRPS_TRANS" in ln
+  ]
+
+
+def test_ess_inflate_reaches_the_relative_crps_table(
+  tmp_path: Path, capsys: pytest.CaptureFixture
+):
+  """The covariance interventions must reach every score in the run.
+
+  Sigma -> c*Sigma scales sigma_rel by sqrt(c), so mean_z2 -> mean_z2/c
+  exactly. The relative-CRPS table used to be computed on the unadjusted
+  steps, so it sat in the same report as a windowed calibration that *had*
+  been adjusted, with nothing marking the difference.
+  """
+  est_path, ref_path = _write_calibration_case(tmp_path, scale=3.0)
+  cfile = tmp_path / "cfile.txt"
+  cfile.write_text("# t c\n0 4.0\n30 4.0\n")  # constant c=4 over the range
+  base = [
+    "score",
+    str(est_path),
+    str(ref_path),
+    "--align",
+    "none",
+    "--rpe-window",
+    "1.0",
+  ]
+  rc = main(base)
+  z2_base = _relative_crps_z2(capsys.readouterr().out)
+  assert rc == 0
+  assert z2_base, "no RELATIVE_CRPS_TRANS lines to compare"
+
+  rc = main(base + ["--ess-inflate", str(cfile)])
+  z2_ess = _relative_crps_z2(capsys.readouterr().out)
+  assert rc == 0
+  assert np.allclose(z2_ess, np.array(z2_base) / 4.0, rtol=1e-6)
+
+
 def test_score_no_matches(tmp_path: Path, capsys: pytest.CaptureFixture):
   est_path = tmp_path / "est.SQUARE"
   ref_path = tmp_path / "ref.SQUARE"
