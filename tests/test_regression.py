@@ -22,6 +22,7 @@ import json
 import math
 import os
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -49,11 +50,12 @@ def _round_sig(x: float, sig: int) -> float:
   return round(x, sig - 1 - math.floor(math.log10(abs(x))))
 
 
-def _rounded(obj: object, sig: int = GOLDEN_SIG_DIGITS) -> object:
+def _rounded(obj: object, sig: int = GOLDEN_SIG_DIGITS) -> Any:
   """Recursively round every float in a decoded JSON structure.
 
   Ints (including bools) pass through untouched so the golden keeps their
-  JSON type.
+  JSON type. Returns ``Any`` for the same reason :func:`json.loads` does:
+  the result mirrors whatever shape went in.
   """
   if isinstance(obj, dict):
     return {k: _rounded(v, sig) for k, v in obj.items()}
