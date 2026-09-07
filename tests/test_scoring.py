@@ -1,19 +1,23 @@
 import numpy as np
+import pytest
 from scipy.stats import chi
 
-from smfeval.format import TangentOrder, WeightFormat
+from smfeval.format import TangentConvention, TangentOrder, WeightFormat
 from smfeval.scoring import (
   calibrate,
   energy_score,
   ensemble_diagnostics,
   gaussian_log_score,
+  gaussian_log_score_components,
   interval_score,
+  translation_components,
   translation_crps,
 )
 from smfeval.scoring.interval import interval_from_samples
 from smfeval.se3.lie import se3_exp
 from smfeval.se3.quat import rot_to_quat_xyzw
 from smfeval.steps import EnsembleStep, GaussianStep
+from smfeval.sync.risk import _trans_sigma
 from tests._factories import gauss_step as _gauss
 
 RNG = np.random.default_rng(11)
@@ -125,7 +129,7 @@ def _draw_calibrated_pair(mu_t, mu_q, cov, rng):
 def test_calibration_matches_nominal_when_data_is_drawn_from_predictive():
   """End-to-end check that calibrate() reports the right thing when the reference
   is sampled from the predictive Gaussian. Failures here indicate a bug in
-  smfeval itself (sampling, scoring, or the PIT/coverage pipeline), not in
+  smfeval itself (the residual, whitening, or coverage pipeline), not in
   any algorithm being scored."""
   rng = np.random.default_rng(42)
   n = 600
@@ -151,15 +155,14 @@ def test_calibration_matches_nominal_when_data_is_drawn_from_predictive():
     np.array(ref_qs),
     tangent_order=TangentOrder.TRANS_ROT,
     alpha=0.1,
-    n_samples=512,
-    rng=np.random.default_rng(0),
   )
 
   # Coverage: nominal 0.9; binomial SD on n=600 is ≈0.012, so ±4% is loose.
   assert 0.86 < res.coverage < 0.94, f"coverage {res.coverage}"
 
-  # PIT under correct calibration is U(0,1); KS p should not be tiny.
-  assert res.ks_p_translation > 0.01, f"KS_t p={res.ks_p_translation}"
+  # Coverage matches nominal, so the binomial test should not reject.
+  assert res.n_coverage == n
+  assert res.coverage_p > 0.01, f"coverage p={res.coverage_p}"
 
   # z_translation = ‖L^-1 ρ‖ / √3. Under correct calibration ρ ~ N(0, Σ_t),
   # so ‖z‖ has chi(df=3) distribution; mean ≈ 0.921, std ≈ 0.390 after /√3.
@@ -205,8 +208,6 @@ def test_calibration_coverage_is_anisotropic_via_mahalanobis():
     np.array(ref_qs),
     tangent_order=TangentOrder.TRANS_ROT,
     alpha=0.1,
-    n_samples=256,
-    rng=np.random.default_rng(0),
   )
   assert 0.86 < res.coverage < 0.94, f"coverage {res.coverage} (expected ~0.9)"
 
@@ -240,8 +241,6 @@ def test_calibration_collapses_when_predictive_is_overconfident():
     np.array(ref_qs),
     tangent_order=TangentOrder.TRANS_ROT,
     alpha=0.1,
-    n_samples=128,
-    rng=np.random.default_rng(0),
   )
   assert res.coverage < 0.05
   assert res.z_translation_mean > 100  # truth is hundreds of σ away
@@ -263,9 +262,108 @@ def test_calibration_runs_end_to_end():
     np.array(ref_t),
     np.array(ref_q),
     tangent_order=TangentOrder.TRANS_ROT,
-    n_samples=64,
-    rng=np.random.default_rng(0),
   )
-  assert res.pit_translation.shape == (n,)
+  assert res.n_coverage == n
   assert 0.0 <= res.coverage <= 1.0
-  assert np.isfinite(res.ks_p_translation)
+  assert np.isfinite(res.coverage_p)
+
+
+def _draw_perturbed_pair(
+  mu_t: np.ndarray,
+  mu_q: np.ndarray,
+  cov: np.ndarray,
+  convention: TangentConvention,
+  rng: np.random.Generator,
+) -> tuple[np.ndarray, np.ndarray]:
+  """Draw an observation from the belief in the given perturbation convention."""
+  from smfeval.se3.lie import pose_matrix
+
+  xi = np.linalg.cholesky(cov) @ rng.standard_normal(6)
+  T_mean = pose_matrix(mu_t, mu_q)
+  E = se3_exp(xi, order=TangentOrder.TRANS_ROT)
+  T_obs = E @ T_mean if convention is TangentConvention.LEFT else T_mean @ E
+  return T_obs[:3, 3], rot_to_quat_xyzw(T_obs[:3, :3])
+
+
+@pytest.mark.parametrize(
+  "convention", [TangentConvention.RIGHT, TangentConvention.LEFT]
+)
+def test_nees_is_calibrated_in_both_perturbation_conventions(convention):
+  """A calibrated belief scores NEES ~ chi2_3 under either declared convention.
+
+  The residual must be the perturbation the covariance is the covariance of:
+  log(T_est^-1 T_ref) for right, log(T_ref T_est^-1) for left. Pairing one
+  with the other inflates the NEES by the adjoint mismatch, which reads as
+  over-confidence in a filter that is honest.
+  """
+  rng = np.random.default_rng(7)
+  n = 4000
+  # Anisotropic translation block and a mean pose well away from the origin,
+  # so Ad_T is far from the identity and the two conventions cannot coincide.
+  cov = np.diag([0.10**2, 0.01**2, 0.01**2, 1e-6, 1e-6, 1e-6])
+  mu_t = np.array([10.0, -3.0, 1.0])
+  mu_q = rot_to_quat_xyzw(se3_exp(np.array([0, 0, 0, 0.0, 0.0, 2.0]))[:3, :3])
+
+  steps, ref_ts, ref_qs = [], [], []
+  for _ in range(n):
+    ref_t, ref_q = _draw_perturbed_pair(mu_t, mu_q, cov, convention, rng)
+    ref_ts.append(ref_t)
+    ref_qs.append(ref_q)
+    steps.append(GaussianStep(0.0, mu_t, mu_q, cov.copy()))
+
+  comps = translation_components(
+    steps,
+    np.array(ref_ts),
+    np.array(ref_qs),
+    TangentOrder.TRANS_ROT,
+    convention,
+  )
+  nees = np.array([c.nees for c in comps])
+  # chi2_3: mean 3, median 2.366. n=4000 keeps the sampling error well under 5%.
+  assert 2.8 < nees.mean() < 3.2, f"ANEES {nees.mean()}"
+  assert 2.2 < np.median(nees) < 2.6, f"median NEES {np.median(nees)}"
+
+
+def test_left_perturbation_residual_differs_from_right():
+  """Guard the fix: the two conventions must not silently be the same code path."""
+  cov = np.diag([0.10**2, 0.01**2, 0.01**2, 1e-6, 1e-6, 1e-6])
+  mu_t = np.array([10.0, -3.0, 1.0])
+  mu_q = rot_to_quat_xyzw(se3_exp(np.array([0, 0, 0, 0.0, 0.0, 2.0]))[:3, :3])
+  step = GaussianStep(0.0, mu_t, mu_q, cov)
+  ref_t = mu_t + np.array([0.05, 0.02, -0.01])
+
+  right = gaussian_log_score_components(
+    step, ref_t, mu_q, TangentOrder.TRANS_ROT, TangentConvention.RIGHT
+  ).translation.nees
+  left = gaussian_log_score_components(
+    step, ref_t, mu_q, TangentOrder.TRANS_ROT, TangentConvention.LEFT
+  ).translation.nees
+  assert not np.isclose(right, left)
+
+
+def test_ensemble_sigma_reads_positive_log_weights_as_log():
+  """Unnormalized log weights can be all-positive; the header decides, not the sign.
+
+  Here the weight falls off with distance from the origin, so read as declared
+  (LOG) the belief concentrates near the origin and the reported sigma is
+  tight. Misread as LINEAR the same numbers normalize to nearly uniform and
+  the sigma reverts to the raw particle spread -- the concentration the
+  filter reported is thrown away.
+  """
+  rng = np.random.default_rng(3)
+  particles = np.zeros((256, 7))
+  particles[:, :3] = rng.normal(scale=0.5, size=(256, 3))
+  particles[:, 6] = 1.0
+  log_w = 12.0 - 5.0 * np.linalg.norm(particles[:, :3], axis=1)
+  assert (log_w > 0).all(), "the point of the test is all-positive log weights"
+  step = EnsembleStep(0.0, particles, log_w)
+
+  as_log = _trans_sigma(step, TangentOrder.TRANS_ROT, WeightFormat.LOG, False)
+  as_linear = _trans_sigma(
+    step, TangentOrder.TRANS_ROT, WeightFormat.LINEAR, False
+  )
+  unweighted = float(np.sqrt(particles[:, :3].var(axis=0).mean()))
+
+  assert as_log < 0.8 * as_linear
+  # Misread as linear, the sigma is within 10% of the unweighted spread.
+  assert as_linear == pytest.approx(unweighted, rel=0.1)

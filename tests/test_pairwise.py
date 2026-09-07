@@ -200,3 +200,24 @@ def test_non_pd_rows_are_skipped_not_fatal():
   assert res.n_matched == 15
   assert res.n_scored == 14
   assert not np.isfinite(res.nees[3])
+
+
+def test_pair_uses_the_declared_perturbation_convention():
+  """The pair verb must read the residual convention off the headers.
+
+  Both trajectories declare left_perturbation, so the residual has to be
+  log(T_b T_a^-1). Scoring the right-perturbation residual against the same
+  summed covariance inflates the NEES by the adjoint mismatch. The poses carry
+  real rotations and the covariance is anisotropic, so the two differ.
+  """
+  rng = np.random.default_rng(5)
+  cov = np.diag([1e-1, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4])
+  a = _gauss_traj(rng, n=40, cov=cov, jitter=0.05)
+  b = _gauss_traj(np.random.default_rng(5), n=40, cov=cov)
+  left = _header(TangentConvention.LEFT)
+  right = _header(TangentConvention.RIGHT)
+
+  res_left = pair_translation_nees(left, a, left, b)
+  res_right = pair_translation_nees(right, a, right, b)
+  assert res_left.n_scored == res_right.n_scored == 40
+  assert not np.allclose(res_left.nees, res_right.nees)

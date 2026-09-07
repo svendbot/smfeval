@@ -18,7 +18,10 @@ from smfeval.sync.risk import DEFAULT_SYNC_RISK_THRESHOLD
 # report structure changes. Separate from the package and SQUARE format versions.
 # 2.0: scores are translation-only; rotation/joint scores and the SO(3)
 # Gaussian-validity section were removed.
-REPORT_SCHEMA_VERSION = "2.0"
+# 3.0: the PIT/KS check was removed — calibration now carries "coverage_p"
+# (exact binomial p on the ellipsoidal hit rate) and "n_coverage" in place of
+# "ks_p_translation"; sync carries "risk_n", the pairs with a defined risk.
+REPORT_SCHEMA_VERSION = "3.0"
 
 
 @dataclass
@@ -60,11 +63,15 @@ def build_report(
 ) -> Report:
   rep = Report()
 
-  risk_excess = (
-    int((sync_risks > sync_risk_threshold).sum())
-    if sync_risks is not None and sync_risks.size
-    else 0
+  # Pairs whose sync risk is defined (nan where the step has no sigma, e.g. a
+  # deterministic estimate): both the excess count and the quantiles are over
+  # these, and risk_n is their count so consumers divide by the right total.
+  defined_risks = (
+    sync_risks[np.isfinite(sync_risks)]
+    if sync_risks is not None
+    else np.zeros(0)
   )
+  risk_excess = int((defined_risks > sync_risk_threshold).sum())
   rep.sync = {
     "mode": sync_mode,
     "n_matched": match.n_matched,
@@ -72,14 +79,15 @@ def build_report(
     "n_dropped": match.n_dropped,
     "gap_quantiles_ms": match.gap_quantiles_ms,
     "risk_threshold": sync_risk_threshold,
+    "risk_n": int(defined_risks.size),
     "risk_excess_count": risk_excess,
     "risk_quantiles": (
       {
-        "median": float(np.median(sync_risks)),
-        "p95": float(np.quantile(sync_risks, 0.95)),
-        "p99": float(np.quantile(sync_risks, 0.99)),
+        "median": float(np.median(defined_risks)),
+        "p95": float(np.quantile(defined_risks, 0.95)),
+        "p99": float(np.quantile(defined_risks, 0.99)),
       }
-      if sync_risks is not None and sync_risks.size
+      if defined_risks.size
       else None
     ),
   }
@@ -107,9 +115,10 @@ def build_report(
 
   if calibration is not None:
     rep.calibration = {
-      "ks_p_translation": calibration.ks_p_translation,
       "coverage": calibration.coverage,
       "nominal_coverage": calibration.nominal_coverage,
+      "n_coverage": calibration.n_coverage,
+      "coverage_p": calibration.coverage_p,
       "z_translation_mean": calibration.z_translation_mean,
       "z_translation_std": calibration.z_translation_std,
     }

@@ -27,7 +27,7 @@ import numpy as np
 from scipy.special import logsumexp
 
 from smfeval.format import WeightFormat
-from smfeval.steps import EnsembleStep
+from smfeval.steps import EnsembleStep, log_normalized_weights
 
 
 @dataclass
@@ -36,22 +36,6 @@ class EnsembleDiagnostic:
   n_eff: np.ndarray  # per-timestep effective sample size
   n_unique: np.ndarray  # per-timestep unique-particle count
   degeneracy_fraction: float  # fraction of timesteps with N_eff < N/10
-
-
-def _log_normalized(
-  weights: np.ndarray, fmt: WeightFormat, normalized: bool
-) -> np.ndarray:
-  """Return log-normalized weights regardless of input form."""
-  if fmt is WeightFormat.LOG:
-    log_w = weights.astype(float)
-  else:
-    with np.errstate(divide="ignore"):
-      log_w = np.where(
-        weights > 0, np.log(np.maximum(weights, 1e-300)), -np.inf
-      )
-  if not normalized or fmt is WeightFormat.LOG:
-    log_w = log_w - logsumexp(log_w)
-  return log_w
 
 
 def _n_eff_from_log_weights(log_w: np.ndarray) -> float:
@@ -90,7 +74,7 @@ def ensemble_diagnostics(
     if step.weights is None:
       n_eff[k] = float(n)
     else:
-      log_w = _log_normalized(step.weights, weight_format, normalized)
+      log_w = log_normalized_weights(step.weights, weight_format, normalized)
       n_eff[k] = _n_eff_from_log_weights(log_w)
     n_unique[k] = _unique_count(step.particles, tol)
   if n_max == 0:

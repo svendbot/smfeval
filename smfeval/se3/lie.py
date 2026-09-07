@@ -28,7 +28,7 @@ Introduction to Robotic Manipulation*. CRC Press.
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from smfeval.format import TangentOrder
+from smfeval.format import TangentConvention, TangentOrder
 
 # Small-angle threshold below which the closed-form SO(3)/SE(3) Jacobians
 # are numerically ill-conditioned; we switch to their Taylor expansion.
@@ -184,15 +184,31 @@ def pose_residual(
   t2: np.ndarray,
   q2_xyzw: np.ndarray,
   order: TangentOrder = TangentOrder.TRANS_ROT,
+  convention: TangentConvention = TangentConvention.RIGHT,
 ) -> np.ndarray:
-  r"""Tangent residual :math:`\log(T_1^{-1} T_2)` between two poses.
+  r"""Tangent residual between two poses, in the declared perturbation convention.
+
+  A covariance is the covariance *of a perturbation*, so the residual scored
+  against it must be the perturbation the header declares:
+
+  - ``right_perturbation`` (:math:`T = T_1 \mathrm{Exp}(\xi)`) gives
+    :math:`\xi = \log(T_1^{-1} T_2)`, a residual in the body frame;
+  - ``left_perturbation`` (:math:`T = \mathrm{Exp}(\xi) T_1`) gives
+    :math:`\xi = \log(T_2 T_1^{-1}) = \mathrm{Ad}_{T_1}\log(T_1^{-1}T_2)`,
+    a residual in the world frame.
+
+  Pairing one convention's residual with the other's covariance inflates the
+  NEES by the adjoint mismatch, so callers that score against a published
+  :math:`\Sigma` must pass the convention from its header.
 
   Each pose is given as a translation and ``xyzw`` quaternion; the result is
-  the 6-vector in the convention selected by ``order``.
+  the 6-vector in the block order selected by ``order``.
   """
-  return se3_log(
-    relative(pose_matrix(t1, q1_xyzw), pose_matrix(t2, q2_xyzw)), order
-  )
+  T1 = pose_matrix(t1, q1_xyzw)
+  T2 = pose_matrix(t2, q2_xyzw)
+  if convention is TangentConvention.LEFT:
+    return se3_log(T2 @ invert(T1), order)
+  return se3_log(relative(T1, T2), order)
 
 
 def _split(

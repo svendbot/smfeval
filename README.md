@@ -146,8 +146,8 @@ Scores
                               block length (Politis–White): 24.3
 
 Calibration
-  PIT uniformity (KS):    p = 0.000  [warning] possible miscalibration
   90% Mahalanobis coverage:  55.0%     (nominal 90.0%)
+  Coverage test (binomial): p = 0.000  (n=309)  [warning] possible miscalibration
   Translation z-score:    mean 1.63, std 1.02
 
 Diagnoses (attribution → action)
@@ -159,7 +159,7 @@ Diagnoses (attribution → action)
 Recommendations
   - 29.4% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_ref to confirm calibration findings.
   - 6 DoF removed over 32 m of trajectory; post-alignment residuals are biased low. Consider --n_to_align to fit on a prefix and score on the remainder.
-  - Coverage below nominal combined with KS p < 0.05 — the filter is over-confident (claimed Σ too tight, reference falls outside the predicted intervals); widen process noise. Miscalibration is unlikely to be explained by sync error alone.
+  - Coverage significantly below nominal (binomial p < 0.05) — the filter is over-confident (claimed Σ too tight, reference falls outside the predicted intervals); widen process noise. Miscalibration is unlikely to be explained by sync error alone.
 ```
 
 *Point-LIO on Oxford Spires `christ-church-03`, reproduced from
@@ -169,7 +169,7 @@ Recommendations
 - translation proper scoring rules (CRPS, energy score, Gaussian log score with
   its exact calibration/sharpness split, interval score), each with a
   stationary-bootstrap confidence interval;
-- PIT/coverage calibration and windowed relative-pose calibration
+- ellipsoidal coverage with its exact binomial test, and windowed relative-pose calibration
   (`--rpe-window`);
 - track-frame bias/variance attribution;
 - structured failure-mode diagnoses with recommended actions.

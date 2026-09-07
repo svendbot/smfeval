@@ -42,7 +42,12 @@ import numpy as np
 from scipy.stats import chi2
 
 from smfeval.align import fit_alignment, propagate_step
-from smfeval.format import Representation, SquareHeader, TangentOrder
+from smfeval.format import (
+  Representation,
+  SquareHeader,
+  TangentConvention,
+  TangentOrder,
+)
 from smfeval.scoring.logscore import (
   AneesResult,
   anees_consistency,
@@ -140,6 +145,9 @@ def pair_translation_nees(
 
   order_a = header_a.tangent_order or TangentOrder.TRANS_ROT
   order_b = header_b.tangent_order or TangentOrder.TRANS_ROT
+  # Both headers declare the same convention (checked above); the residual
+  # must be the perturbation those covariances are the covariance of.
+  convention = header_a.tangent_convention or TangentConvention.RIGHT
 
   ts_a = np.array([s.timestamp for s in steps_a])
   ts_b = np.array([s.timestamp for s in steps_b])
@@ -176,7 +184,12 @@ def pair_translation_nees(
     if not (isinstance(sa, GaussianStep) and isinstance(sb, GaussianStep)):
       continue
     xi = pose_residual(
-      sa.translation, sa.quat_xyzw, sb.translation, sb.quat_xyzw, order_a
+      sa.translation,
+      sa.quat_xyzw,
+      sb.translation,
+      sb.quat_xyzw,
+      order_a,
+      convention,
     )
     d[k] = xi[ti_a]
     cov[k] = sa.covariance[ti_a, ti_a] + sb.covariance[ti_b, ti_b]

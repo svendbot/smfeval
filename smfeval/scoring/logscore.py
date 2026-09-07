@@ -27,7 +27,7 @@ import numpy as np
 from scipy.special import gammaln
 from scipy.stats import chi2
 
-from smfeval.format import TangentOrder
+from smfeval.format import TangentConvention, TangentOrder
 from smfeval.se3.lie import (
   pose_residual,
   trans_slice,
@@ -59,6 +59,7 @@ def gaussian_log_score(
   ref_translation: np.ndarray,
   ref_quat_xyzw: np.ndarray,
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
+  tangent_convention: TangentConvention = TangentConvention.RIGHT,
 ) -> GaussianLogScore:
   r"""Translation-marginal negative log density of the reference under the belief.
 
@@ -76,7 +77,7 @@ def gaussian_log_score(
   matching sub-covariance.
   """
   dec = gaussian_log_score_components(
-    step, ref_translation, ref_quat_xyzw, tangent_order
+    step, ref_translation, ref_quat_xyzw, tangent_order, tangent_convention
   )
   return GaussianLogScore(translation=dec.translation.log_score)
 
@@ -147,6 +148,7 @@ def gaussian_log_score_components(
   ref_translation: np.ndarray,
   ref_quat_xyzw: np.ndarray,
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
+  tangent_convention: TangentConvention = TangentConvention.RIGHT,
 ) -> DecomposedLogScore:
   r"""Translation log score split into calibration/sharpness.
 
@@ -160,6 +162,7 @@ def gaussian_log_score_components(
     ref_translation,
     ref_quat_xyzw,
     tangent_order,
+    tangent_convention,
   )
   t_idx = trans_slice(tangent_order)
   return DecomposedLogScore(
@@ -172,13 +175,16 @@ def translation_components(
   ref_translations: np.ndarray,
   ref_quats: np.ndarray,
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
+  tangent_convention: TangentConvention = TangentConvention.RIGHT,
 ) -> list[ScoreComponents]:
   """Per-step translation :class:`ScoreComponents` over the Gaussian entries.
 
   Non-Gaussian steps are skipped, mirroring the CLI's scoring policy.
   """
   return [
-    gaussian_log_score_components(s, ref_t, ref_q, tangent_order).translation
+    gaussian_log_score_components(
+      s, ref_t, ref_q, tangent_order, tangent_convention
+    ).translation
     for s, ref_t, ref_q in zip(steps, ref_translations, ref_quats, strict=True)
     if isinstance(s, GaussianStep)
   ]
@@ -248,6 +254,7 @@ def student_t_logscore_sweep(
   ref_quats: np.ndarray,
   nus: list[float],
   tangent_order: TangentOrder = TangentOrder.TRANS_ROT,
+  tangent_convention: TangentConvention = TangentConvention.RIGHT,
 ) -> tuple[list[float], dict[float, list[float]]]:
   """Per-step Gaussian and covariance-matched Student-t negative log densities.
 
@@ -262,7 +269,12 @@ def student_t_logscore_sweep(
     if not isinstance(step, GaussianStep):
       continue
     xi = pose_residual(
-      step.translation, step.quat_xyzw, ref_t, ref_q, tangent_order
+      step.translation,
+      step.quat_xyzw,
+      ref_t,
+      ref_q,
+      tangent_order,
+      tangent_convention,
     )
     t_idx = trans_slice(tangent_order)
     xi_t = xi[t_idx]

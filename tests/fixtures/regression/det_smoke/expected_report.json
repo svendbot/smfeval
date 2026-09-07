@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "3.0",
   "sync": {
     "mode": "nearest",
     "n_matched": 6,
@@ -11,12 +11,9 @@
       "p99": 0.0
     },
     "risk_threshold": 0.3,
-    "risk_excess_count": 6,
-    "risk_quantiles": {
-      "median": Infinity,
-      "p95": NaN,
-      "p99": NaN
-    }
+    "risk_n": 0,
+    "risk_excess_count": 0,
+    "risk_quantiles": null
   },
   "alignment": {
     "declared_gauge": "fixed",
@@ -81,20 +78,6 @@
   "calibration": {},
   "calibration_split": null,
   "bias_variance": null,
-  "recommendations": [
-    "100.0% of pairs have sync risk > 0.3; consider cross-checking with --sync=interpolate_ref to confirm calibration findings."
-  ],
-  "diagnoses": [
-    {
-      "mode": "sync_risk",
-      "severity": "warning",
-      "signals_triggered": [
-        "100.0% of pairs exceed sync risk 0.3"
-      ],
-      "explanation": "A competing confounder: timestamp-matching error shrinks short-window \u03a3_rel the same way local over-confidence does.",
-      "recommended_actions": [
-        "Re-score with --sync=interpolate_ref to separate sync from a genuine calibration fault before trusting short-horizon verdicts."
-      ]
-    }
-  ]
+  "recommendations": [],
+  "diagnoses": []
 }

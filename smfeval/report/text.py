@@ -3,6 +3,7 @@
 import math
 
 from smfeval.report.builder import Report
+from smfeval.report.diagnostics import sync_risk_excess_fraction
 from smfeval.scoring import SCORE_LABELS
 from smfeval.sync.mode import SyncMode
 from smfeval.sync.risk import DEFAULT_SYNC_RISK_THRESHOLD
@@ -63,9 +64,8 @@ def _render_sync(rep: Report) -> str:
           f" p99 {_fmt_float(risk_q['p99'], 4)}"
         )
         excess = s.get("risk_excess_count", 0)
-        n = s.get("n_matched", 0) or 0
         if excess:
-          frac = 100.0 * excess / n if n else 0.0
+          frac = 100.0 * sync_risk_excess_fraction(s)
           threshold = s.get("risk_threshold", DEFAULT_SYNC_RISK_THRESHOLD)
           lines.append(
             f"                          [warning] {excess} pairs ({frac:.1f}%) "
@@ -180,17 +180,20 @@ def _render_calibration(rep: Report) -> str:
   if not c:
     return "Calibration\n  (skipped)\n"
   lines = ["Calibration"]
-  ks_t = c.get("ks_p_translation", float("nan"))
+  p_cov = c.get("coverage_p", float("nan"))
   suffix = (
     "  [warning] possible miscalibration"
-    if not math.isnan(ks_t) and ks_t < 0.05
+    if not math.isnan(p_cov) and p_cov < 0.05
     else ""
   )
-  lines.append(f"  PIT uniformity (KS):    p = {_fmt_float(ks_t, 3)}{suffix}")
   lines.append(
     f"  {int(c.get('nominal_coverage', 0.9) * 100)}% Mahalanobis coverage:"
     f"  {_fmt_pct(c.get('coverage', float('nan')))}     "
     f"(nominal {_fmt_pct(c.get('nominal_coverage', float('nan')))})"
+  )
+  lines.append(
+    f"  Coverage test (binomial): p = {_fmt_float(p_cov, 3)}"
+    f"  (n={_fmt_int(c.get('n_coverage'))}){suffix}"
   )
   z_mean = c.get("z_translation_mean", float("nan"))
   z_std = c.get("z_translation_std", float("nan"))

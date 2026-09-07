@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Scoring now uses the residual in the perturbation convention the header
+  declares. Every scoring rule previously assumed `right_perturbation` and
+  scored `log(T_est^-1 T_ref)` against a `left_perturbation` covariance, which
+  inflates the NEES by the adjoint mismatch: an exactly calibrated
+  `left_perturbation` filter reported median NEES 39 against a calibrated 2.37,
+  i.e. "17x too tight per axis". Affects `nees`, `pair`, the log score, and the
+  calibration split.
+- Sync risk is `nan`, not `inf`, where a step has no predictive sigma (a
+  deterministic estimate, a degenerate zero covariance). Reporting `inf` made
+  `np.quantile` emit a numpy RuntimeWarning, printed `median inf / p95 n/a`,
+  and counted every pair as exceeding the threshold — so every deterministic
+  trajectory drew a "100.0% of pairs exceed sync risk" warning, diagnosis, and
+  recommendation regardless of how well its timestamps matched.
+- Ensemble weights in the sync-risk sigma are read using the header's
+  `WEIGHT_FORMAT` instead of guessing from the sign of the values. All-positive
+  unnormalized log weights were silently misread as linear.
+
+### Removed
+
+- The PIT/KS calibration check. The report's `calibration` section now carries
+  `coverage_p` (exact two-sided binomial test of the ellipsoidal hit rate
+  against the nominal level) and `n_coverage` in place of `ks_p_translation`;
+  `calibrate()` no longer takes `n_samples` or `rng`.
+
+### Changed
+
+- Report schema version 2.0 -> 3.0: `calibration.ks_p_translation` removed,
+  `calibration.coverage_p` / `calibration.n_coverage` added, and `sync.risk_n`
+  (pairs with a defined sync risk) added. Sync-risk excess fractions are now
+  reported over `risk_n` rather than `n_matched`.
+
 ## 0.4.0 - 2026-06-21
 
 Everything needed to score a filter's own belief against reference.

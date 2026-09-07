@@ -435,7 +435,7 @@ def _resolve_sync(
   args: argparse.Namespace,
   est_steps: list,
   ref_steps: list,
-  tangent_order: TangentOrder | None,
+  est_header: SquareHeader,
 ) -> (
   tuple[
     MatchResult, list, np.ndarray, np.ndarray, np.ndarray, np.ndarray | None
@@ -514,7 +514,9 @@ def _resolve_sync(
         match_res.ref_indices,
         est_ts=est_ts,
         t_offset=args.t_offset,
-        tangent_order=tangent_order,
+        tangent_order=est_header.tangent_order,
+        weight_format=est_header.weight_format or WeightFormat.LINEAR,
+        weights_normalized=bool(est_header.weights_normalized),
       )
       return match_res, matched_est, matched_ref_t, matched_ref_q, risks, None
 
@@ -524,6 +526,7 @@ def _compute_scores(
   matched_ref_t: np.ndarray,
   matched_ref_q: np.ndarray,
   order: TangentOrder,
+  convention: TangentConvention,
   n_samples: int,
   alpha: float,
   seed: int,
@@ -540,7 +543,7 @@ def _compute_scores(
     es.append(energy_score(s, ref_t, order, n_samples, rng))
 
     if isinstance(s, GaussianStep):
-      ls = gaussian_log_score(s, ref_t, ref_q, order)
+      ls = gaussian_log_score(s, ref_t, ref_q, order, convention)
       log_trans.append(ls.translation)
     if not isinstance(s, DeterministicStep):
       is_t.append(
@@ -573,6 +576,7 @@ class PreparedRun:
   match: MatchResult
   fit: AlignmentFit
   order: TangentOrder
+  convention: TangentConvention
   risks: np.ndarray
   ref_cov: np.ndarray | None  # GP predictive covariance under interpolate_ref
 
@@ -666,7 +670,7 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
       est_header, est_steps, ref_header.body_frame, args.body_frame_transform
     )
 
-  resolved = _resolve_sync(args, est_steps, ref_steps, est_header.tangent_order)
+  resolved = _resolve_sync(args, est_steps, ref_steps, est_header)
   if resolved is None:
     return None
   match, matched_est, matched_ref_t, matched_ref_q, risks, ref_cov = resolved
@@ -697,6 +701,7 @@ def _prepare(args: argparse.Namespace) -> PreparedRun | None:
     match=match,
     fit=fit,
     order=est_header.tangent_order or TangentOrder.TRANS_ROT,
+    convention=est_header.tangent_convention or TangentConvention.RIGHT,
     risks=risks,
     ref_cov=ref_cov,
   )
@@ -717,7 +722,11 @@ def _nees(args: argparse.Namespace) -> int:
     return 2
 
   comps = translation_components(
-    pr.aligned_est, pr.matched_ref_t, pr.matched_ref_q, pr.order
+    pr.aligned_est,
+    pr.matched_ref_t,
+    pr.matched_ref_q,
+    pr.order,
+    pr.convention,
   )
   v = nees_verdict(np.asarray([c.nees for c in comps]), dof=3, alpha=args.alpha)
   if args.json:
@@ -851,7 +860,7 @@ def _score(args: argparse.Namespace) -> int:
   matched_ref_t = pr.matched_ref_t
   matched_ref_q = pr.matched_ref_q
   match, fit, risks, ref_cov = pr.match, pr.fit, pr.risks, pr.ref_cov
-  order = pr.order
+  order, convention = pr.order, pr.convention
   rpe_windows = (
     [float(x) for x in args.rpe_window.split(",") if x.strip()]
     if args.rpe_window
@@ -875,6 +884,7 @@ def _score(args: argparse.Namespace) -> int:
     matched_ref_t,
     matched_ref_q,
     order=order,
+    convention=convention,
     n_samples=args.n_samples,
     alpha=args.alpha,
     seed=args.seed,
@@ -887,9 +897,8 @@ def _score(args: argparse.Namespace) -> int:
       matched_ref_t,
       matched_ref_q,
       tangent_order=order,
+      tangent_convention=convention,
       alpha=args.alpha,
-      n_samples=args.n_samples,
-      rng=np.random.default_rng(args.seed + 1),
     )
 
   traj_len = (
@@ -903,7 +912,13 @@ def _score(args: argparse.Namespace) -> int:
     est_header, "calibration split"
   ):
     split = _calibration_split_dict(
-      args, scored_est, matched_ref_t, matched_ref_q, order, rpe_windows
+      args,
+      scored_est,
+      matched_ref_t,
+      matched_ref_q,
+      order,
+      convention,
+      rpe_windows,
     )
 
   rep = build_report(
@@ -936,7 +951,13 @@ def _score(args: argparse.Namespace) -> int:
     _emit_calibration_machine_lines(split)
   if args.student_t:
     _report_student_t(
-      args, scored_est, matched_ref_t, matched_ref_q, order, est_header
+      args,
+      scored_est,
+      matched_ref_t,
+      matched_ref_q,
+      order,
+      convention,
+      est_header,
     )
   return 0
 
@@ -995,6 +1016,7 @@ def _calibration_split_dict(
   matched_ref_t: np.ndarray,
   matched_ref_q: np.ndarray,
   order: TangentOrder,
+  convention: TangentConvention,
   windows: list[float] | None,
 ) -> dict | None:
   r"""Build the calibration/sharpness split dict consumed by the report + diagnose.
@@ -1006,7 +1028,7 @@ def _calibration_split_dict(
   Gaussian steps. ``windowed`` is present only when ``--rpe-window`` is set.
   """
   comps = translation_components(
-    aligned_est, matched_ref_t, matched_ref_q, order
+    aligned_est, matched_ref_t, matched_ref_q, order, convention
   )
   if not comps:
     return None
@@ -1085,6 +1107,7 @@ def _report_student_t(
   matched_ref_t: np.ndarray,
   matched_ref_q: np.ndarray,
   order: TangentOrder,
+  convention: TangentConvention,
   est_header: SquareHeader,
 ) -> None:
   r"""Student-t belief-transform intervention: mean proper log-score vs ν.
@@ -1100,7 +1123,12 @@ def _report_student_t(
     return
   nus = [float(x) for x in args.student_t.split(",") if x.strip()]
   gauss, tcols = student_t_logscore_sweep(
-    aligned_est, matched_ref_t, matched_ref_q, nus, tangent_order=order
+    aligned_est,
+    matched_ref_t,
+    matched_ref_q,
+    nus,
+    tangent_order=order,
+    tangent_convention=convention,
   )
 
   if not gauss:

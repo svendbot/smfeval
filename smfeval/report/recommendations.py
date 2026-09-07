@@ -5,6 +5,7 @@ import math
 from smfeval.report.builder import Report
 from smfeval.report.diagnostics import (
   ensemble_degeneracy_flagged,
+  sync_risk_excess_fraction,
   sync_risk_flagged,
 )
 
@@ -17,9 +18,7 @@ def recommendations(rep: Report) -> list[str]:
   cal = rep.calibration
 
   if sync_risk_flagged(sync):
-    risk_excess = sync.get("risk_excess_count", 0) or 0
-    n_matched = sync.get("n_matched", 0) or 0
-    frac = 100.0 * risk_excess / n_matched
+    frac = 100.0 * sync_risk_excess_fraction(sync)
     out.append(
       f"{frac:.1f}% of pairs have sync risk > {sync['risk_threshold']:.1f}; "
       "consider cross-checking with --sync=interpolate_ref to confirm "
@@ -43,22 +42,22 @@ def recommendations(rep: Report) -> list[str]:
     )
 
   if cal:
-    ks = cal.get("ks_p_translation", float("nan"))
+    p_cov = cal.get("coverage_p", float("nan"))
     cov = cal.get("coverage", float("nan"))
     nominal = cal.get("nominal_coverage", float("nan"))
-    if not (math.isnan(ks) or math.isnan(cov) or math.isnan(nominal)):
-      if ks < 0.05 and cov < nominal - 0.05:
+    if not (math.isnan(p_cov) or math.isnan(cov) or math.isnan(nominal)):
+      if p_cov < 0.05 and cov < nominal - 0.05:
         out.append(
-          "Coverage below nominal combined with KS p < 0.05 — the "
+          "Coverage significantly below nominal (binomial p < 0.05) — the "
           "filter is over-confident (claimed Σ too tight, reference "
           "falls outside the predicted intervals); widen process "
           "noise. Miscalibration is unlikely to be explained by "
           "sync error alone."
         )
-      elif ks < 0.05 and cov > nominal + 0.05:
+      elif p_cov < 0.05 and cov > nominal + 0.05:
         out.append(
-          "Coverage exceeds nominal and KS p < 0.05 — the filter "
-          "is under-confident (claimed Σ too loose); tighten "
+          "Coverage significantly above nominal (binomial p < 0.05) — the "
+          "filter is under-confident (claimed Σ too loose); tighten "
           "process noise."
         )
 

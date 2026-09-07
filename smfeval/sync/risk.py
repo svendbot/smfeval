@@ -6,11 +6,16 @@ for the position error, so miscalibration findings should be tempered.
 """
 
 import numpy as np
-from scipy.special import logsumexp
 
-from smfeval.format import TangentOrder
+from smfeval.format import TangentOrder, WeightFormat
 from smfeval.se3.lie import trans_slice
-from smfeval.steps import DeterministicStep, EnsembleStep, GaussianStep, Step
+from smfeval.steps import (
+  DeterministicStep,
+  EnsembleStep,
+  GaussianStep,
+  Step,
+  log_normalized_weights,
+)
 
 # Risk above which a matched pair is counted as excess in the report; the
 # single source for the report builder, renderer, and diagnosis layer.
@@ -29,22 +34,26 @@ def _ref_velocity(ref_ts: np.ndarray, ref_pos: np.ndarray) -> np.ndarray:
 
 
 def _ensemble_weighted_mean_var(
-  positions: np.ndarray, weights: np.ndarray
+  positions: np.ndarray,
+  weights: np.ndarray,
+  weight_format: WeightFormat,
+  normalized: bool,
 ) -> tuple[np.ndarray, np.ndarray]:
-  if (weights < 0).any():
-    log_w = weights - logsumexp(weights)
-    w = np.exp(log_w)
-  else:
-    s = float(weights.sum())
-    w = weights / s if s > 0 else np.full_like(weights, 1.0 / len(weights))
+  """Weighted mean/variance under the header's declared weight format."""
+  w = np.exp(log_normalized_weights(weights, weight_format, normalized))
   mean = w @ positions
   diff = positions - mean
   var = (w[:, None] * diff * diff).sum(axis=0)
   return mean, var
 
 
-def _trans_sigma(step: Step, order: TangentOrder | None) -> float:
-  """Predictive translation 1-sigma in metres."""
+def _trans_sigma(
+  step: Step,
+  order: TangentOrder | None,
+  weight_format: WeightFormat,
+  weights_normalized: bool,
+) -> float:
+  """Predictive translation 1-sigma in metres, or nan when there is none."""
   match step:
     case GaussianStep():
       ti = trans_slice(order or TangentOrder.TRANS_ROT)
@@ -53,12 +62,14 @@ def _trans_sigma(step: Step, order: TangentOrder | None) -> float:
     case EnsembleStep():
       positions = step.particles[:, :3]
       if step.weights is not None:
-        _, var = _ensemble_weighted_mean_var(positions, step.weights)
+        _, var = _ensemble_weighted_mean_var(
+          positions, step.weights, weight_format, weights_normalized
+        )
       else:
         var = positions.var(axis=0)
       return float(np.sqrt(max(var.mean(), 0.0)))
     case DeterministicStep():
-      return 0.0
+      return float("nan")
 
 
 def sync_risk(
@@ -70,15 +81,24 @@ def sync_risk(
   est_ts: np.ndarray,
   t_offset: float = 0.0,
   tangent_order: TangentOrder | None = None,
+  weight_format: WeightFormat = WeightFormat.LINEAR,
+  weights_normalized: bool = True,
 ) -> np.ndarray:
-  r"""Per-pair sync risk :math:`\lVert v_\mathrm{ref}\rVert \cdot |\Delta t| / \sigma_\mathrm{trans}`."""
+  r"""Per-pair sync risk :math:`\lVert v_\mathrm{ref}\rVert \cdot |\Delta t| / \sigma_\mathrm{trans}`.
+
+  ``nan`` where the pair has no usable :math:`\sigma_\mathrm{trans}` — a
+  deterministic step, or a degenerate zero covariance. The ratio is undefined
+  without a predictive spread to measure the gap against, so those pairs are
+  excluded from the report rather than counted as infinitely risky.
+  """
   velocities = _ref_velocity(ref_ts, ref_positions)
   speeds = np.linalg.norm(velocities, axis=1)
-  out = np.zeros(len(est_indices))
+  out = np.full(len(est_indices), np.nan)
   for k, (ei, gi) in enumerate(zip(est_indices, ref_indices, strict=True)):
-    sigma = _trans_sigma(est_steps[ei], tangent_order)
-    if sigma <= 0:
-      out[k] = np.inf if speeds[gi] > 0 else 0.0
+    sigma = _trans_sigma(
+      est_steps[ei], tangent_order, weight_format, weights_normalized
+    )
+    if not np.isfinite(sigma) or sigma <= 0:
       continue
     dt = abs((est_ts[ei] + t_offset) - ref_ts[gi])
     out[k] = float(speeds[gi] * dt / sigma)

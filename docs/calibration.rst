@@ -4,8 +4,8 @@ Calibration
 Calibration checks ask a different question from the proper scores: not "is the
 belief sharp and accurate?" but "is the stated uncertainty the right size?" A
 sharp, over-confident filter scores well on CRPS yet fails here. These are the
-headline diagnostics — NEES and coverage — plus the distribution-free PIT check
-and the no-reference pairwise route.
+headline diagnostics — NEES and coverage — plus the no-reference pairwise
+route.
 
 NEES and the calibration verdict
 --------------------------------
@@ -52,20 +52,32 @@ cross-covariance :math:`C_{AB}`; common-mode error and an understated reference
 covariance both push the statistic *down*, so an elevated value is a **lower
 bound** on the miscalibration, never an over-statement.
 
-PIT and coverage
-----------------
+Coverage and standardised residuals
+-----------------------------------
 
-The probability integral transform maps each realised error through the
-belief's predictive CDF, :math:`p = F_\mathrm{pred}(y_\mathrm{obs})`, computed
-empirically from samples of the translation magnitude. Under a calibrated
-belief the PIT values are uniform on :math:`[0,1]`, tested with a
-Kolmogorov–Smirnov statistic (a small p-value flags miscalibration). Combined
-with the empirical coverage of the credible ellipsoid, this is a
-distribution-free check that the stated uncertainty matches reality,
-independent of any single scoring rule. The standardised translation z-score
-(mean and std of :math:`\lVert L^{-1} e\rVert / \sqrt{3}`, with
-:math:`\Sigma = LL^\top`) is reported alongside; std :math:`>1` reads
-over-confident, :math:`<1` conservative.
+Coverage is the fraction of poses whose reference lands inside the nominal
+:math:`1-\alpha` credible ellipsoid, :math:`e^\top \Sigma_t^{-1} e \le
+\chi^2_{3,\,1-\alpha}`. Under a calibrated belief each pose is an independent
+Bernoulli trial with success probability :math:`1-\alpha`, so the hit count is
+Binomial and the report tests the realised rate with an **exact two-sided
+binomial p-value** (``coverage_p``). A small p-value with coverage *below*
+nominal reads over-confident; below nominal but not significant usually just
+means the trajectory is short.
+
+The standardised translation z-score (mean and std of
+:math:`\lVert L^{-1} e\rVert / \sqrt{3}`, with :math:`\Sigma_t = LL^\top`) is
+reported alongside; std :math:`>1` reads over-confident, :math:`<1`
+conservative.
+
+.. note::
+
+   Coverage and the log score are computed on the residual in the
+   perturbation convention the header declares — :math:`\log(T_\mathrm{est}^{-1}
+   T_\mathrm{ref})` for ``right_perturbation``, :math:`\log(T_\mathrm{ref}
+   T_\mathrm{est}^{-1})` for ``left_perturbation``. A covariance is the
+   covariance *of a perturbation*, so scoring the wrong one against it inflates
+   the NEES by the adjoint mismatch and reads as over-confidence in a filter
+   that is honest.
 
 Ensemble diagnostics
 --------------------

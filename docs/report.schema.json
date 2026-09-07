@@ -40,7 +40,7 @@
     },
     "calibration": {
       "type": "object",
-      "description": "Translation PIT, interval coverage, and standardized-residual calibration."
+      "description": "Ellipsoidal coverage with its exact binomial p-value, and standardized-residual calibration."
     },
     "calibration_split": {
       "type": ["object", "null"],

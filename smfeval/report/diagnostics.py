@@ -61,14 +61,27 @@ SYNC_RISK_EXCESS_FRAC = 0.01
 ENSEMBLE_DEGENERACY_FRAC = 0.01
 
 
-def sync_risk_flagged(sync: dict) -> bool:
-  """More than 1% of nearest-matched pairs exceed the risk threshold."""
-  n_matched = sync.get("n_matched", 0) or 0
+def sync_risk_excess_fraction(sync: dict) -> float:
+  """Fraction of pairs *with a defined risk* that exceed the threshold.
+
+  The denominator is ``risk_n``, not ``n_matched``: a pair whose step has no
+  predictive sigma (a deterministic estimate, a degenerate zero covariance)
+  has no sync risk to exceed anything, and counting it would report a
+  fabricated excess. Returns 0.0 when nothing has a defined risk.
+  """
+  risk_n = sync.get("risk_n")
+  if risk_n is None:
+    risk_n = sync.get("n_matched", 0)
+  risk_n = risk_n or 0
   risk_excess = sync.get("risk_excess_count", 0) or 0
+  return risk_excess / risk_n if risk_n else 0.0
+
+
+def sync_risk_flagged(sync: dict) -> bool:
+  """More than 1% of the pairs with a defined risk exceed the threshold."""
   mode = sync.get("mode")
   return bool(
-    n_matched
-    and risk_excess / n_matched > SYNC_RISK_EXCESS_FRAC
+    sync_risk_excess_fraction(sync) > SYNC_RISK_EXCESS_FRAC
     and getattr(mode, "value", mode) == "nearest"
   )
 
@@ -301,16 +314,14 @@ def diagnose(rep: Report) -> list[Diagnosis]:
 
   sync = rep.sync or {}
   if sync_risk_flagged(sync):
-    n_matched = sync.get("n_matched", 0) or 0
-    risk_excess = sync.get("risk_excess_count", 0) or 0
     threshold = sync.get("risk_threshold", DEFAULT_SYNC_RISK_THRESHOLD)
     out.append(
       Diagnosis(
         mode=FailureMode.SYNC_RISK,
         severity=Severity.WARNING,
         signals_triggered=[
-          f"{100.0 * risk_excess / n_matched:.1f}% of pairs exceed sync risk "
-          f"{threshold:.1f}"
+          f"{100.0 * sync_risk_excess_fraction(sync):.1f}% of pairs exceed "
+          f"sync risk {threshold:.1f}"
         ],
         explanation=(
           "A competing confounder: timestamp-matching error shrinks short-"

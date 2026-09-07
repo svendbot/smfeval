@@ -239,6 +239,35 @@ def test_sync_risk_fires_only_for_nearest():
   assert FailureMode.SYNC_RISK not in _modes(rep_interp)
 
 
+def test_sync_risk_denominator_is_pairs_with_a_defined_risk():
+  """risk_n, not n_matched: pairs with no sigma have no risk to exceed."""
+  rep = Report(
+    sync={
+      "n_matched": 1000,
+      "risk_n": 0,
+      "risk_excess_count": 0,
+      "risk_threshold": 0.3,
+      "mode": "nearest",
+    }
+  )
+  assert FailureMode.SYNC_RISK not in _modes(rep)
+  # 5 of the 100 pairs that have a risk exceed it: still a real 5% excess.
+  rep_partial = Report(
+    sync={
+      "n_matched": 1000,
+      "risk_n": 100,
+      "risk_excess_count": 5,
+      "risk_threshold": 0.3,
+      "mode": "nearest",
+    }
+  )
+  assert FailureMode.SYNC_RISK in _modes(rep_partial)
+  signal = next(
+    d for d in diagnose(rep_partial) if d.mode is FailureMode.SYNC_RISK
+  ).signals_triggered[0]
+  assert "5.0%" in signal
+
+
 def test_ensemble_degeneracy():
   rep = Report(ensemble={"degeneracy_fraction": 0.2})
   assert FailureMode.ENSEMBLE_DEGENERACY in _modes(rep)

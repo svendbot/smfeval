@@ -3,7 +3,7 @@ import numpy as np
 from smfeval.format import TangentOrder
 from smfeval.steps import GaussianStep
 from smfeval.sync import match_timestamps, sync_risk
-from tests._factories import gauss_step
+from tests._factories import det_step, gauss_step
 
 
 def test_match_basic():
@@ -98,3 +98,46 @@ def test_sync_risk_grows_with_velocity():
   )
   # |v|=10 m/s, dt=5e-3, σ=1 → r ≈ 0.05
   assert np.allclose(r[1], 10.0 * 0.005 / 1.0, atol=1e-6)
+
+
+def test_sync_risk_is_nan_without_a_predictive_sigma():
+  """Deterministic steps have no sigma, so v*dt/sigma is undefined, not infinite.
+
+  Reporting inf here poisoned the risk quantiles (inf - inf) and counted every
+  pair as exceeding the threshold, raising a sync warning on trajectories
+  whose timestamps matched exactly.
+  """
+  ref_ts = np.array([0.0, 1.0, 2.0])
+  ref_pos = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [20.0, 0.0, 0.0]])
+  est_ts = np.array([0.005, 1.005, 2.005])
+  est_steps = [det_step(t, p) for t, p in zip(est_ts, ref_pos, strict=False)]
+  r = sync_risk(
+    est_steps,
+    ref_ts,
+    ref_pos,
+    est_indices=np.array([0, 1, 2]),
+    ref_indices=np.array([0, 1, 2]),
+    est_ts=est_ts,
+    tangent_order=TangentOrder.TRANS_ROT,
+  )
+  assert np.isnan(r).all()
+
+
+def test_sync_risk_is_nan_for_degenerate_zero_covariance():
+  ref_ts = np.array([0.0, 1.0])
+  ref_pos = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]])
+  est_steps = [
+    _gauss_step(0.0, ref_pos[0], 0.0),
+    _gauss_step(1.0, ref_pos[1], 1.0),
+  ]
+  r = sync_risk(
+    est_steps,
+    ref_ts,
+    ref_pos,
+    est_indices=np.array([0, 1]),
+    ref_indices=np.array([0, 1]),
+    est_ts=np.array([0.005, 1.005]),
+    tangent_order=TangentOrder.TRANS_ROT,
+  )
+  assert np.isnan(r[0])
+  assert np.isfinite(r[1])
