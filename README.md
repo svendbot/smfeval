@@ -47,7 +47,8 @@ covariance scale gap k = 441, ~21x too tight per axis
 ```
 
 FAST-LIO2 on Oxford Spires `christ-church-03`. See
-`exporters/fast_lio2/VALIDATION.md` for the full reproduction.
+`exporters/fast_lio2/VALIDATION.md` for the full reproduction. The hero figure
+above shows a different Spires scene, `keble-college-02`.
 
 > **No `.SQUARE` file?** smfeval needs a covariance for every pose, not just the
 > poses, but it does not need the SQUARE format. If your filter outputs
