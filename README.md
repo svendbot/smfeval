@@ -9,18 +9,20 @@ A SLAM filter reports a pose *and* a covariance. APE/RPE check the pose.
 smfeval checks whether the covariance is honest.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/svendbot/smfeval/main/docs/img/overconfidence.png"
-       alt="FAST-LIO2 on Oxford Spires christ-church-03: the estimate tracks the reference to 3 cm, but the filter's reported 90% region is millimetres wide, so the reference lands about 11x outside even the filter's 99% region"
+  <img src="https://raw.githubusercontent.com/svendbot/smfeval/main/docs/img/fig_overconfidence.png"
+       alt="FAST-LIO2 on Oxford Spires keble-college-02: the estimate tracks the reference track to 6 cm, but the filter's reported 90% region is millimetres wide, so the error is about 39x the reported bound"
        width="460">
 </p>
 
-*Illustration built in `notebooks/figure_overconfidence.py`, not `smfeval`
-output. `smfeval` emits the text verdict below; the figure shows what that
-verdict means geometrically. [FAST-LIO2](https://github.com/hku-mars/fast_lio) on [Oxford Spires](https://github.com/ori-drs/oxford_spires_dataset/) `christ-church-03`. The estimate (blue) tracks the reference (black) to **3 cm** APE, which is an excellent APE,
-but the filter's reported 90% region is **millimetres** wide. The
-reference lands about **11x outside** even the filter's 90% region (the figure marks
-this as 37 sigma). The belief is wrong where the mean is right, and that
-per-pose gap is what `smfeval` scores. (Data: Oxford Spires, CC BY-NC-SA 4.0.)*
+*Illustration, not `smfeval` output. `smfeval` emits the text verdict below;
+the figure shows what that verdict means geometrically.
+[FAST-LIO2](https://github.com/hku-mars/fast_lio) on [Oxford Spires](https://github.com/ori-drs/oxford_spires_dataset/) `keble-college-02`. The estimate (blue) tracks the black track to **6 cm** APE,
+which is an excellent APE, but the filter's reported 90% region is
+**millimetres** wide, so the error is about **39x** the reported bound. The
+black track the figure labels "ground truth" is the reference track `smfeval`
+scores against. The heading rose is context only; the score is over
+translation. The belief is wrong where the mean is right, and that per-pose gap
+is what `smfeval` scores. (Data: Oxford Spires, CC BY-NC-SA 4.0.)*
 
 ## Try it now
 
