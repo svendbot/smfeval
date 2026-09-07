@@ -10,7 +10,6 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 license-files = ["LICENSE"]
-authors = [{ name = "Ola Rønning", email = "oroe@itu.dk" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -26,13 +25,6 @@ dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
 ]
-
-[project.urls]
-Homepage = "https://github.com/svendbot/smfeval"
-Repository = "https://github.com/svendbot/smfeval"
-Documentation = "https://github.com/svendbot/smfeval#readme"
-Changelog = "https://github.com/svendbot/smfeval/blob/main/CHANGELOG.md"
-Issues = "https://github.com/svendbot/smfeval/issues"
 
 [dependency-groups]
 dev = [

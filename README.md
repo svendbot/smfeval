@@ -2,7 +2,6 @@
 
 [![PyPI](https://img.shields.io/pypi/v/smfeval)](https://pypi.org/project/smfeval/)
 [![Python](https://img.shields.io/pypi/pyversions/smfeval)](https://pypi.org/project/smfeval/)
-[![Tests](https://github.com/svendbot/smfeval/actions/workflows/test.yml/badge.svg)](https://github.com/svendbot/smfeval/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 A SLAM filter reports a pose *and* a covariance. APE/RPE check the pose.

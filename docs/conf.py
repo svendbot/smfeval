@@ -14,7 +14,7 @@ from importlib.metadata import version as _pkg_version
 sys.path.insert(0, os.path.abspath(".."))
 
 project = "smfeval"
-author = "Ola Rønning"
+author = "Anonymous Authors"
 copyright = f"{datetime.now():%Y}, {author}"
 release = _pkg_version("smfeval")
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/svendbot/smfeval/main/docs/report.schema.json",
+  "$id": "report.schema.json",
   "title": "smfeval scoring report",
   "description": "Structured report emitted by `smfeval score --json` and `--json-out`. Sub-objects carry tool-defined fields and may gain keys within a schema_version; the top-level set is fixed.",
   "type": "object",
