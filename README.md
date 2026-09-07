@@ -9,7 +9,7 @@ A SLAM filter reports a pose *and* a covariance. APE/RPE check the pose.
 smfeval checks whether the covariance is honest.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/svendbot/smfeval/main/docs/img/fig_overconfidence.png"
+  <img src="docs/img/fig_overconfidence.png"
        alt="FAST-LIO2 on Oxford Spires keble-college-02: the estimate tracks the reference track to 6 cm, but the filter's reported 90% region is millimetres wide, so the error is about 39x the reported bound"
        width="460">
 </p>
@@ -206,17 +206,6 @@ uv sync && uv run pytest
 Docs live under [`docs/`](docs/index.rst) (`make docs`). The test suite includes
 property-based invariants (hypothesis) and seeded Monte Carlo power tests of the
 verdict machinery itself (see `tests/test_power.py`).
-
-## Citation
-
-If you use smfeval, please cite the software. GitHub's **Cite this repository**
-button reads [`CITATION.cff`](CITATION.cff).
-
-> Rønning, O. *smfeval: probabilistic SLAM trajectory scoring.* 2026.
-> https://github.com/svendbot/smfeval
-
-A paper describing the methodology and the audit behind it is in preparation,
-to be released with `slam_benchmark`.
 
 ## Provenance
 
