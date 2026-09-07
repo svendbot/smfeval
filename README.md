@@ -203,9 +203,34 @@ conventions.
 uv sync && uv run pytest
 ```
 
-Docs live under [`docs/`](docs/index.rst) (`make docs`). The test suite includes
-property-based invariants (hypothesis) and seeded Monte Carlo power tests of the
-verdict machinery itself (see `tests/test_power.py`).
+That is enough to run the tests. The repo also ships a Nix dev shell
+(`nix develop`, or `direnv allow` for the `.envrc`) which additionally pins the
+`ruff` and `pyright` that CI runs, so lint and typecheck results match locally.
+
+The full gate, as CI runs it — from inside the dev shell, which supplies the
+pinned `ruff` and `pyright`:
+
+```sh
+uv run pytest                             # 3.10 and 3.12 in CI
+ruff check smfeval tests scripts
+ruff format --check smfeval tests scripts
+make typecheck                            # pyright
+make docs                                 # sphinx, warnings are errors
+uv run python scripts/check_exporters.py  # exporters/ layout
+```
+
+Without the dev shell, run the lint and typecheck steps at the versions
+`.github/workflows/test.yml` pins (`uvx ruff@<RUFF_VERSION>`, `uvx
+pyright@<PYRIGHT_VERSION>`) — that file is the only place the versions appear,
+and a `pins` CI job asserts they still match what `flake.nix` installs, so a
+`nix flake update` that moves either one fails until the pins follow it.
+
+Docs live under [`docs/`](docs/index.rst). The test suite includes
+property-based invariants (hypothesis), seeded Monte Carlo power tests of the
+verdict machinery itself (`tests/test_power.py`), and golden reports scored
+against real Oxford Spires excerpts (`tests/fixtures/regression/`). After an
+intentional change to report output, regenerate the goldens with
+`UPDATE_FIXTURES=1 uv run pytest tests/test_regression.py` and review the diff.
 
 ## Provenance
 
