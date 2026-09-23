@@ -232,12 +232,31 @@ against real Oxford Spires excerpts (`tests/fixtures/regression/`). After an
 intentional change to report output, regenerate the goldens with
 `UPDATE_FIXTURES=1 uv run pytest tests/test_regression.py` and review the diff.
 
+## Citation
+
+If you use smfeval, please cite the accompanying paper. GitHub's **Cite this
+repository** button reads [`CITATION.cff`](CITATION.cff).
+
+> Rønning, O., Saqib, U., and Wąsowski, A. *You Should Be Properly Scoring Your
+> Odometry.* arXiv:2609.25900, 2026. https://arxiv.org/abs/2609.25900
+
+```bibtex
+@misc{ronning2026properly,
+  title         = {You Should Be Properly Scoring Your Odometry},
+  author        = {R{\o}nning, Ola and Saqib, Usama and W{\k{a}}sowski, Andrzej},
+  year          = {2026},
+  eprint        = {2609.25900},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.RO},
+  doi           = {10.48550/arXiv.2609.25900},
+  url           = {https://arxiv.org/abs/2609.25900}
+}
+```
+
 ## Provenance
 
-smfeval grew out of a systematic audit of uncertainty calibration in
-LiDAR-inertial odometry.
-`slam_benchmark` is the audit that
-motivated this tool. The trajectory data used in fixtures and the notebook
+smfeval grew out of a case study of uncertainty calibration in
+LiDAR-inertial odometry. The trajectory data used in fixtures and the notebook
 derives from the
 [Oxford Spires Dataset](https://dynamic.robots.ox.ac.uk/datasets/oxford-spires/)
 (CC BY-NC-SA 4.0; see the data license notes in those directories).

@@ -1,8 +1,7 @@
 cff-version: 1.2.0
 message: >-
-  If you use smfeval in your research, please cite it as below. A paper
-  describing the methodology is in preparation; this entry will be
-  updated to point at it once published.
+  If you use smfeval in your research, please cite the accompanying paper
+  as below.
 title: "smfeval: probabilistic SLAM trajectory scoring"
 type: software
 authors:
@@ -19,3 +18,21 @@ keywords:
   - proper scoring rules
   - calibration
   - trajectory evaluation
+preferred-citation:
+  type: article
+  title: "You Should Be Properly Scoring Your Odometry"
+  authors:
+    - family-names: "Rønning"
+      given-names: "Ola"
+    - family-names: "Saqib"
+      given-names: "Usama"
+    - family-names: "Wąsowski"
+      given-names: "Andrzej"
+  year: 2026
+  month: 9
+  doi: "10.48550/arXiv.2609.25900"
+  url: "https://arxiv.org/abs/2609.25900"
+  identifiers:
+    - type: other
+      value: "arXiv:2609.25900"
+      description: arXiv identifier
